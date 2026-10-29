@@ -1,0 +1,30 @@
+# Environment
+.env
+.env.*
+!.env.example
+
+# Go
+apps/api/bin/
+*.test
+coverage.out
+coverage.html
+
+# Node
+node_modules/
+apps/web/dist/
+apps/web/coverage/
+*.tsbuildinfo
+
+# Local tool caches (sandboxed runs)
+.cache/
+
+# Backups and database dumps
+backups/
+*.dump
+*.sql.gz
+
+# Editor / OS
+.DS_Store
+.idea/
+.vscode/*
+!.vscode/extensions.json

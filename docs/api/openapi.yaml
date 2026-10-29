@@ -1,0 +1,197 @@
+openapi: 3.1.0
+info:
+  title: Nexora API
+  version: 0.1.0
+  description: |
+    Nexora V2.0 的 HTTP 接口契约。
+
+    当前处于 Phase 0（工程基线），仅包含存活检查、就绪检查与实例元数据。
+    认证、团队、项目、任务、验收、贡献与奖金接口将在后续阶段加入，
+    并在实现前先更新本文件。
+
+    约定：
+    - 所有时间均为 UTC，使用 RFC 3339 表示。
+    - 成功响应使用 {"data": ...} 包装。
+    - 失败响应使用 {"error": {...}} 包装，并携带 request_id。
+    - 每个响应都包含 X-Request-Id 头。
+servers:
+  - url: http://127.0.0.1:8080
+    description: 本地开发
+tags:
+  - name: System
+    description: 进程、依赖与实例信息
+paths:
+  /healthz:
+    get:
+      tags: [System]
+      operationId: getLiveness
+      summary: 进程存活检查
+      description: 仅确认 HTTP 进程可以响应，不访问数据库。
+      responses:
+        '200':
+          description: 进程存活
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Liveness'
+  /readyz:
+    get:
+      tags: [System]
+      operationId: getReadiness
+      summary: 依赖就绪检查
+      description: 检查 PostgreSQL 连接与已应用的 Schema 版本。任一检查失败时返回 503。
+      responses:
+        '200':
+          description: 实例可以接收业务流量
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+        '503':
+          description: 数据库不可达或 Schema 尚未迁移
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Readiness'
+  /api/v1/meta:
+    get:
+      tags: [System]
+      operationId: getMeta
+      summary: 实例元数据
+      description: 返回构建信息、运行环境和安装实例 ID。安装实例 ID 来自 PostgreSQL 的 system_settings 表。
+      responses:
+        '200':
+          description: 实例元数据
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MetaEnvelope'
+        '500':
+          description: 未预期的服务端错误
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorEnvelope'
+components:
+  headers:
+    RequestId:
+      description: 请求关联 ID，与错误响应体中的 request_id 一致。
+      schema:
+        type: string
+  schemas:
+    Liveness:
+      type: object
+      additionalProperties: false
+      required: [status, checked_at]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        checked_at:
+          type: string
+          format: date-time
+    CheckResult:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [up, down]
+        detail:
+          type: string
+          description: 面向操作者的简短说明，不包含连接串或凭据。
+    Readiness:
+      type: object
+      additionalProperties: false
+      required: [status, checks, checked_at]
+      properties:
+        status:
+          type: string
+          enum: [ready, unavailable]
+        checks:
+          type: object
+          additionalProperties: false
+          required: [database, schema]
+          properties:
+            database:
+              $ref: '#/components/schemas/CheckResult'
+            schema:
+              $ref: '#/components/schemas/CheckResult'
+        checked_at:
+          type: string
+          format: date-time
+    Meta:
+      type: object
+      additionalProperties: false
+      required:
+        [name, version, commit, build_time, environment, instance_id, server_time]
+      properties:
+        name:
+          type: string
+          example: Nexora
+        version:
+          type: string
+          example: 0.1.0
+        commit:
+          type: string
+          description: 构建使用的 Git 提交 SHA，未注入时为 none。
+          example: 4f3c2b1
+        build_time:
+          type: string
+          description: 构建时间（RFC 3339），未注入时为 unknown。
+          example: '2026-10-29T12:00:00Z'
+        environment:
+          type: string
+          enum: [development, test, production]
+        instance_id:
+          type: [string, 'null']
+          description: 安装实例 ID；基线迁移未执行时为 null。
+        server_time:
+          type: string
+          format: date-time
+    MetaEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Meta'
+    Error:
+      type: object
+      additionalProperties: false
+      required: [code, message]
+      properties:
+        code:
+          type: string
+          example: not_found
+        message:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        request_id:
+          type: string
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: '#/components/schemas/Error'

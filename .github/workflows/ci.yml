@@ -1,0 +1,134 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop, 'feature/**', 'fix/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Go)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/api
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_DB: nexora_test
+          POSTGRES_USER: nexora
+          POSTGRES_PASSWORD: nexora_ci_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U nexora -d nexora_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+    env:
+      NEXORA_ENV: test
+      NEXORA_DATABASE_URL: postgres://nexora:nexora_ci_password@127.0.0.1:5432/nexora_test?sslmode=disable
+      TEST_DATABASE_URL: postgres://nexora:nexora_ci_password@127.0.0.1:5432/nexora_test?sslmode=disable
+      NEXORA_LOG_LEVEL: warn
+      NEXORA_MIGRATE_ON_START: "false"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: apps/api/go.mod
+          cache-dependency-path: apps/api/go.sum
+
+      - name: Check formatting
+        run: |
+          gofmt -l cmd internal | tee /tmp/gofmt.txt
+          test ! -s /tmp/gofmt.txt
+
+      - name: Vet
+        run: go vet -tags=integration ./...
+
+      - name: Apply migrations
+        run: go run ./cmd/migrate -command up
+
+      - name: Test
+        run: go test -race -count=1 -tags=integration ./...
+
+      - name: Migration status
+        run: go run ./cmd/migrate -command status
+
+  frontend:
+    name: Frontend (Vue)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/web
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.34.5
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+          cache-dependency-path: apps/web/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Type-check
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  secret-scan:
+    name: Secret scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Scan tracked files
+        run: infra/scripts/check-secrets.sh
+
+  containers:
+    name: Containers
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Validate compose file
+        run: docker compose config -q
+
+      - name: Build API image
+        run: docker build -f infra/docker/api.Dockerfile -t nexora-api:ci .
+
+      - name: Build web image
+        run: docker build -f infra/docker/web.Dockerfile -t nexora-web:ci .
