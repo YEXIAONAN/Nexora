@@ -17,7 +17,7 @@ docker compose --profile full up -d --build
 | postgres | PostgreSQL 17，数据卷 `postgres_data` | 5432 |
 | migrate | 一次性迁移任务，成功后 API 启动 | — |
 | api | Go API，非 root 用户 | 8080 |
-| web | Nginx + 构建后的 SPA，代理 `/api` | 3000 |
+| web | Nginx + 构建后的 SPA，代理 `/api`、`/healthz`、`/readyz` | 3000 |
 
 启动顺序由 `depends_on` 条件保证：
 
@@ -58,6 +58,14 @@ docker build -f infra/docker/api.Dockerfile \
 ```
 
 构建信息通过 `GET /api/v1/meta` 暴露，不包含敏感配置。
+
+若构建环境无法访问 `proxy.golang.org`，可覆盖模块代理（`go.sum` 仍负责校验内容）：
+
+```bash
+docker build -f infra/docker/api.Dockerfile \
+  --build-arg GOPROXY=https://goproxy.cn,direct \
+  -t nexora-api:2.0.0 .
+```
 
 Web 镜像构建参数 `VITE_API_BASE_URL` 默认为空，表示同源 `/api`。
 
