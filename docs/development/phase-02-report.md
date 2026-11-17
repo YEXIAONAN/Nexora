@@ -4,24 +4,24 @@
 - 范围：仅 Phase 02（身份认证、会话、ROOT 引导、多团队与独立角色、团队权限、审计、最小前端闭环）。不包含项目/任务/状态机/成果/验收/贡献/奖金等业务。
 - 批准依据：产品负责人 2026-11-17 选择方案 B；V1.0 PRD 生效；ADR 0004 Accepted；ADR 0006 Accepted。
 - 分支：`feature/phase02-auth-tenancy`（基于 develop `1cfa22d`），PR → develop，不自动合并。
-- 结论：Phase 02 后端与最小前端闭环已实现并通过真实验证；19 项强制安全场景全部由真实 PostgreSQL 集成测试覆盖，11 项浏览器 E2E 在一次性真实栈通过；本地全部门禁绿。Phase 02 完成不代表 V1.0 交付完成。
+- 结论：Phase 02 后端与最小前端闭环代码已开发并通过真实验证（已验证）；身份 1–7 与团队 8–18 安全场景由真实 PostgreSQL 集成测试覆盖，第 19 项“批量越权”因 Phase 02 无批量接口仅验证路由不存在；11 项浏览器 E2E 在一次性真实栈通过；本地全部门禁绿。代码位于特性分支，PR #2 待合并、尚未合入 develop，按 PRD 约定属“已开发并验证”而非“已实现/正式集成完成”。Phase 02 完成不代表 V1.0 交付完成。
 
-> 状态用语遵循 PRD 约定：**已实现**指代码合入并通过测试；**已验证**指有真实执行证据。本报告所有结果均为本机实际执行，未使用模拟数据或伪造输出。
+> 状态用语遵循 PRD 约定：**已开发**指代码在特性分支完成、尚未合入 develop；**已实现**指代码已合入 develop（或 main）并通过测试；**已验证**指有真实执行证据。本报告所述 Phase 02 成果均为“代码已开发 + 测试已通过（已验证）”，PR #2 尚待合并、未合入 develop，故不标注“已实现”或“正式集成完成”。本报告所有结果均为本机实际执行，未使用模拟数据或伪造输出。
 
 ## A. 实际开发内容（按模块）
 
 | 模块 | 状态 | 路径 | 验证依据 |
 | --- | --- | --- | --- |
-| 身份认证 auth | 已实现并验证 | `apps/api/internal/auth/` | `service_integration_test.go`（16 测试）+ `internal/httpapi/auth_integration_test.go`（9 测试），真实 PG + `-race` |
-| ROOT 引导 | 已实现并验证 | `apps/api/cmd/bootstrap/` | `TestBootstrap*`、`TestWaitingUsernameDoesNotGrantRoot` |
-| 团队与 RBAC teams | 已实现并验证 | `apps/api/internal/teams/` | `service_integration_test.go`（19 测试）+ `internal/httpapi/teams_integration_test.go`（9 测试） |
-| 审计 audit | 已实现并验证 | `apps/api/internal/audit/` | `TestPermissionChangesAreAudited`、`TestAuditEventsAreAppendOnly`、`TestFailedPermissionChangeLeavesNoAudit` |
-| 迁移 | 已实现并验证 | `apps/api/internal/database/migrations/00002_auth.sql`、`00003_teams.sql` | 全新/升级/回滚一次性实例验证（见 B） |
-| 前端 API 客户端与 store | 已实现并验证 | `apps/web/src/api/{client,auth,teams}.ts`、`apps/web/src/stores/{auth,teams}.ts` | Vitest：client 8、auth 7、teams 7 |
-| 前端视图与布局 | 已实现并验证 | `apps/web/src/views/{Login,Teams,TeamMembers,Invitations}View.vue`、`components/layout/*` | Vitest：LoginView 5、TeamsView 3；浏览器 E2E 11 |
-| 路由守卫与会话失效 | 已实现并验证 | `apps/web/src/router/index.ts`、`main.ts`、`App.vue` | E2E 未认证重定向、撤销会话回登录页 |
-| OpenAPI 契约 | 已实现并验证 | `docs/api/openapi.yaml` → `apps/web/src/api/schema.d.ts` | `pnpm api:check` 一致 |
-| 浏览器 E2E 基础设施 | 已实现并验证 | `apps/web/e2e/phase02.spec.ts`、`playwright.config.ts`、`infra/scripts/e2e.sh` | `make e2e` 11/11 通过 |
+| 身份认证 auth | 已开发并验证 | `apps/api/internal/auth/` | `service_integration_test.go`（16 测试）+ `internal/httpapi/auth_integration_test.go`（9 测试），真实 PG + `-race` |
+| ROOT 引导 | 已开发并验证 | `apps/api/cmd/bootstrap/` | `TestBootstrap*`、`TestWaitingUsernameDoesNotGrantRoot` |
+| 团队与 RBAC teams | 已开发并验证 | `apps/api/internal/teams/` | `service_integration_test.go`（19 测试）+ `internal/httpapi/teams_integration_test.go`（9 测试） |
+| 审计 audit | 已开发并验证 | `apps/api/internal/audit/` | `TestPermissionChangesAreAudited`、`TestAuditEventsAreAppendOnly`、`TestFailedPermissionChangeLeavesNoAudit` |
+| 迁移 | 已开发并验证 | `apps/api/internal/database/migrations/00002_auth.sql`、`00003_teams.sql` | 全新/升级/回滚一次性实例验证（见 B） |
+| 前端 API 客户端与 store | 已开发并验证 | `apps/web/src/api/{client,auth,teams}.ts`、`apps/web/src/stores/{auth,teams}.ts` | Vitest：client 8、auth 7、teams 7 |
+| 前端视图与布局 | 已开发并验证 | `apps/web/src/views/{Login,Teams,TeamMembers,Invitations}View.vue`、`components/layout/*` | Vitest：LoginView 5、TeamsView 3、TeamMembersView 9（切换竞态）；浏览器 E2E 11 |
+| 路由守卫与会话失效 | 已开发并验证 | `apps/web/src/router/index.ts`、`main.ts`、`App.vue` | E2E 未认证重定向、撤销会话回登录页 |
+| OpenAPI 契约 | 已开发并验证 | `docs/api/openapi.yaml` → `apps/web/src/api/schema.d.ts` | `pnpm api:check` 一致 |
+| 浏览器 E2E 基础设施 | 已开发并验证 | `apps/web/e2e/phase02.spec.ts`、`playwright.config.ts`、`infra/scripts/e2e.sh` | `make e2e` 11/11 通过 |
 
 部分/未完成（保留设计，不声称已实现）：团队信息编辑/归档、批量成员操作、密码自助修改/重置、敏感操作重新认证、ROOT 恢复流程、邮件投递、审计日志只读页。项目完整业务及后续阶段见 G。
 
@@ -91,7 +91,7 @@
 | 4 | 并发引导单 ROOT | `TestBootstrapConcurrentCreatesExactlyOneRoot` | 通过 |
 | 5 | 撤销/过期会话失效 | `TestLogoutRevokesSession`、`TestExpiredSessionCannotAuthenticate`、`TestAdminRevokeUserSessions`、`TestMeLogoutFlow` | 通过 |
 | 6 | 登录限流 | `TestLoginRateLimit`、`TestLoginRateLimitHTTP` | 通过 |
-| 7 | CSRF 防护 | `TestTeamRoutesRequireSessionAndCSRF`、`TestProtectedEndpointRequiresSession` | 通过 |
+| 7 | CSRF 防护 | `TestTeamRoutesRequireSessionAndCSRF`、`TestProtectedEndpointRequiresSession`；登录入口经真实 HTTP 路由验证（PR #2 整改新增）：`TestLoginRequiresCSRFHeader`、`TestLoginWithCSRFHeaderSucceeds`、`TestLoginRejectsNonJSONContentType`、`TestLoginCrossSiteFormSpoofIsBlocked` | 通过 |
 
 ### Team 8–19
 
@@ -108,7 +108,7 @@
 | 16 | 最后 owner 不得移除 | `TestLastOwnerProtection`、`TestSelfLeaveByMemberAndAdmin` | 通过 |
 | 17 | 并发不破坏约束 | `TestConcurrentMutationsPreserveInvariants` | 通过 |
 | 18 | 权限变更产生审计 | `TestPermissionChangesAreAudited`、`TestFailedPermissionChangeLeavesNoAudit`、`TestAuditEventsAreAppendOnly` | 通过 |
-| 19 | 批量越权整体失败 | `TestNoBatchMemberRoutes`（Phase 02 无批量接口）+ 邀请/成员事务原子性测试 | 通过（同理事件覆盖） |
+| 19 | 批量越权整体失败 | `TestNoBatchMemberRoutes`：仅证明 Phase 02 不存在批量成员路由（返回 404/405）；邀请/成员单操作的事务原子性由相应集成测试覆盖 | 不适用（Phase 02 无批量接口，未执行真实批量越权测试；待批量接口出现时须补“越权整体失败”专项测试） |
 
 补充验证：waiting 同名无 ROOT（`TestWaitingUsernameDoesNotGrantRoot`）；用户枚举（`TestLoginHidesAccountExistence`）；会话固定（`TestLoginAlwaysIssuesFreshToken`）；令牌仅摘要（`TestLoginStoresOnlyTokenDigest`）；Cookie 属性与生产强制 Secure（`TestLoginCookieAttributes`、`TestProductionCookieForcesSecure`）；过期/重复 pending 邀请与 TTL（`TestInvitationLifecycleRules`、`TestInvitationDefaultAndCustomTTL`）；ROOT 平台可见性（`TestPlatformAdminListsAllTeams`、`TestAdminTeamsRequiresPlatformRole`）；拒绝审计不死锁（`TestAuditDenialDoesNotBlockRefusal`）；团队名按团队非全局（`TestTeamNamesAreScopedPerTeamNotGlobal`）。
 
@@ -121,7 +121,7 @@
 - 所有业务数据经后端真实 API，无 Mock 伪装；长期认证令牌不进 localStorage（仅持久化“当前 Team 偏好”这类非凭据数据，E2E 断言 localStorage 无 token/session/password 键）。
 - 多 Team 由 store + 顶栏选择器表示并正确切换，无硬编码 ZERO_R Team ID；团队角色按服务端权限矩阵渲染管理控件。
 - 闭环：未认证重定向、ROOT 初始化提示、登录/退出、团队创建/列表/切换、成员角色变更/移除、邀请发出/接受/拒绝、无权限与过期状态、移除后原会话立即失去团队访问（404）、最后 owner 退出保护（409）。
-- Vitest 9 文件 / 48 用例通过；浏览器 E2E 11/11 通过（系统 Chrome，`channel:'chrome'`，无需下载浏览器）。
+- Vitest 10 文件 / 57 用例通过（含 TeamMembersView 切换竞态 9 用例）；浏览器 E2E 11/11 通过（系统 Chrome，`channel:'chrome'`，无需下载浏览器）。
 
 ### 浏览器 E2E（一次性真实栈）
 
@@ -131,9 +131,9 @@
 
 ## F. Git 与 CI
 
-- 分支 `feature/phase02-auth-tenancy`，基于 develop `1cfa22d`；`main` 保持 `36bddd6` 未修改。
-- 截至本报告，feature 分支领先 develop 13 个提交（Conventional Commits，作者 `waiting <yexiaonanair@outlook.com>`，无 AI 联合署名，无 force push，历史保留）。
-- 本地等价门禁全部通过（见下表）。远端推送与 PR → develop 在 M6 执行，不自动合并；CI 四 job（Backend / Frontend / Secret scan / Containers）将在 PR 创建后触发验证。
+- 分支 `feature/phase02-auth-tenancy`，基于 develop `1cfa22d`；`main` 保持 `36bddd6` 未修改，develop 未被本次整改修改。
+- PR #2（→ develop）已创建并推送，**未合并**。本次针对 PR #2 Review 的两项阻断问题（登录 CSRF、Team 切换竞态）以追加普通提交方式整改：不 rebase 已发布历史、不 force push、无 AI 联合署名（Conventional Commits，作者 `waiting <yexiaonanair@outlook.com>`）。
+- 本地等价门禁全部通过（见下表）。CI 四 job（Backend / Frontend / Secret scan / Containers）以 PR #2 最新 HEAD 的实际运行为准；最终提交 SHA、CI 结果与 Review Thread 处置见本次定向整改的最终汇报。整改与 CI 通过均不代表已合入 develop。
 
 ### 本地工程验证（真实执行）
 
@@ -146,7 +146,7 @@
 | 前端 lint | `pnpm lint` | 通过 |
 | 前端格式 | `pnpm format:check` | 通过 |
 | 前端类型 | `pnpm typecheck`（vue-tsc） | 通过 |
-| 前端单元 | `pnpm test` | 9 文件 / 48 用例通过 |
+| 前端单元 | `pnpm test` | 10 文件 / 57 用例通过 |
 | 前端构建 | `pnpm build` | 成功，69 模块；主 JS 125.10 kB（gzip 48.86 kB） |
 | 契约一致 | `pnpm api:check` | 一致 |
 | 扫描器回归 | `python3 -m unittest ... test_secret_scan.py` | 8 测试通过 |
@@ -161,6 +161,15 @@
 1. **创建团队响应缺真实时间戳与角色**：`InsertTeam` 原用 `Exec` 未取回 `created_at/updated_at`，`CreateTeam` 返回内存对象（零时间、无 `my_role`），导致 E2E 团队行渲染“—”与零日期。改为 `INSERT ... RETURNING` 扫描时间戳、`CreateTeam` 返回 `TeamSummary{Team, MyRole: owner}`，Handler 渲染 `my_role`；同步 OpenAPI 描述与生成类型，并补集成断言。
 2. **密钥扫描误报 shell 变量展开**：`postgres-url-password` 规则把 E2E 脚本中的 `postgres://nexora:${PGPASSWORD}@...` 当作凭据，而 `postgres-password-assignment` 规则早已豁免纯变量展开。统一两条规则：纯 `${VAR}`（可带引号）视为运行时注入不予命中；字面口令、混合字面与变量、查询参数字面 `password/sslpassword` 仍失败。新增正反例回归测试证明不削弱真实凭据检测。此为误报修正，非降低标准。
 3. **前端若干联调修正**：视图显式导入 `RouterLink` 以兼容无 router 插件的单测；成员页成功提示在 `loadAll` 重置之后设置；logout 服务端撤销失败时仍前端过期（best effort）。
+
+### PR #2 Review 定向整改（本次，未合并）
+
+针对 PR #2 代码审查的两项阻断问题定向修复，仅改动相关代码与回归测试，不扩大产品范围：
+
+1. **登录 CSRF（阻断项一）**：原 `/api/v1/auth/login` 位于 CSRF 中间件之外，且 `httpx.DecodeBody` 不校验 Content-Type。跨站顶层表单可用 `enctype=text/plain` 构造合法 JSON 凭据体，使受害者浏览器被写入攻击者会话 Cookie（SameSite=Lax 不阻止顶层导航设 Cookie）。修复：将 `auth.CSRF` 上移至 `/api/v1` 路由级，覆盖未认证登录 POST（自定义头 `X-Nexora-CSRF` 表单无法伪造）；`DecodeBody` 用 `mime.ParseMediaType` 强制 `application/json`，拒绝 text/plain 等表单伪装。保持 HttpOnly/SameSite/Secure 与服务端会话不变，未引入宽松 CORS。新增 4 项经真实 HTTP 路由的集成测试；在原始 HEAD 上复现：无 CSRF 头登录、text/plain 表单伪装均返回 200 并建立会话（4 项中 3 项失败），修复后全部通过。
+2. **Team 切换竞态（阻断项二）**：原 `TeamMembersView.loadAll()` 的旧异步响应可覆盖新 Team 状态，旧控件可误操作新 Team。修复：每次加载绑定显式 Team ID + 请求世代号（`loadGeneration`），`confirmedTeamId` 仅在全部响应落地后置位；`stale()` 同时校验世代与路由 ID，过期响应不得写状态或改 Team 偏好；`actionsEnabled` 在路由切换瞬间禁用旧控件；角色变更/移除/邀请/取消邀请均在点击时捕获已确认 Team ID 发送，并在应用结果前复核路由一致。新增 9 项确定性 Vitest（可控 deferred Promise，无 sleep/随机延迟）；在原始视图上复现 6 项失败，修复后 9/9 通过。
+
+整改后完整回归见本地门禁与最终汇报；PR #2 仍待合并，未合入 develop。
 
 ## G. 进入 Phase 03 还缺什么
 

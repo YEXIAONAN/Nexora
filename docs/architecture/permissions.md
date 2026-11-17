@@ -1,6 +1,6 @@
 # 权限矩阵
 
-> 状态：2026-11-17 随方案 B 正式批准（ADR 0004 Accepted）。后端规则已实现并验证（Phase 02 M2/M3：真实 PostgreSQL 集成测试覆盖身份 1–7 与团队 8–19 场景）；前端闭环已实现并验证（M4：Vitest 48 用例 + 11 项浏览器 E2E 真实栈，含多团队切换与移除即时失效）。最终状态以 PRD“实现状态”表与验收报告为准。实施细则与新增业务规则见 [ADR 0004](adr/0004-tenancy-authorization.md)，认证与会话安全见 [ADR 0006](adr/0006-auth-session-security.md)。
+> 状态：2026-11-17 随方案 B 正式批准（ADR 0004 Accepted）。后端规则已开发并验证（Phase 02 M2/M3：真实 PostgreSQL 集成测试覆盖身份 1–7 与团队 8–18 场景；第 19 项“批量越权”因 Phase 02 无批量接口，仅验证批量路由不存在，未执行真实批量越权测试）；前端闭环已开发并验证（M4：Vitest 含 Team 切换竞态回归 + 11 项浏览器 E2E 真实栈，含多团队切换与移除即时失效）。以上代码位于特性分支，PR #2 待合并、尚未合入 develop，按 PRD 约定属“已开发并验证”而非“已实现”。最终状态以 PRD“实现状态”表与验收报告为准。实施细则与新增业务规则见 [ADR 0004](adr/0004-tenancy-authorization.md)，认证与会话安全见 [ADR 0006](adr/0006-auth-session-security.md)。
 
 ## 平台角色
 

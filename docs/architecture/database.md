@@ -38,7 +38,7 @@
 
 `goose_db_version` 由 goose 自动维护，`/readyz` 读取其中最高已应用版本。
 
-## Phase 02 Schema（已实现并验证）
+## Phase 02 Schema（已开发并验证，PR #2 待合并）
 
 迁移 `00002_auth.sql` 与 `00003_teams.sql` 追加于版本 1 之后；不修改已发布的 `00001_baseline.sql`。两个迁移已在全新数据库与版本 1 升级路径上运行，并在一次性测试库完成 up/down/up 回滚验证（2026-11-17）；未触碰运行中的开发数据库。
 
