@@ -66,6 +66,38 @@ class SecretScanTests(unittest.TestCase):
         self.write("source.txt", "postgres://audit@localhost/db?sslmode=require\nPOSTGRES_PASSWORD: ${INJECTED_PASSWORD}\n")
         self.assertEqual(self.execute()[0], 0)
 
+    def test_postgres_url_pure_shell_expansion_is_not_a_credential(self):
+        samples = [
+            'DB_URL="postgres://nexora:${PGPASSWORD}@127.0.0.1:5433/nexora_e2e?sslmode=disable"',
+            "postgres://nexora:${PGPASSWORD}@localhost/db",
+            'postgres://nexora:"${PGPASSWORD}"@localhost/db',
+            "postgres://nexora@localhost/db?password=${PGPASSWORD}",
+            "postgres://nexora@localhost/db?sslpassword=${INJECTED_PASSWORD}",
+        ]
+        for index, sample in enumerate(samples):
+            with self.subTest(index=index):
+                self.write("apps/source.txt", sample)
+                self.assertEqual(self.execute()[0], 0)
+
+    def test_postgres_url_literal_password_still_fails(self):
+        secret = "synthetic-fixture-password"
+        samples = [
+            "postgres://nexora:" + secret + "@127.0.0.1/db",
+            "postgres://nexora:pre" + "${PGPASSWORD}@localhost/db",
+            "postgres://nexora:" + "${PGPASSWORD}post@localhost/db",
+            "postgres://nexora@localhost/db?password=" + secret,
+            "postgres://nexora@localhost/db?sslpassword=" + secret,
+            "postgres://nexora:${PGPASSWORD}@localhost/db?password=" + secret,
+            "postgres://nexora:" + secret + "%zz@[invalid/db",
+        ]
+        for index, sample in enumerate(samples):
+            with self.subTest(index=index):
+                self.write("apps/source.txt", sample)
+                code, output = self.execute()
+                self.assertEqual(code, 1)
+                self.assertIn("apps/source.txt:1", output)
+                self.assertNotIn(secret, output)
+
     def test_cli_returns_nonzero_and_never_prints_the_match(self):
         value = "ghp_" + "b" * 36
         self.write("leak.txt", value)
