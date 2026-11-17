@@ -8,6 +8,8 @@ import { listTeamMembers, type TeamMember } from '@/api/teams'
 import ProjectForm from '@/components/projects/ProjectForm.vue'
 import TaskEditor from '@/components/projects/TaskEditor.vue'
 import TaskPanel from '@/components/projects/TaskPanel.vue'
+import SubmissionPanel from '@/components/projects/SubmissionPanel.vue'
+import ReviewersPanel from '@/components/projects/ReviewersPanel.vue'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
 const taskActions = { ...tasksAPI }
@@ -99,7 +101,10 @@ async function load() {
     snapshots.value = ss
     confirmed.value = key
     teams.selectTeam(team)
-    if (!tr.tasks.some((t) => t.id === selectedId.value)) selectedId.value = tr.tasks[0]?.id ?? ''
+    if (typeof route.query.task === 'string' && tr.tasks.some((t) => t.id === route.query.task))
+      selectedId.value = route.query.task
+    else if (!tr.tasks.some((t) => t.id === selectedId.value))
+      selectedId.value = tr.tasks[0]?.id ?? ''
   } catch (e) {
     if (gen === generation && key === contextKey.value) {
       error.value = errorText(e)
@@ -365,42 +370,53 @@ onBeforeUnmount(() => {
               </div>
               <p v-else class="p-8 text-sm text-ink-muted">暂无有权访问的任务。</p>
             </section>
-            <TaskPanel
-              v-if="selected"
-              :key="`${selected.id}:${selected.version}`"
-              :task="selected"
-              :tasks="tree.tasks"
-              :dependencies="tree.dependencies"
-              :members="members"
-              :can-manage="canManage"
-              :history="history"
-              :history-loading="historyLoading"
-              @edit="beginTaskEdit"
-              @start="
-                (task) => run((t, p) => taskActions.transitionTask(t, p, task, 'in_progress'))
-              "
-              @cancel="
-                (task, reason) =>
-                  run((t, p) => taskActions.transitionTask(t, p, task, 'cancelled', reason))
-              "
-              @progress="
-                (task, actual) => run((t, p) => taskActions.recordTaskProgress(t, p, task, actual))
-              "
-              @weight="
-                (task, weight, reason) =>
-                  run((t, p) => taskActions.changeTaskWeight(t, p, task, weight, reason))
-              "
-              @move="(task, parent) => run((t, p) => taskActions.moveTask(t, p, task, parent))"
-              @dependency="
-                (task, predecessor) =>
-                  run((t, p) => taskActions.addDependency(t, p, task, predecessor))
-              "
-              @ignore="
-                (task, dep, reason) =>
-                  run((t, p) => taskActions.ignoreDependency(t, p, task, dep, reason))
-              "
-              @history="loadHistory"
-            />
+            <div v-if="selected" class="min-w-0 space-y-5">
+              <TaskPanel
+                v-if="selected"
+                :key="`${selected.id}:${selected.version}`"
+                :task="selected"
+                :tasks="tree.tasks"
+                :dependencies="tree.dependencies"
+                :members="members"
+                :can-manage="canManage"
+                :history="history"
+                :history-loading="historyLoading"
+                @edit="beginTaskEdit"
+                @start="
+                  (task) => run((t, p) => taskActions.transitionTask(t, p, task, 'in_progress'))
+                "
+                @cancel="
+                  (task, reason) =>
+                    run((t, p) => taskActions.transitionTask(t, p, task, 'cancelled', reason))
+                "
+                @progress="
+                  (task, actual) =>
+                    run((t, p) => taskActions.recordTaskProgress(t, p, task, actual))
+                "
+                @weight="
+                  (task, weight, reason) =>
+                    run((t, p) => taskActions.changeTaskWeight(t, p, task, weight, reason))
+                "
+                @move="(task, parent) => run((t, p) => taskActions.moveTask(t, p, task, parent))"
+                @dependency="
+                  (task, predecessor) =>
+                    run((t, p) => taskActions.addDependency(t, p, task, predecessor))
+                "
+                @ignore="
+                  (task, dep, reason) =>
+                    run((t, p) => taskActions.ignoreDependency(t, p, task, dep, reason))
+                "
+                @history="loadHistory"
+              />
+              <SubmissionPanel
+                v-if="selected.is_leaf"
+                :key="`submission:${teamId}:${projectId}:${selected.id}:${selected.version}`"
+                :team="teamId"
+                :project="projectId"
+                :task="selected"
+                @changed="load"
+              />
+            </div>
           </div>
         </template>
         <section v-if="tab === 'members'" class="card">
@@ -409,6 +425,12 @@ onBeforeUnmount(() => {
             <p class="text-xs text-ink-muted">
               任务负责人和协作者必须同时具有有效的 Team 与项目成员资格。
             </p>
+            <ReviewersPanel
+              :team="teamId"
+              :project="projectId"
+              :can-manage="canManage"
+              :members="members"
+            />
             <div
               v-for="m in members"
               :key="m.user_id"

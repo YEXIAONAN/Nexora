@@ -144,7 +144,8 @@ func (f *fixture) reviewer(name string) reqctx.Identity {
 func TestImmutableVersionReviewProgressDependency(t *testing.T) {
 	f := setup(t)
 	reviewer := f.reviewer("reviewer")
-	first := f.create(nil, 3)
+	parent := f.create(nil, 1)
+	first := f.create(&parent.ID, 3)
 	next := f.create(nil, 1)
 	if _, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, next.ID, first.ID, next.Version); e != nil {
 		t.Fatal(e)
@@ -184,6 +185,10 @@ func TestImmutableVersionReviewProgressDependency(t *testing.T) {
 		t.Fatal(e)
 	}
 	done := f.task(first.ID)
+	summary := f.task(parent.ID)
+	if summary.Status != tasks.Completed || summary.EffectiveProgressBPS != 10000 {
+		t.Fatal(summary)
+	}
 	if done.Status != tasks.Completed || done.EffectiveProgressBPS != 10000 || f.task(next.ID).Blocked {
 		t.Fatal(done)
 	}

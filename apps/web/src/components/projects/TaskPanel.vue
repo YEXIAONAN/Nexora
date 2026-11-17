@@ -54,7 +54,7 @@ const title = (id: string) => props.tasks.find((t) => t.id === id)?.title ?? '�
         <h3 class="mt-1 text-lg font-semibold">{{ task.title }}</h3>
       </div>
       <button
-        v-if="canManage && task.status !== 'cancelled'"
+        v-if="canManage && !['cancelled', 'completed', 'awaiting_review'].includes(task.status)"
         class="btn"
         type="button"
         @click="emit('edit')"
@@ -146,7 +146,7 @@ const title = (id: string) => props.tasks.find((t) => t.id === id)?.title ?? '�
           取消原因：{{ task.cancellation_reason }}
         </p>
         <form
-          v-if="canManage && task.status !== 'cancelled'"
+          v-if="canManage && !['cancelled', 'completed', 'awaiting_review'].includes(task.status)"
           class="grid gap-3 rounded-lg border border-line p-3 sm:grid-cols-2"
           @submit.prevent="emit('weight', task, weight, weightReason)"
         >
@@ -168,7 +168,7 @@ const title = (id: string) => props.tasks.find((t) => t.id === id)?.title ?? '�
         </form>
       </template>
       <form
-        v-if="canManage && task.status !== 'cancelled'"
+        v-if="canManage && !['cancelled', 'completed', 'awaiting_review'].includes(task.status)"
         class="flex flex-wrap items-end gap-2"
         @submit.prevent="emit('move', task, parent || null)"
       >
@@ -194,13 +194,21 @@ const title = (id: string) => props.tasks.find((t) => t.id === id)?.title ?? '�
         <div v-for="d in deps" :key="d.id" class="rounded-lg border border-line p-3">
           <p class="text-sm">
             {{ title(d.predecessor_id) }}
-            <span class="badge">{{ d.ignored_at ? '已显式忽略' : '待正式完成' }}</span>
+            <span class="badge">{{
+              d.ignored_at
+                ? '已显式忽略'
+                : tasks.find((t) => t.id === d.predecessor_id)?.status === 'completed'
+                  ? '已正式完成'
+                  : '待正式完成'
+            }}</span>
           </p>
           <p v-if="d.ignored_at" class="mt-2 text-xs text-ink-muted">
             {{ d.ignore_reason }} · {{ formatDateTime(d.ignored_at) }}
           </p>
           <form
-            v-else-if="canManage"
+            v-else-if="
+              canManage && !['cancelled', 'completed', 'awaiting_review'].includes(task.status)
+            "
             class="mt-3 flex items-end gap-2"
             @submit.prevent="emit('ignore', task, d.id, reasons[d.id] ?? '')"
           >

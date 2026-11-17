@@ -94,7 +94,7 @@ curl -fsS "http://$API_ADDR/readyz" >/dev/null 2>&1 ||
 echo "e2e: starting vite on 127.0.0.1:$WEB_PORT"
 pushd apps/web >/dev/null
 VITE_DEV_API_TARGET="http://$API_ADDR" node node_modules/vite/bin/vite.js \
-  --port "$WEB_PORT" --strictPort >"$CACHE_DIR/e2e-web.log" 2>&1 &
+  --host 127.0.0.1 --port "$WEB_PORT" --strictPort >"$CACHE_DIR/e2e-web.log" 2>&1 &
 WEB_PID=$!
 popd >/dev/null
 

@@ -688,7 +688,7 @@ export interface paths {
         put?: never;
         /**
          * 叶子开始或取消（授权执行者/负责人）
-         * @description Phase 03 仅 pending→in_progress、pending/in_progress→cancelled，取消必须原因；其他转换 409。阻塞禁止开始。协作者不可取消，归档/父节点/失效负责人不可执行。
+         * @description 通用接口只允许 pending→in_progress、pending/in_progress/rejected→cancelled、rejected→in_progress。取消与驳回后补正均须原因。阻塞禁止开始/补正；awaiting_review/completed/rejected 必须走成果或正式审核接口。协作者不可取消，归档/父节点/失效负责人不可执行。
          */
         post: operations["transitionTask"];
         delete?: never;

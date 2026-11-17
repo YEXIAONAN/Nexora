@@ -5,6 +5,7 @@ import { ApiError } from '@/api/client'
 import { createProject, listProjects, type CreateProject, type Project } from '@/api/projects'
 import { getTeam, listTeamMembers, type Team, type TeamMember } from '@/api/teams'
 import ProjectForm from '@/components/projects/ProjectForm.vue'
+import ReviewInbox from '@/components/projects/ReviewInbox.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 const route = useRoute(),
@@ -104,6 +105,7 @@ onBeforeUnmount(() => {
     </p>
     <p v-if="loading" role="status" class="card p-8 text-sm text-ink-muted">正在加载项目…</p>
     <template v-if="ready">
+      <ReviewInbox :team="teamId" />
       <section v-if="showCreate && canCreate" class="card">
         <div class="card-header"><h3 class="font-semibold">创建项目</h3></div>
         <fieldset class="card-body" :disabled="busy">
