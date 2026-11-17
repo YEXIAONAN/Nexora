@@ -1,6 +1,6 @@
 # 权限矩阵
 
-> 状态：2026-11-17 随方案 B 正式批准（ADR 0004 Accepted），Phase 02 开发中。实现完成并验证前，以下规则是设计约束而非已交付能力；状态以 PRD“实现状态”表与验收报告为准。实施细则与新增业务规则见 [ADR 0004](adr/0004-tenancy-authorization.md)，认证与会话安全见 [ADR 0006](adr/0006-auth-session-security.md)。
+> 状态：2026-11-17 随方案 B 正式批准（ADR 0004 Accepted）。后端规则已实现并验证（Phase 02 M2/M3：真实 PostgreSQL 集成测试覆盖身份 1–7 与团队 8–19 场景）；前端闭环开发中（M4）。最终状态以 PRD“实现状态”表与验收报告为准。实施细则与新增业务规则见 [ADR 0004](adr/0004-tenancy-authorization.md)，认证与会话安全见 [ADR 0006](adr/0006-auth-session-security.md)。
 
 ## 平台角色
 

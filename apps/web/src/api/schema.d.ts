@@ -196,6 +196,243 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我加入的团队列表
+         * @description 仅返回当前用户具有 active 成员关系的团队，并附带本人在每个团队中的角色。
+         */
+        get: operations["listMyTeams"];
+        put?: never;
+        /**
+         * 创建团队
+         * @description 任何已认证用户可创建团队；创建者自动成为该团队 owner。团队角色不等于平台角色。
+         */
+        post: operations["createTeam"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 团队详情
+         * @description 仅 active 成员可见；非成员（含 ROOT）一律 404，不泄露团队是否存在。
+         */
+        get: operations["getTeam"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/permissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我在该团队的能力视图
+         * @description 由本人成员角色按权限矩阵推导；前端据此渲染管理入口，后端仍逐请求强制校验。
+         */
+        get: operations["getTeamPermissions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 团队成员列表
+         * @description 所有 active 成员可见，仅返回 active 成员。
+         */
+        get: operations["listTeamMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 移除成员或自行退出
+         * @description owner/admin 可移除成员（admin 不能移除 owner）；任何成员可移除自己（退出）。
+         *     最后一名 active owner 不能被移除或降级（409）。移除立即生效。
+         */
+        delete: operations["removeMember"];
+        options?: never;
+        head?: never;
+        /**
+         * 变更成员角色
+         * @description owner 可授予任意团队角色；admin 只能在 admin/member 之间调整且不能触碰 owner；
+         *     member 无角色管理权限。数据库触发器保证至少保留一名 active owner（409）。
+         */
+        patch: operations["changeMemberRole"];
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 团队邀请记录
+         * @description 仅 owner/admin 可见，包含全部状态的邀请历史。
+         */
+        get: operations["listTeamInvitations"];
+        put?: never;
+        /**
+         * 邀请已有账号加入团队
+         * @description 仅 owner/admin 可邀请；只能邀请已存在的账号，角色限 admin/member。
+         *     默认有效期 72 小时（1–168 小时）。同一团队同一用户至多一条 pending 邀请（409）；
+         *     已是 active 成员时拒绝（409）。
+         */
+        post: operations["createInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/invitations/{invitationID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 取消 pending 邀请
+         * @description 仅 owner/admin 可取消；邀请必须属于路径中的团队，跨团队引用返回 404。
+         */
+        delete: operations["cancelInvitation"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 我收到的有效邀请
+         * @description 仅返回发给当前账号、仍 pending 且未过期的邀请。
+         */
+        get: operations["listMyInvitations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations/{invitationID}/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 接受邀请
+         * @description 仅被邀请账号本人可接受；其他用户一律 404。过期或已处理的邀请返回 409。
+         *     接受后按邀请角色建立（或重新激活）成员关系，且只写入邀请所属团队。
+         */
+        post: operations["acceptInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/invitations/{invitationID}/decline": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 拒绝邀请
+         * @description 仅被邀请账号本人可拒绝；其他用户一律 404。已处理或过期的邀请返回 409。
+         */
+        post: operations["declineInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/teams": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 列出全部团队（ROOT 或平台管理员）
+         * @description 平台可见性通道，不授予任何团队业务权限；团队业务接口仍要求成员关系。
+         */
+        get: operations["listAllTeams"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -320,6 +557,125 @@ export interface components {
                 revoked_sessions: number;
             };
         };
+        Team: {
+            /** Format: uuid */
+            id: string;
+            /** @description 1-64 个字符（按 Unicode 字符计）。 */
+            name: string;
+            /** @description 最长 500 个字符。 */
+            description: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            /**
+             * @description 仅“我的团队”视图返回；表示当前用户在该团队中的角色。
+             * @enum {string}
+             */
+            my_role?: "owner" | "admin" | "member";
+        };
+        TeamEnvelope: {
+            data: components["schemas"]["Team"];
+        };
+        TeamsEnvelope: {
+            data: components["schemas"]["Team"][];
+        };
+        TeamMember: {
+            /** Format: uuid */
+            user_id: string;
+            username: string;
+            display_name: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "member";
+            /** Format: date-time */
+            joined_at: string;
+        };
+        TeamMembersEnvelope: {
+            data: components["schemas"]["TeamMember"][];
+        };
+        TeamPermissions: {
+            /** Format: uuid */
+            team_id: string;
+            /** @enum {string} */
+            role: "owner" | "admin" | "member";
+            can_invite: boolean;
+            can_manage_invitations: boolean;
+            /** @description 管理性移除权限；任何成员均可通过 can_leave 自行退出。 */
+            can_remove_members: boolean;
+            can_change_roles: boolean;
+            can_leave: boolean;
+        };
+        TeamPermissionsEnvelope: {
+            data: components["schemas"]["TeamPermissions"];
+        };
+        TeamInvitation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** @description 列表视图附带团队名；创建响应中省略。 */
+            team_name?: string;
+            /** Format: uuid */
+            invited_user_id: string;
+            invited_username: string;
+            /** Format: uuid */
+            invited_by: string;
+            /** @enum {string} */
+            role: "admin" | "member";
+            /** @enum {string} */
+            status: "pending" | "accepted" | "declined" | "cancelled";
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        TeamInvitationEnvelope: {
+            data: components["schemas"]["TeamInvitation"];
+        };
+        TeamInvitationsEnvelope: {
+            data: components["schemas"]["TeamInvitation"][];
+        };
+        CreateTeamRequest: {
+            /** @description 1-64 个字符。 */
+            name: string;
+            /** @description 可选，最长 500 个字符。 */
+            description?: string;
+        };
+        CreateInvitationRequest: {
+            /** @description 已存在账号的用户名；不存在公开注册。 */
+            username: string;
+            /** @enum {string} */
+            role: "admin" | "member";
+            /** @description 可选，1-168；省略时为 72。 */
+            expires_in_hours?: number;
+        };
+        ChangeMemberRoleRequest: {
+            /** @enum {string} */
+            role: "owner" | "admin" | "member";
+        };
+        RoleChangedEnvelope: {
+            data: {
+                /** Format: uuid */
+                user_id: string;
+                /** Format: uuid */
+                team_id: string;
+                /** @enum {string} */
+                role: "owner" | "admin" | "member";
+            };
+        };
+        RemovedEnvelope: {
+            data: {
+                removed: boolean;
+            };
+        };
+        DeclinedEnvelope: {
+            data: {
+                /** @enum {string} */
+                status: "declined";
+            };
+        };
     };
     responses: {
         /** @description 请求体或路径参数非法 */
@@ -407,6 +763,8 @@ export interface components {
         /** @description 变更请求必须携带值 1；缺失时返回 403。 */
         CSRFHeader: "1";
         UserID: string;
+        TeamID: string;
+        InvitationID: string;
     };
     requestBodies: never;
     headers: {
@@ -714,6 +1072,423 @@ export interface operations {
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMyTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 我的团队 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamsEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTeam: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTeamRequest"];
+            };
+        };
+        responses: {
+            /** @description 团队已创建 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTeam: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 团队详情（含本人角色） */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTeamPermissions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 能力视图 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamPermissionsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTeamMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成员列表 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMembersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 成员已移除 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RemovedEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    changeMemberRole: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ChangeMemberRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description 角色已变更 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RoleChangedEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTeamInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 邀请列表 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitationsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationRequest"];
+            };
+        };
+        responses: {
+            /** @description 邀请已创建 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitationEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    cancelInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                invitationID: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 邀请已取消 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMyInvitations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 邀请列表 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitationsEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    acceptInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                invitationID: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已加入团队 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamInvitationEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    declineInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                invitationID: components["parameters"]["InvitationID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 已拒绝 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeclinedEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listAllTeams: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 全部团队 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamsEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
             500: components["responses"]["InternalError"];
         };
     };

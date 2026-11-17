@@ -6,7 +6,7 @@ info:
     Nexora V1.0 的 HTTP 接口契约。
 
     当前处于 Phase 02（认证、团队与权限）：包含存活/就绪检查、实例元数据、
-    认证与会话、ROOT 引导状态与平台管理接口。团队接口随 M3 加入。
+    认证与会话、ROOT 引导状态、平台管理接口，以及团队、成员角色与受控邀请接口。
     项目、任务、验收、贡献与奖金接口将在后续阶段加入，并在实现前先更新本文件。
 
     约定：
@@ -26,6 +26,8 @@ tags:
     description: 认证、会话与当前用户
   - name: Admin
     description: 平台管理（ROOT 与平台管理员）
+  - name: Teams
+    description: 团队、成员角色与受控邀请（Team 内权限独立于平台角色）
 paths:
   /healthz:
     get:
@@ -320,6 +322,447 @@ paths:
           $ref: '#/components/responses/NotFound'
         '500':
           $ref: '#/components/responses/InternalError'
+  /api/v1/teams:
+    get:
+      tags: [Teams]
+      operationId: listMyTeams
+      summary: 我加入的团队列表
+      description: 仅返回当前用户具有 active 成员关系的团队，并附带本人在每个团队中的角色。
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 我的团队
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      tags: [Teams]
+      operationId: createTeam
+      summary: 创建团队
+      description: 任何已认证用户可创建团队；创建者自动成为该团队 owner。团队角色不等于平台角色。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateTeamRequest'
+      responses:
+        '201':
+          description: 团队已创建
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}:
+    get:
+      tags: [Teams]
+      operationId: getTeam
+      summary: 团队详情
+      description: 仅 active 成员可见；非成员（含 ROOT）一律 404，不泄露团队是否存在。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: 团队详情（含本人角色）
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}/permissions:
+    get:
+      tags: [Teams]
+      operationId: getTeamPermissions
+      summary: 我在该团队的能力视图
+      description: 由本人成员角色按权限矩阵推导；前端据此渲染管理入口，后端仍逐请求强制校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: 能力视图
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamPermissionsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}/members:
+    get:
+      tags: [Teams]
+      operationId: listTeamMembers
+      summary: 团队成员列表
+      description: 所有 active 成员可见，仅返回 active 成员。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: 成员列表
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamMembersEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}/members/{userID}:
+    patch:
+      tags: [Teams]
+      operationId: changeMemberRole
+      summary: 变更成员角色
+      description: |
+        owner 可授予任意团队角色；admin 只能在 admin/member 之间调整且不能触碰 owner；
+        member 无角色管理权限。数据库触发器保证至少保留一名 active owner（409）。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/UserID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeMemberRoleRequest'
+      responses:
+        '200':
+          description: 角色已变更
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RoleChangedEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    delete:
+      tags: [Teams]
+      operationId: removeMember
+      summary: 移除成员或自行退出
+      description: |
+        owner/admin 可移除成员（admin 不能移除 owner）；任何成员可移除自己（退出）。
+        最后一名 active owner 不能被移除或降级（409）。移除立即生效。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/UserID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 成员已移除
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RemovedEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}/invitations:
+    post:
+      tags: [Teams]
+      operationId: createInvitation
+      summary: 邀请已有账号加入团队
+      description: |
+        仅 owner/admin 可邀请；只能邀请已存在的账号，角色限 admin/member。
+        默认有效期 72 小时（1–168 小时）。同一团队同一用户至多一条 pending 邀请（409）；
+        已是 active 成员时拒绝（409）。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateInvitationRequest'
+      responses:
+        '201':
+          description: 邀请已创建
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamInvitationEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    get:
+      tags: [Teams]
+      operationId: listTeamInvitations
+      summary: 团队邀请记录
+      description: 仅 owner/admin 可见，包含全部状态的邀请历史。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: 邀请列表
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamInvitationsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/teams/{teamID}/invitations/{invitationID}:
+    delete:
+      tags: [Teams]
+      operationId: cancelInvitation
+      summary: 取消 pending 邀请
+      description: 仅 owner/admin 可取消；邀请必须属于路径中的团队，跨团队引用返回 404。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/InvitationID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 邀请已取消
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokedEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/invitations:
+    get:
+      tags: [Teams]
+      operationId: listMyInvitations
+      summary: 我收到的有效邀请
+      description: 仅返回发给当前账号、仍 pending 且未过期的邀请。
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 邀请列表
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamInvitationsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/invitations/{invitationID}/accept:
+    post:
+      tags: [Teams]
+      operationId: acceptInvitation
+      summary: 接受邀请
+      description: |
+        仅被邀请账号本人可接受；其他用户一律 404。过期或已处理的邀请返回 409。
+        接受后按邀请角色建立（或重新激活）成员关系，且只写入邀请所属团队。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/InvitationID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 已加入团队
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamInvitationEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/invitations/{invitationID}/decline:
+    post:
+      tags: [Teams]
+      operationId: declineInvitation
+      summary: 拒绝邀请
+      description: 仅被邀请账号本人可拒绝；其他用户一律 404。已处理或过期的邀请返回 409。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/InvitationID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 已拒绝
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeclinedEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/teams:
+    get:
+      tags: [Admin]
+      operationId: listAllTeams
+      summary: 列出全部团队（ROOT 或平台管理员）
+      description: 平台可见性通道，不授予任何团队业务权限；团队业务接口仍要求成员关系。
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 全部团队
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TeamsEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
   securitySchemes:
     sessionCookie:
@@ -338,6 +781,20 @@ components:
         enum: ['1']
     UserID:
       name: userID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    TeamID:
+      name: teamID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    InvitationID:
+      name: invitationID
       in: path
       required: true
       schema:
@@ -640,3 +1097,231 @@ components:
             revoked_sessions:
               type: integer
               format: int64
+    Team:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, created_by, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+          description: 1-64 个字符（按 Unicode 字符计）。
+        description:
+          type: string
+          description: 最长 500 个字符。
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        my_role:
+          type: string
+          enum: [owner, admin, member]
+          description: 仅“我的团队”视图返回；表示当前用户在该团队中的角色。
+    TeamEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/Team'
+    TeamsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/Team'
+    TeamMember:
+      type: object
+      additionalProperties: false
+      required: [user_id, username, display_name, role, joined_at]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        role:
+          type: string
+          enum: [owner, admin, member]
+        joined_at:
+          type: string
+          format: date-time
+    TeamMembersEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamMember'
+    TeamPermissions:
+      type: object
+      additionalProperties: false
+      required:
+        [team_id, role, can_invite, can_manage_invitations, can_remove_members, can_change_roles, can_leave]
+      properties:
+        team_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [owner, admin, member]
+        can_invite:
+          type: boolean
+        can_manage_invitations:
+          type: boolean
+        can_remove_members:
+          type: boolean
+          description: 管理性移除权限；任何成员均可通过 can_leave 自行退出。
+        can_change_roles:
+          type: boolean
+        can_leave:
+          type: boolean
+    TeamPermissionsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TeamPermissions'
+    TeamInvitation:
+      type: object
+      additionalProperties: false
+      required:
+        [id, team_id, invited_user_id, invited_username, invited_by, role, status, expires_at, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        team_name:
+          type: string
+          description: 列表视图附带团队名；创建响应中省略。
+        invited_user_id:
+          type: string
+          format: uuid
+        invited_username:
+          type: string
+        invited_by:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [admin, member]
+        status:
+          type: string
+          enum: [pending, accepted, declined, cancelled]
+        expires_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+    TeamInvitationEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/TeamInvitation'
+    TeamInvitationsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/TeamInvitation'
+    CreateTeamRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name:
+          type: string
+          description: 1-64 个字符。
+        description:
+          type: string
+          description: 可选，最长 500 个字符。
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [username, role]
+      properties:
+        username:
+          type: string
+          description: 已存在账号的用户名；不存在公开注册。
+        role:
+          type: string
+          enum: [admin, member]
+        expires_in_hours:
+          type: integer
+          description: 可选，1-168；省略时为 72。
+    ChangeMemberRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [role]
+      properties:
+        role:
+          type: string
+          enum: [owner, admin, member]
+    RoleChangedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [user_id, team_id, role]
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            team_id:
+              type: string
+              format: uuid
+            role:
+              type: string
+              enum: [owner, admin, member]
+    RemovedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [removed]
+          properties:
+            removed:
+              type: boolean
+    DeclinedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [status]
+          properties:
+            status:
+              type: string
+              enum: [declined]

@@ -43,10 +43,10 @@ Phase 0 只实现 Handler、基础设施与只读 Repository；Service/Domain �
 | `internal/database` | pgx 连接池、goose 迁移 | 已实现 |
 | `internal/system` | 平台级设置的 Repository | 已实现 |
 | `internal/reqctx` | 请求上下文值、请求身份 | 已实现（Phase 02 扩展身份） |
-| `internal/auth` | 密码哈希、会话、登录限流、CSRF、ROOT 引导、平台角色 | Phase 02 开发中 |
-| `internal/teams` | 团队、成员、邀请、团队角色、授权链 | Phase 02 开发中 |
-| `internal/audit` | 追加式操作审计（随业务事务写入） | Phase 02 开发中 |
-| `cmd/bootstrap` | ROOT 安全初始化命令（交互式，无默认密码） | Phase 02 开发中 |
+| `internal/auth` | 密码哈希、会话、登录限流、CSRF、ROOT 引导、平台角色 | Phase 02 已实现并验证 |
+| `internal/teams` | 团队、成员、邀请、团队角色、授权链 | Phase 02 已实现并验证 |
+| `internal/audit` | 追加式操作审计（随业务事务写入） | Phase 02 已实现并验证 |
+| `cmd/bootstrap` | ROOT 安全初始化命令（交互式，无默认密码） | Phase 02 已实现并验证 |
 
 Phase 02 起按业务模块增加 `internal/<module>`，每个模块内部再按 handler/service/repository/domain 组织，而不是建立全局空壳层；不为尚未开发的业务创建空壳模块。
 
@@ -112,9 +112,9 @@ Phase 02 起按业务模块增加 `internal/<module>`，每个模块内部再按
 
 | 模块 | 主要职责 | 阶段 |
 | --- | --- | --- |
-| auth | 登录、会话、ROOT 引导、平台角色 | Phase 02 开发中 |
-| teams | 团队、成员、邀请、团队角色、资格 | Phase 02 开发中 |
-| audit | 追加式操作审计 | Phase 02 开发中 |
+| auth | 登录、会话、ROOT 引导、平台角色 | Phase 02 已实现并验证 |
+| teams | 团队、成员、邀请、团队角色、资格 | Phase 02 已实现并验证 |
+| audit | 追加式操作审计 | Phase 02 已实现并验证 |
 | projects | 项目、成员、里程碑、归档 | Phase 03 起 |
 | tasks | 三级任务、状态机、依赖、进度 | Phase 03 起 |
 | reviews | 成果版本、验收记录 | Phase 04 起 |
