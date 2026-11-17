@@ -16,7 +16,11 @@
 make env          # 生成 .env（开发默认值，不含真实凭据）
 make dev-db       # PostgreSQL 17，端口 5432
 make migrate-up   # 应用迁移
+make bootstrap    # ROOT 安全初始化：交互式设置密码，无默认密码
 ```
+
+`make bootstrap` 在终端中无回显地读取并确认密码；重复引导会被安全拒绝。
+自动化场景可向 `go run ./cmd/bootstrap` 的标准输入提供单行密码（仍须显式提供，无默认值）。
 
 两个终端分别运行：
 
@@ -58,6 +62,8 @@ make verify-backup
 - `NEXORA_DATABASE_URL`：PostgreSQL DSN。
 - `NEXORA_MIGRATE_ON_START`：仅开发可设为 true；生产必须 false。
 - `NEXORA_DB_MAX_CONNS`：连接池上限。
+- `NEXORA_SESSION_TTL`：会话绝对有效期，默认 12h。
+- `NEXORA_LOGIN_MAX_FAILURES` / `NEXORA_LOGIN_WINDOW`：登录失败限流（默认 10 次 / 15 分钟，按 IP+用户名）。
 - `VITE_API_BASE_URL`：前端 API 前缀；留空表示同源。
 
 ## 故障排查

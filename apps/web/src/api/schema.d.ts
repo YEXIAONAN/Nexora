@@ -64,6 +64,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 登录并建立服务端会话
+         * @description 校验用户名与密码，成功后通过 Set-Cookie 下发 HttpOnly 会话令牌（仅存 SHA-256 摘要于服务端）。
+         *     每次登录签发全新令牌（防会话固定）。失败按 IP+用户名限流；未知用户与错误密码返回相同的 401。
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** 当前登录用户信息 */
+        get: operations["getCurrentUser"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 退出登录并撤销当前会话
+         * @description 服务端撤销会话并清除 Cookie；被撤销的令牌立即失效。
+         */
+        delete: operations["logout"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 创建普通账号（ROOT 或平台管理员）
+         * @description 受控账号创建通道；不存在公众注册接口。新账号 system_root 恒为 false。
+         */
+        post: operations["createUser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userID}/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 撤销指定用户的全部会话（ROOT 或平台管理员） */
+        delete: operations["revokeUserSessions"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-roles": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 授予平台管理员角色（仅 ROOT）
+         * @description ROOT 身份本身不可被授予平台角色（409）。团队角色不等于平台角色。
+         */
+        post: operations["grantPlatformRole"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-roles/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** 撤销平台管理员角色（仅 ROOT） */
+        delete: operations["revokePlatformRole"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -109,6 +241,8 @@ export interface components {
             environment: "development" | "test" | "production";
             /** @description 安装实例 ID；基线迁移未执行时为 null。 */
             instance_id: string | null;
+            /** @description 是否已完成 ROOT 引导；身份表不可用时为 null。 */
+            root_initialized: boolean | null;
             /** Format: date-time */
             server_time: string;
         };
@@ -127,9 +261,153 @@ export interface components {
         ErrorEnvelope: {
             error: components["schemas"]["Error"];
         };
+        User: {
+            /** Format: uuid */
+            id: string;
+            username: string;
+            display_name: string;
+            /** @description 不可变 ROOT 标记；仅由引导命令设置。 */
+            system_root: boolean;
+            /** @description 是否持有 platform_admin 平台角色；ROOT 不依赖此角色。 */
+            platform_admin: boolean;
+        };
+        UserEnvelope: {
+            data: components["schemas"]["User"];
+        };
+        LoginRequest: {
+            username: string;
+            /** Format: password */
+            password: string;
+        };
+        LoginEnvelope: {
+            data: {
+                user: components["schemas"]["User"];
+                /** Format: date-time */
+                expires_at: string;
+            };
+        };
+        CreateUserRequest: {
+            /** @description 3-32 位小写字母、数字、下划线或连字符；服务端统一小写。 */
+            username: string;
+            /** @description 可选，最长 64 字符。 */
+            display_name?: string;
+            /**
+             * Format: password
+             * @description 10-128 字节，不得与用户名相同。
+             */
+            password: string;
+        };
+        GrantPlatformRoleRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        PlatformRoleEnvelope: {
+            data: {
+                /** Format: uuid */
+                user_id: string;
+                /** @enum {string} */
+                role: "platform_admin";
+            };
+        };
+        RevokedEnvelope: {
+            data: {
+                revoked: boolean;
+            };
+        };
+        RevokedSessionsEnvelope: {
+            data: {
+                /** Format: int64 */
+                revoked_sessions: number;
+            };
+        };
     };
-    responses: never;
-    parameters: never;
+    responses: {
+        /** @description 请求体或路径参数非法 */
+        BadRequest: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 未认证、会话无效或凭据错误 */
+        Unauthorized: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 已认证但操作权限不足，或缺少 CSRF 头 */
+        Forbidden: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 资源不存在 */
+        NotFound: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 状态冲突（重复用户名、重复授权、ROOT 已初始化等） */
+        Conflict: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 字段级校验失败 */
+        ValidationFailed: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 登录失败次数超过限流阈值 */
+        RateLimited: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description 未预期的服务端错误 */
+        InternalError: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+    };
+    parameters: {
+        /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+        CSRFHeader: "1";
+        UserID: string;
+    };
     requestBodies: never;
     headers: {
         /** @description 请求关联 ID，与错误响应体中的 request_id 一致。 */
@@ -220,6 +498,223 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorEnvelope"];
                 };
             };
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description 登录成功，Set-Cookie 携带会话令牌 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    /** @description nexora_session=...; Path=/; HttpOnly; SameSite=Lax（生产追加 Secure） */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LoginEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            422: components["responses"]["ValidationFailed"];
+            429: components["responses"]["RateLimited"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getCurrentUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 当前用户 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 会话已撤销 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedEnvelope"];
+                };
+            };
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createUser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateUserRequest"];
+            };
+        };
+        responses: {
+            /** @description 账号已创建 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokeUserSessions: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 撤销的会话数量 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedSessionsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    grantPlatformRole: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantPlatformRoleRequest"];
+            };
+        };
+        responses: {
+            /** @description 角色已授予 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlatformRoleEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokePlatformRole: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 角色已撤销 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RevokedEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
         };
     };
 }

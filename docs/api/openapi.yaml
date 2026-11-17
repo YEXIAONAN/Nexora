@@ -3,23 +3,29 @@ info:
   title: Nexora API
   version: 0.1.0
   description: |
-    Nexora V2.0 的 HTTP 接口契约。
+    Nexora V1.0 的 HTTP 接口契约。
 
-    当前处于 Phase 0（工程基线），仅包含存活检查、就绪检查与实例元数据。
-    认证、团队、项目、任务、验收、贡献与奖金接口将在后续阶段加入，
-    并在实现前先更新本文件。
+    当前处于 Phase 02（认证、团队与权限）：包含存活/就绪检查、实例元数据、
+    认证与会话、ROOT 引导状态与平台管理接口。团队接口随 M3 加入。
+    项目、任务、验收、贡献与奖金接口将在后续阶段加入，并在实现前先更新本文件。
 
     约定：
     - 所有时间均为 UTC，使用 RFC 3339 表示。
     - 成功响应使用 {"data": ...} 包装。
     - 失败响应使用 {"error": {...}} 包装，并携带 request_id。
     - 每个响应都包含 X-Request-Id 头。
+    - /api/v1 下的变更请求（POST/PUT/PATCH/DELETE）必须携带 X-Nexora-CSRF: 1 头。
+    - 认证使用 HttpOnly 会话 Cookie（nexora_session），不使用 Authorization 头。
 servers:
   - url: http://127.0.0.1:8080
     description: 本地开发
 tags:
   - name: System
     description: 进程、依赖与实例信息
+  - name: Auth
+    description: 认证、会话与当前用户
+  - name: Admin
+    description: 平台管理（ROOT 与平台管理员）
 paths:
   /healthz:
     get:
@@ -87,7 +93,329 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorEnvelope'
+  /api/v1/auth/login:
+    post:
+      tags: [Auth]
+      operationId: login
+      summary: 登录并建立服务端会话
+      description: |
+        校验用户名与密码，成功后通过 Set-Cookie 下发 HttpOnly 会话令牌（仅存 SHA-256 摘要于服务端）。
+        每次登录签发全新令牌（防会话固定）。失败按 IP+用户名限流；未知用户与错误密码返回相同的 401。
+      parameters:
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LoginRequest'
+      responses:
+        '200':
+          description: 登录成功，Set-Cookie 携带会话令牌
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Set-Cookie:
+              description: nexora_session=...; Path=/; HttpOnly; SameSite=Lax（生产追加 Secure）
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '429':
+          $ref: '#/components/responses/RateLimited'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/auth/me:
+    get:
+      tags: [Auth]
+      operationId: getCurrentUser
+      summary: 当前登录用户信息
+      security:
+        - sessionCookie: []
+      responses:
+        '200':
+          description: 当前用户
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/auth/session:
+    delete:
+      tags: [Auth]
+      operationId: logout
+      summary: 退出登录并撤销当前会话
+      description: 服务端撤销会话并清除 Cookie；被撤销的令牌立即失效。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 会话已撤销
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokedEnvelope'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/users:
+    post:
+      tags: [Admin]
+      operationId: createUser
+      summary: 创建普通账号（ROOT 或平台管理员）
+      description: 受控账号创建通道；不存在公众注册接口。新账号 system_root 恒为 false。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateUserRequest'
+      responses:
+        '201':
+          description: 账号已创建
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/users/{userID}/sessions:
+    delete:
+      tags: [Admin]
+      operationId: revokeUserSessions
+      summary: 撤销指定用户的全部会话（ROOT 或平台管理员）
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/UserID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 撤销的会话数量
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokedSessionsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/platform-roles:
+    post:
+      tags: [Admin]
+      operationId: grantPlatformRole
+      summary: 授予平台管理员角色（仅 ROOT）
+      description: ROOT 身份本身不可被授予平台角色（409）。团队角色不等于平台角色。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/CSRFHeader'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantPlatformRoleRequest'
+      responses:
+        '201':
+          description: 角色已授予
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PlatformRoleEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /api/v1/admin/platform-roles/{userID}:
+    delete:
+      tags: [Admin]
+      operationId: revokePlatformRole
+      summary: 撤销平台管理员角色（仅 ROOT）
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/UserID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 角色已撤销
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/RevokedEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: nexora_session
+      description: 服务端会话令牌（HttpOnly Cookie）；数据库仅存 SHA-256 摘要。
+  parameters:
+    CSRFHeader:
+      name: X-Nexora-CSRF
+      in: header
+      required: true
+      description: 变更请求必须携带值 1；缺失时返回 403。
+      schema:
+        type: string
+        enum: ['1']
+    UserID:
+      name: userID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+  responses:
+    BadRequest:
+      description: 请求体或路径参数非法
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Unauthorized:
+      description: 未认证、会话无效或凭据错误
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Forbidden:
+      description: 已认证但操作权限不足，或缺少 CSRF 头
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    NotFound:
+      description: 资源不存在
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    Conflict:
+      description: 状态冲突（重复用户名、重复授权、ROOT 已初始化等）
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    ValidationFailed:
+      description: 字段级校验失败
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    RateLimited:
+      description: 登录失败次数超过限流阈值
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    InternalError:
+      description: 未预期的服务端错误
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
   headers:
     RequestId:
       description: 请求关联 ID，与错误响应体中的 request_id 一致。
@@ -140,7 +468,7 @@ components:
       type: object
       additionalProperties: false
       required:
-        [name, version, commit, build_time, environment, instance_id, server_time]
+        [name, version, commit, build_time, environment, instance_id, root_initialized, server_time]
       properties:
         name:
           type: string
@@ -162,6 +490,9 @@ components:
         instance_id:
           type: [string, 'null']
           description: 安装实例 ID；基线迁移未执行时为 null。
+        root_initialized:
+          type: [boolean, 'null']
+          description: 是否已完成 ROOT 引导；身份表不可用时为 null。
         server_time:
           type: string
           format: date-time
@@ -195,3 +526,117 @@ components:
       properties:
         error:
           $ref: '#/components/schemas/Error'
+    User:
+      type: object
+      additionalProperties: false
+      required: [id, username, display_name, system_root, platform_admin]
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        system_root:
+          type: boolean
+          description: 不可变 ROOT 标记；仅由引导命令设置。
+        platform_admin:
+          type: boolean
+          description: 是否持有 platform_admin 平台角色；ROOT 不依赖此角色。
+    UserEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          $ref: '#/components/schemas/User'
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+    LoginEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [user, expires_at]
+          properties:
+            user:
+              $ref: '#/components/schemas/User'
+            expires_at:
+              type: string
+              format: date-time
+    CreateUserRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username:
+          type: string
+          description: 3-32 位小写字母、数字、下划线或连字符；服务端统一小写。
+        display_name:
+          type: string
+          description: 可选，最长 64 字符。
+        password:
+          type: string
+          format: password
+          description: 10-128 字节，不得与用户名相同。
+    GrantPlatformRoleRequest:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+    PlatformRoleEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [user_id, role]
+          properties:
+            user_id:
+              type: string
+              format: uuid
+            role:
+              type: string
+              enum: [platform_admin]
+    RevokedEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [revoked]
+          properties:
+            revoked:
+              type: boolean
+    RevokedSessionsEnvelope:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: object
+          additionalProperties: false
+          required: [revoked_sessions]
+          properties:
+            revoked_sessions:
+              type: integer
+              format: int64
