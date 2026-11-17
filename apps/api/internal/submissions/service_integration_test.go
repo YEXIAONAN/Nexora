@@ -484,3 +484,57 @@ func TestRejectedDirectResubmissionAndCancelledDependencies(t *testing.T) {
 	_, e := f.sub.Submit(f.ctx, f.a, f.team, f.p.ID, first.ID, SubmitInput{uuid.New(), now.Version + 1, "Cancelled", nil, nil})
 	wantStatus(t, e, 409)
 }
+
+// A former owner remains the historical author. Removing them cannot strand
+// awaiting evidence forever: a different, currently qualified reviewer must
+// still be able to approve it, or reject it so the lead can reassign correction.
+func TestFormalReviewSurvivesHistoricalOwnerDeparture(t *testing.T) {
+	for _, decision := range []string{"approve", "reject"} {
+		t.Run(decision, func(t *testing.T) {
+			f := setup(t)
+			owner := f.user("departing", true)
+			task := f.create(nil, 1)
+			fields := task.TaskFields
+			fields.OwnerID = owner.UserID
+			task, e := f.svc.Edit(f.ctx, f.a, f.team, f.p.ID, task.ID, tasks.EditInput{TaskFields: fields, ExpectedVersion: task.Version})
+			if e != nil {
+				t.Fatal(e)
+			}
+			task, e = f.svc.Transition(f.ctx, owner, f.team, f.p.ID, task.ID, tasks.InProgress, "", task.Version)
+			if e != nil {
+				t.Fatal(e)
+			}
+			version, e := f.sub.Submit(f.ctx, owner, f.team, f.p.ID, task.ID, SubmitInput{uuid.New(), task.Version, "Completed before leaving Team", nil, nil})
+			if e != nil {
+				t.Fatal(e)
+			}
+			if e = f.ts.RemoveMember(f.ctx, f.a, f.team, owner.UserID); e != nil {
+				t.Fatal(e)
+			}
+			if _, e = f.pool.Exec(f.ctx, `UPDATE tasks SET status='completed',version=version+1 WHERE id=$1`, task.ID); e == nil {
+				t.Fatal("departure exception bypassed current approval evidence")
+			}
+			current := f.task(task.ID)
+			if !current.CanReview || current.CanSubmit {
+				t.Fatal(current)
+			}
+			if _, e = f.sub.Review(f.ctx, f.a, f.team, f.p.ID, task.ID, version.ID, ReviewInput{current.Version, decision, "Independent verification after author departure"}); e != nil {
+				t.Fatal(e)
+			}
+			after := f.task(task.ID)
+			if decision == "approve" {
+				if after.Status != tasks.Completed || after.EffectiveProgressBPS != 10000 {
+					t.Fatal(after)
+				}
+			} else {
+				if after.Status != tasks.Rejected || after.EffectiveProgressBPS != 0 {
+					t.Fatal(after)
+				}
+				fields.OwnerID = f.a.UserID
+				if _, e = f.svc.Edit(f.ctx, f.a, f.team, f.p.ID, task.ID, tasks.EditInput{TaskFields: fields, ExpectedVersion: after.Version}); e != nil {
+					t.Fatal(e)
+				}
+			}
+		})
+	}
+}

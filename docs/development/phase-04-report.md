@@ -28,6 +28,8 @@
 
 in_progress/rejected 通过新成果进入 awaiting_review；当前版本 approve/reject 原子进入 completed/rejected；rejected 带原因进入 in_progress 或取消。普通接口仍不能直接进入验收或完成。完成、取消终态，待验收冻结编辑/权重/结构；归档只读。
 
+待验收期间原负责人离队也不会卡住独立审核：只允许正式审核改变状态和批准指针，其他字段冻结；延迟约束继续要求当前有效审核证据。该边界已先复现 approve/reject 均失败，再修复并回归（TestFormalReviewSurvivesHistoricalOwnerDeparture）。
+
 证据：授权、自审、撤销、成员 epoch、归档测试；`TestDefaultLeadCanReviewOtherAuthor`；两个并发相反审核仅一条合法决定。HTTP 和 E2E 再次拒绝自审与旧版本审核。
 
 ## E. 进度、依赖、历史、审计联动
@@ -65,7 +67,7 @@ OpenAPI 增加 12 操作，总计 61，生成类型一致。真实 API 接通提
 
 可复现命令见 [README](../../README.md) 和 [testing.md](testing.md)。本地完整日志保存在被忽略的 `.cache/phase04-{integration,e2e,docker-api,docker-web}.log`；验证曾发现并修正前端重复声明、原始 select 可访问名称、E2E 保存等待及 IPv6 host 差异。Web 镜像源曾 TLS 超时，重试构建成功，不把失败尝试计为通过。
 
-远端 CI 与审查属于独立门禁，本报告提交时尚未合并；最终最新 HEAD 的 Actions / Review 链接和状态将记录于 Phase 04 PR，不能用旧 develop CI 代替。
+远端 CI 与审查属于独立门禁，本报告提交时尚未合并；最新 HEAD 的 Actions / Review 链接和状态记录于 [Phase 04 PR](https://github.com/YEXIAONAN/Nexora/pull/4)，不能用旧 develop CI 代替。
 
 ## I. README 修改对比及安全纠错
 
@@ -75,7 +77,7 @@ OpenAPI 增加 12 操作，总计 61，生成类型一致。真实 API 接通提
 
 ## J. Git 分支、提交、PR、Review 状态
 
-从最新 origin/develop c360327eef5ca73abb5c99379afc346815541a37 建立 feature/phase04-submissions-reviews。开工核对 develop CI 44118052169 四项成功。阶段 Conventional Commits 如 A；本报告随 M6 文档提交，M7 将创建此分支→develop 的 PR，等待最新 HEAD 全 CI 并请求 @codex review，发现阻断则修复/回归/重评。
+从最新 origin/develop c360327eef5ca73abb5c99379afc346815541a37 建立 feature/phase04-submissions-reviews。开工核对 develop CI 44118052169 四项成功。阶段 Conventional Commits 如 A；本报告随 M6 文档提交，已创建 [PR #4](https://github.com/YEXIAONAN/Nexora/pull/4)（此分支→develop）；最新 HEAD 的 CI 运行链接和必要评审/整改证据在 PR 中更新。发现阻断需修复/回归/重评。
 
 不直接提交 develop / main，不自动合并。Phase 03 报告保留其当时的测试与 PR 事实，本次通过新报告记录其已合并。最终 PR / Review 状态以该 PR 的实时元数据为准；未宣称已合并。
 

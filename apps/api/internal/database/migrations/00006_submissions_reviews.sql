@@ -206,7 +206,13 @@ BEGIN
   IF NEW.status=OLD.status AND (NEW.current_submission_version_id IS DISTINCT FROM OLD.current_submission_version_id OR NEW.accepted_review_id IS DISTINCT FROM OLD.accepted_review_id) THEN RAISE EXCEPTION 'evidence cannot be rebound without a transition' USING ERRCODE='23514'; END IF;
  END IF;
  IF NEW.status<>'completed' AND NEW.accepted_review_id IS NOT NULL THEN RAISE EXCEPTION 'approval reference requires completed' USING ERRCODE='23514'; END IF;
- IF NOT EXISTS(SELECT 1 FROM project_members pm JOIN team_members tm ON tm.team_id=pm.team_id AND tm.user_id=pm.user_id WHERE pm.team_id=NEW.team_id AND pm.project_id=NEW.project_id AND pm.user_id=NEW.owner_id AND pm.status='active' AND tm.status='active') THEN RAISE EXCEPTION 'task owner requires active project and team membership' USING ERRCODE='23514'; END IF;
+ IF NOT EXISTS(SELECT 1 FROM project_members pm JOIN team_members tm ON tm.team_id=pm.team_id AND tm.user_id=pm.user_id WHERE pm.team_id=NEW.team_id AND pm.project_id=NEW.project_id AND pm.user_id=NEW.owner_id AND pm.status='active' AND tm.status='active') THEN
+  -- Historical authors can leave. A qualified independent review may still
+  -- close their immutable evidence; deferred guards require the actual review.
+  -- This exception cannot edit assignment, content, structure, weight or proof.
+  IF TG_OP='UPDATE' AND OLD.status='awaiting_review' AND NEW.status IN ('completed','rejected') AND (to_jsonb(NEW)-ARRAY['status','accepted_review_id','version','updated_at']) IS NOT DISTINCT FROM (to_jsonb(OLD)-ARRAY['status','accepted_review_id','version','updated_at']) THEN RETURN NEW; END IF;
+  RAISE EXCEPTION 'task owner requires active project and team membership' USING ERRCODE='23514';
+ END IF;
  RETURN NEW;
 END; $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
