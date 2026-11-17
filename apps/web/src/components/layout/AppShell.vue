@@ -32,7 +32,7 @@ onMounted(async () => {
       <footer
         class="mx-auto w-full max-w-[1180px] px-4 pb-6 text-xs text-ink-subtle sm:px-6 lg:px-8"
       >
-        Nexora V1.0 · Phase 02 · <span class="font-mono">v{{ appVersion }}</span>
+        Nexora V1.0 · Phase 03 · <span class="font-mono">v{{ appVersion }}</span>
       </footer>
     </div>
   </div>

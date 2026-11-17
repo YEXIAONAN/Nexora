@@ -131,3 +131,12 @@
     @apply bg-accent-soft text-accent-strong hover:bg-accent-soft hover:text-accent-strong;
   }
 }
+
+@layer components {
+  .form-label {
+    @apply flex flex-col gap-1.5 text-xs font-medium text-ink-muted;
+  }
+  .form-input {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none disabled:opacity-50;
+  }
+}
