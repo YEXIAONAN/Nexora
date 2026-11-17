@@ -18,6 +18,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/version"
@@ -73,7 +74,9 @@ func run() error {
 	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
 	teamsSvc := teams.NewService(teams.NewRepository(pool), authSvc, auditRepo, logger)
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler)
+	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
+	projectsHandler := projects.NewHandler(projectsSvc, logger)
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

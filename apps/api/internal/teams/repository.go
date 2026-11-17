@@ -147,6 +147,9 @@ func (r *Repository) RemoveMember(ctx context.Context, tx pgx.Tx, teamID, userID
 // domain error; every other failure stays wrapped for internal handling.
 func mapMemberMutationError(err error) error {
 	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.ConstraintName == "project_lead_handoff_required" {
+		return ErrProjectLead
+	}
 	if errors.As(err, &pgErr) && pgErr.Code == "P0001" && strings.Contains(pgErr.Message, "active owner") {
 		return ErrLastOwner
 	}

@@ -8,7 +8,8 @@ var (
 	ErrNotFound = errors.New("teams: not found")
 	// ErrLastOwner is raised by the database guard when a mutation would
 	// leave the team without any active owner.
-	ErrLastOwner = errors.New("teams: last active owner")
+	ErrProjectLead = errors.New("teams: project lead requires handoff")
+	ErrLastOwner   = errors.New("teams: last active owner")
 	// ErrDuplicateInvitation means a pending invitation already exists for
 	// the same team and user.
 	ErrDuplicateInvitation = errors.New("teams: duplicate pending invitation")

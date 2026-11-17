@@ -7,7 +7,7 @@
 - 重新 fetch 后 develop = `c3fb02923e647f5eccf6a3a9607f49dd75f5904e`，与指定基线无差异；工作区干净。从该提交创建 `feature/phase03-projects-tasks`。
 - GitHub 重新查询合并 CI [44097502361](https://github.com/YEXIAONAN/Nexora/actions/runs/44097502361)：Backend、Frontend、Secret scan、Containers 均 success。
 - Phase 02 已合并；认证、Cookie/CSRF、Team 实时资格、独立 RBAC、同事务追加式审计可复用。PR #2 的登录 CSRF 与 Team 切换竞态线程均 resolved；开放 Issue 查询为空。这不等于全面渗透测试。
-- 已发布迁移为 00001–00003（schema v3）；只追加 00004 项目、00005 任务。运行开发库不执行迁移。
+- 已发布迁移为 00001–00003（schema v3）；只追加 00004 项目、00005 任务。运行开发库不执行迁移。只读 `/readyz` 观察到当前开发服务仍报告 version 1（旧运行栈），不将其与已发布源码 v3 混淆；本阶段不升级或重启该栈。
 - 沿用 chi/pgx/goose、Vue 3/TS/Pinia、统一信封/request_id、OpenAPI 类型生成、Vitest/Playwright、四 job CI。使用独立无卷 PG17 容器与 testdb 护栏。
 - 已完整阅读任务列出的 README、PRD、架构/数据库/权限、ADR 0001/0004/0005/0006、路线图、OpenAPI 与 Phase 02 报告。旧文档中的“PR #2 待合并”为历史快照，以本次远程检查为准。
 
