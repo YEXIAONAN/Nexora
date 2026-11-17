@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/url"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ const (
 
 // Config is the fully validated runtime configuration.
 type Config struct {
+	AttachmentDir     string
 	Environment       Environment
 	HTTPAddr          string
 	DatabaseURL       string
@@ -48,6 +50,7 @@ func Load() (Config, error) {
 func load(lookup func(string) string) (Config, error) {
 	cfg := Config{
 		Environment:       EnvironmentDevelopment,
+		AttachmentDir:     ".data/attachments",
 		HTTPAddr:          "127.0.0.1:8080",
 		DBMaxConns:        10,
 		DBMinConns:        0,
@@ -72,6 +75,9 @@ func load(lookup func(string) string) (Config, error) {
 		}
 	}
 
+	if raw := strings.TrimSpace(lookup("NEXORA_ATTACHMENT_DIR")); raw != "" {
+		cfg.AttachmentDir = raw
+	}
 	if raw := strings.TrimSpace(lookup("NEXORA_HTTP_ADDR")); raw != "" {
 		cfg.HTTPAddr = raw
 	}
@@ -147,6 +153,9 @@ func load(lookup func(string) string) (Config, error) {
 		return Config{}, fmt.Errorf("NEXORA_LOGIN_WINDOW must be positive")
 	}
 
+	if cfg.Environment == EnvironmentProduction && !filepath.IsAbs(cfg.AttachmentDir) {
+		return Config{}, fmt.Errorf("NEXORA_ATTACHMENT_DIR must be an explicit absolute private path in production")
+	}
 	return cfg, nil
 }
 

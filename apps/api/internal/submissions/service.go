@@ -16,13 +16,14 @@ import (
 )
 
 type Service struct {
+	store    *Store
 	repo     *Repository
 	projects *projects.Service
 	tasks    *tasks.Service
 }
 
 func NewService(r *Repository, p *projects.Service, t *tasks.Service) *Service {
-	s := &Service{r, p, t}
+	s := &Service{repo: r, projects: p, tasks: t}
 	t.SetReviewAccess(r)
 	return s
 }
@@ -94,15 +95,24 @@ func (s *Service) Submit(ctx context.Context, a reqctx.Identity, team, pid, task
 		// this exact task scope. Binding is atomic with the new version.
 		var bytes int64
 		for _, id := range in.AttachmentIDs {
-			var size int64
-			e = w.Tx.QueryRow(ctx, `SELECT byte_size FROM submission_attachments WHERE team_id=$1 AND project_id=$2 AND task_id=$3 AND id=$4 AND uploader_id=$5 AND status='staged' AND removed_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`, team, pid, task, id, a.UserID).Scan(&size)
+
+			file, e := scanAttachment(w.Tx.QueryRow(ctx, `SELECT `+attachmentColumns+` FROM submission_attachments WHERE team_id=$1 AND project_id=$2 AND task_id=$3 AND id=$4 AND uploader_id=$5 AND status='staged' AND removed_at IS NULL AND expires_at>clock_timestamp() FOR UPDATE`, team, pid, task, id, a.UserID))
 			if errors.Is(e, pgx.ErrNoRows) {
 				return projects.NotFound()
 			}
 			if e != nil {
 				return e
 			}
-			bytes += size
+			if s.store == nil {
+				return httpx.Unavailable("private attachment storage is unavailable")
+			}
+			content, e := s.store.open(file)
+			if e != nil {
+				return httpx.Unavailable("staged attachment content is unavailable; upload again")
+			}
+			content.Close()
+			bytes += file.ByteSize
+
 		}
 		if bytes > MaxVersionBytes {
 			return httpx.ValidationFailed(map[string]string{"attachment_ids": "total attachments exceed 25 MiB"})

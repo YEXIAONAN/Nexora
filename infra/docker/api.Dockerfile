@@ -28,7 +28,8 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
 FROM alpine:3.22
 
 RUN addgroup -S nexora && adduser -S -G nexora -h /app nexora \
- && apk add --no-cache ca-certificates wget
+ && apk add --no-cache ca-certificates wget \
+ && mkdir -p /app/.data/attachments && chown -R nexora:nexora /app/.data && chmod 700 /app/.data/attachments
 
 COPY --from=build /out/nexora-api /out/nexora-migrate /out/nexora-bootstrap /usr/local/bin/
 
