@@ -2,17 +2,29 @@ const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? ''
 
 const DEFAULT_TIMEOUT_MS = 8000
 
+export const SESSION_EXPIRED_EVENT = 'nexora:session-expired'
+
+const MUTATING_METHODS = new Set(['POST', 'PUT', 'PATCH', 'DELETE'])
+
 export class ApiError extends Error {
   readonly status: number | undefined
   readonly code: string | undefined
   readonly requestId: string | undefined
+  readonly fields: Record<string, string> | undefined
 
-  constructor(message: string, status?: number, code?: string, requestId?: string) {
+  constructor(
+    message: string,
+    status?: number,
+    code?: string,
+    requestId?: string,
+    fields?: Record<string, string>,
+  ) {
     super(message)
     this.name = 'ApiError'
     this.status = status
     this.code = code
     this.requestId = requestId
+    this.fields = fields
   }
 }
 
@@ -21,14 +33,20 @@ interface ErrorEnvelope {
     code?: string
     message?: string
     request_id?: string
+    fields?: Record<string, string>
   }
 }
 
 interface RequestOptions {
+  method?: string
+  body?: unknown
+  headers?: Record<string, string>
   signal?: AbortSignal
   timeoutMs?: number
   /** HTTP error statuses whose JSON body is still a valid response for this call. */
   acceptStatuses?: number[]
+  /** Login failures are 401 too; they must not be treated as session expiry. */
+  skipSessionExpiry?: boolean
 }
 
 function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
@@ -36,7 +54,15 @@ function isErrorEnvelope(value: unknown): value is ErrorEnvelope {
 }
 
 export async function requestJSON<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, acceptStatuses = [] } = options
+  const {
+    method = 'GET',
+    body,
+    headers = {},
+    signal,
+    timeoutMs = DEFAULT_TIMEOUT_MS,
+    acceptStatuses = [],
+    skipSessionExpiry = false,
+  } = options
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort()
   if (signal?.aborted) controller.abort()
@@ -44,9 +70,14 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
   const timer = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {
+    const requestHeaders: Record<string, string> = { Accept: 'application/json', ...headers }
+    if (MUTATING_METHODS.has(method)) requestHeaders['X-Nexora-CSRF'] = '1'
+    if (body !== undefined) requestHeaders['Content-Type'] = 'application/json'
+
     const response = await fetch(`${API_BASE_URL}${path}`, {
-      method: 'GET',
-      headers: { Accept: 'application/json' },
+      method,
+      headers: requestHeaders,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
       credentials: 'same-origin',
       signal: controller.signal,
     })
@@ -54,12 +85,16 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
     const payload: unknown = await response.json().catch(() => null)
 
     if (!response.ok && !acceptStatuses.includes(response.status)) {
+      if (response.status === 401 && !skipSessionExpiry) {
+        window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
+      }
       const detail = isErrorEnvelope(payload) ? payload.error : undefined
       throw new ApiError(
         detail?.message ?? `请求失败（HTTP ${response.status}）`,
         response.status,
         detail?.code,
         detail?.request_id,
+        detail?.fields,
       )
     }
 

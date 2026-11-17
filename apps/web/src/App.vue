@@ -5,9 +5,10 @@ import AppShell from '@/components/layout/AppShell.vue'
 </script>
 
 <template>
-  <AppShell>
-    <RouterView v-slot="{ Component }">
+  <RouterView v-slot="{ Component, route }">
+    <component :is="Component" v-if="route.meta.bare" />
+    <AppShell v-else>
       <component :is="Component" />
-    </RouterView>
-  </AppShell>
+    </AppShell>
+  </RouterView>
 </template>

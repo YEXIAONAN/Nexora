@@ -19,3 +19,20 @@ export function formatRelativeTime(value: Date | null): string {
   if (minutes < 60) return `${minutes} 分钟前`
   return formatDateTime(value)
 }
+
+export function teamRoleLabel(role: string | undefined): string {
+  if (role === 'owner') return '所有者'
+  if (role === 'admin') return '管理员'
+  if (role === 'member') return '成员'
+  return '—'
+}
+
+export function invitationStatusLabel(status: string): string {
+  const labels: Record<string, string> = {
+    pending: '待处理',
+    accepted: '已接受',
+    declined: '已拒绝',
+    cancelled: '已取消',
+  }
+  return labels[status] ?? status
+}

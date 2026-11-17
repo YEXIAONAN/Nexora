@@ -1,11 +1,19 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { requestJSON } from './client'
+import { ApiError, requestJSON, SESSION_EXPIRED_EVENT } from './client'
 
 afterEach(() => {
   vi.unstubAllGlobals()
   vi.useRealTimers()
 })
+
+function jsonResponse(payload: unknown, status = 200): Response {
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => payload,
+  } as Response
+}
 
 describe('request cancellation', () => {
   it('forwards a signal that was already aborted before the request', async () => {
@@ -41,5 +49,114 @@ describe('request cancellation', () => {
     caller.abort()
     await expect(pending).rejects.toThrow()
     expect(vi.getTimerCount()).toBe(0)
+  })
+})
+
+describe('mutating requests', () => {
+  it('sends the CSRF header and JSON body on POST', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ data: { ok: true } })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await requestJSON('/api/v1/teams', { method: 'POST', body: { name: 'ZERO_R' } })
+
+    const init = fetchMock.mock.calls[0]?.[1]
+    expect(init?.method).toBe('POST')
+    expect((init?.headers as Record<string, string>)['X-Nexora-CSRF']).toBe('1')
+    expect((init?.headers as Record<string, string>)['Content-Type']).toBe('application/json')
+    expect(init?.body).toBe(JSON.stringify({ name: 'ZERO_R' }))
+    expect(init?.credentials).toBe('same-origin')
+  })
+
+  it('sends the CSRF header on DELETE without a body', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ data: { revoked: true } })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await requestJSON('/api/v1/auth/session', { method: 'DELETE' })
+
+    const init = fetchMock.mock.calls[0]?.[1]
+    expect((init?.headers as Record<string, string>)['X-Nexora-CSRF']).toBe('1')
+    expect(init?.body).toBeUndefined()
+  })
+
+  it('does not send the CSRF header on GET', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ data: [] })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+
+    await requestJSON('/api/v1/teams')
+
+    const init = fetchMock.mock.calls[0]?.[1]
+    expect((init?.headers as Record<string, string>)['X-Nexora-CSRF']).toBeUndefined()
+  })
+})
+
+describe('session expiry signalling', () => {
+  it('dispatches the session-expired event on 401', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({ error: { code: 'unauthorized', message: 'no session' } }, 401),
+        ),
+      ),
+    )
+    const listener = vi.fn()
+    window.addEventListener(SESSION_EXPIRED_EVENT, listener)
+
+    await expect(requestJSON('/api/v1/teams')).rejects.toMatchObject({ status: 401 })
+    expect(listener).toHaveBeenCalledTimes(1)
+    window.removeEventListener(SESSION_EXPIRED_EVENT, listener)
+  })
+
+  it('does not dispatch the event when the caller opts out (login failures)', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse({ error: { code: 'unauthorized', message: 'bad credentials' } }, 401),
+        ),
+      ),
+    )
+    const listener = vi.fn()
+    window.addEventListener(SESSION_EXPIRED_EVENT, listener)
+
+    await expect(
+      requestJSON('/api/v1/auth/login', { method: 'POST', body: {}, skipSessionExpiry: true }),
+    ).rejects.toMatchObject({ status: 401 })
+    expect(listener).not.toHaveBeenCalled()
+    window.removeEventListener(SESSION_EXPIRED_EVENT, listener)
+  })
+
+  it('exposes field errors from the error envelope', async () => {
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(() =>
+        Promise.resolve(
+          jsonResponse(
+            {
+              error: {
+                code: 'validation_failed',
+                message: 'invalid input',
+                fields: { username: 'too short' },
+                request_id: 'req-1',
+              },
+            },
+            422,
+          ),
+        ),
+      ),
+    )
+
+    const error = await requestJSON('/api/v1/auth/login', { method: 'POST', body: {} }).catch(
+      (reason: unknown) => reason,
+    )
+    expect(error).toBeInstanceOf(ApiError)
+    expect((error as ApiError).fields).toEqual({ username: 'too short' })
+    expect((error as ApiError).requestId).toBe('req-1')
   })
 })

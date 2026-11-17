@@ -11,6 +11,10 @@ export type IconName =
   | 'server'
   | 'shield'
   | 'arrow-up-right'
+  | 'users'
+  | 'inbox'
+  | 'logout'
+  | 'plus'
 
 export const iconPaths: Record<IconName, string[]> = {
   overview: ['M4 4h6v6H4z', 'M14 4h6v6h-6z', 'M4 14h6v6H4z', 'M14 14h6v6h-6z'],
@@ -39,4 +43,16 @@ export const iconPaths: Record<IconName, string[]> = {
   server: ['M4 4h16v6H4z', 'M4 14h16v6H4z', 'M8 7h.01', 'M8 17h.01'],
   shield: ['M12 3 5 6v5c0 4.4 3 8.4 7 10 4-1.6 7-5.6 7-10V6l-7-3z', 'M9 12l2 2 4-4'],
   'arrow-up-right': ['M7 17 17 7', 'M8 7h9v9'],
+  users: [
+    'M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2',
+    'M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z',
+    'M22 21v-2a4 4 0 0 0-3-3.87',
+    'M16 3.13a4 4 0 0 1 0 7.75',
+  ],
+  inbox: [
+    'M22 12h-6l-2 3h-4l-2-3H2',
+    'M5.4 5.1 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.4-6.9A2 2 0 0 0 16.8 4H7.2a2 2 0 0 0-1.8 1.1z',
+  ],
+  logout: ['M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4', 'M16 17l5-5-5-5', 'M21 12H9'],
+  plus: ['M12 5v14', 'M5 12h14'],
 }
