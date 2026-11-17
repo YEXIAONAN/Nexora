@@ -75,13 +75,14 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 }
 
 type metaData struct {
-	Name        string    `json:"name"`
-	Version     string    `json:"version"`
-	Commit      string    `json:"commit"`
-	BuildTime   string    `json:"build_time"`
-	Environment string    `json:"environment"`
-	InstanceID  *string   `json:"instance_id"`
-	ServerTime  time.Time `json:"server_time"`
+	Name            string    `json:"name"`
+	Version         string    `json:"version"`
+	Commit          string    `json:"commit"`
+	BuildTime       string    `json:"build_time"`
+	Environment     string    `json:"environment"`
+	InstanceID      *string   `json:"instance_id"`
+	RootInitialized *bool     `json:"root_initialized"`
+	ServerTime      time.Time `json:"server_time"`
 }
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
@@ -106,6 +107,15 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 		s.logger.Warn("meta: installation id lookup timed out", "error", database.SafeError(err))
 	default:
 		s.logger.Warn("meta: installation id unavailable", "error", database.SafeError(err))
+	}
+
+	if s.authSvc != nil {
+		initialized, err := s.authSvc.RootInitialized(ctx)
+		if err == nil {
+			payload.RootInitialized = &initialized
+		} else {
+			s.logger.Warn("meta: root initialization state unavailable", "error", database.SafeError(err))
+		}
 	}
 
 	httpx.Data(w, http.StatusOK, payload)

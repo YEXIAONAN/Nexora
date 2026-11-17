@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 PSQL_ENV = set -a; [ -f .env ] && source .env; set +a;
 
-.PHONY: help env dev-db dev-api dev-web migrate-up migrate-down migrate-status \
+.PHONY: help env dev-db dev-api dev-web migrate-up migrate-down migrate-status bootstrap \
 	test test-api test-web lint lint-api lint-web build build-api build-web \
 	compose-up compose-down compose-logs backup verify-backup secret-scan secret-scan-test api-check verify
 
@@ -34,6 +34,10 @@ migrate-down: ## Roll back the latest migration (development only)
 migrate-status: ## Print migration status
 	@test -f .env || (echo "missing .env; run 'make env'" && exit 1)
 	$(PSQL_ENV) cd apps/api && go run ./cmd/migrate -command status
+
+bootstrap: ## Initialize the ROOT account interactively (no default password)
+	@test -f .env || (echo "missing .env; run 'make env'" && exit 1)
+	$(PSQL_ENV) cd apps/api && go run ./cmd/bootstrap
 
 test: test-api test-web ## Run backend and frontend tests
 

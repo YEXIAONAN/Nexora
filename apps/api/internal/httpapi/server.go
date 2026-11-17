@@ -8,6 +8,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
@@ -23,14 +24,17 @@ type SystemStore interface {
 
 // Server holds the dependencies shared by all handlers.
 type Server struct {
-	cfg    config.Config
-	logger *slog.Logger
-	system SystemStore
+	cfg         config.Config
+	logger      *slog.Logger
+	system      SystemStore
+	authSvc     *auth.Service
+	authHandler *auth.Handler
 }
 
-// New builds an HTTP server binding.
-func New(cfg config.Config, logger *slog.Logger, system SystemStore) *Server {
-	return &Server{cfg: cfg, logger: logger, system: system}
+// New builds an HTTP server binding. The auth dependencies may be nil in
+// tests that only exercise diagnostics; auth routes are then not mounted.
+func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler) *Server {
+	return &Server{cfg: cfg, logger: logger, system: system, authSvc: authSvc, authHandler: authHandler}
 }
 
 // Handler returns the fully configured router.
@@ -57,6 +61,14 @@ func (s *Server) Handler() http.Handler {
 
 	router.Route("/api/v1", func(r chi.Router) {
 		r.Get("/meta", s.handleMeta)
+		if s.authHandler != nil {
+			s.authHandler.PublicRoutes(r)
+			r.Group(func(r chi.Router) {
+				r.Use(auth.CSRF)
+				r.Use(auth.Middleware(s.authSvc))
+				s.authHandler.AuthenticatedRoutes(r)
+			})
+		}
 	})
 
 	return router

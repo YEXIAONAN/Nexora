@@ -12,6 +12,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
@@ -59,7 +61,15 @@ func run() error {
 	}
 	defer pool.Close()
 
-	server := httpapi.New(cfg, logger, system.NewRepository(pool))
+	authSvc := auth.NewService(
+		auth.NewRepository(pool),
+		audit.NewRepository(pool),
+		auth.NewLoginLimiter(cfg.LoginMaxFailures, cfg.LoginWindow),
+		cfg.SessionTTL,
+		logger,
+	)
+	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

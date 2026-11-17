@@ -35,6 +35,9 @@ type Config struct {
 	ShutdownTimeout   time.Duration
 	MigrateOnStart    bool
 	LogLevel          slog.Level
+	SessionTTL        time.Duration
+	LoginMaxFailures  int
+	LoginWindow       time.Duration
 }
 
 // Load reads the configuration from the process environment.
@@ -54,6 +57,9 @@ func load(lookup func(string) string) (Config, error) {
 		ShutdownTimeout:   15 * time.Second,
 		MigrateOnStart:    false,
 		LogLevel:          slog.LevelInfo,
+		SessionTTL:        12 * time.Hour,
+		LoginMaxFailures:  10,
+		LoginWindow:       15 * time.Minute,
 	}
 
 	if raw := strings.TrimSpace(lookup("NEXORA_ENV")); raw != "" {
@@ -102,6 +108,19 @@ func load(lookup func(string) string) (Config, error) {
 	if cfg.LogLevel, err = logLevelFromEnv(lookup, cfg.LogLevel); err != nil {
 		return Config{}, err
 	}
+	if cfg.SessionTTL, err = durationFromEnv(lookup, "NEXORA_SESSION_TTL", cfg.SessionTTL); err != nil {
+		return Config{}, err
+	}
+	if cfg.LoginWindow, err = durationFromEnv(lookup, "NEXORA_LOGIN_WINDOW", cfg.LoginWindow); err != nil {
+		return Config{}, err
+	}
+	if raw := strings.TrimSpace(lookup("NEXORA_LOGIN_MAX_FAILURES")); raw != "" {
+		value, parseErr := strconv.Atoi(raw)
+		if parseErr != nil {
+			return Config{}, fmt.Errorf("NEXORA_LOGIN_MAX_FAILURES must be an integer: %w", parseErr)
+		}
+		cfg.LoginMaxFailures = value
+	}
 
 	if cfg.DBMaxConns < 1 {
 		return Config{}, fmt.Errorf("NEXORA_DB_MAX_CONNS must be at least 1 (got %d)", cfg.DBMaxConns)
@@ -118,8 +137,24 @@ func load(lookup func(string) string) (Config, error) {
 	if cfg.Environment == EnvironmentProduction && cfg.MigrateOnStart {
 		return Config{}, fmt.Errorf("NEXORA_MIGRATE_ON_START must be false in production; run the migrate command explicitly")
 	}
+	if cfg.SessionTTL <= 0 {
+		return Config{}, fmt.Errorf("NEXORA_SESSION_TTL must be positive")
+	}
+	if cfg.LoginMaxFailures < 1 {
+		return Config{}, fmt.Errorf("NEXORA_LOGIN_MAX_FAILURES must be at least 1 (got %d)", cfg.LoginMaxFailures)
+	}
+	if cfg.LoginWindow <= 0 {
+		return Config{}, fmt.Errorf("NEXORA_LOGIN_WINDOW must be positive")
+	}
 
 	return cfg, nil
+}
+
+// CookieSecure derives the session cookie Secure attribute from the
+// environment. Production always sets it; there is deliberately no override
+// so an insecure development cookie policy cannot leak into production.
+func (c Config) CookieSecure() bool {
+	return c.Environment == EnvironmentProduction
 }
 
 func validateDatabaseURL(raw string) error {
