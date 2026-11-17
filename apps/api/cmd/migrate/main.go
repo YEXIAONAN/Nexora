@@ -42,7 +42,7 @@ func run() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
 	defer cancel()
 	if err := db.PingContext(ctx); err != nil {
-		return fmt.Errorf("connect to database: %w", err)
+		return fmt.Errorf("connect to database: %w", database.SafeError(err))
 	}
 
 	switch *command {

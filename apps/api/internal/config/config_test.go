@@ -1,6 +1,7 @@
 package config
 
 import (
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -10,7 +11,7 @@ func lookupFrom(values map[string]string) func(string) string {
 	return func(key string) string { return values[key] }
 }
 
-const testDSN = "postgres://nexora:secret@localhost:5432/nexora?sslmode=disable"
+const testDSN = "postgres://nexora@localhost:5432/nexora?sslmode=disable"
 
 func TestLoadDefaults(t *testing.T) {
 	cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN}))
@@ -20,8 +21,8 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Environment != EnvironmentDevelopment {
 		t.Errorf("environment = %q, want development", cfg.Environment)
 	}
-	if cfg.HTTPAddr != ":8080" {
-		t.Errorf("http addr = %q, want :8080", cfg.HTTPAddr)
+	if cfg.HTTPAddr != "127.0.0.1:8080" {
+		t.Errorf("http addr = %q, want 127.0.0.1:8080", cfg.HTTPAddr)
 	}
 	if cfg.DBMaxConns != 10 {
 		t.Errorf("max conns = %d, want 10", cfg.DBMaxConns)
@@ -142,12 +143,70 @@ func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 }
 
 func TestRedactedDatabaseURL(t *testing.T) {
-	cfg := Config{DatabaseURL: testDSN}
-	redacted := cfg.RedactedDatabaseURL()
-	if strings.Contains(redacted, "secret") {
-		t.Fatalf("redacted URL still contains the password: %s", redacted)
+	const marker = "synthetic-password+/中文"
+	withPassword, _ := url.Parse(testDSN)
+	withPassword.User = url.UserPassword("synthetic-user", marker)
+	tests := []struct {
+		name  string
+		dsn   string
+		valid bool
+	}{
+		{"normal", testDSN, true},
+		{"encoded userinfo", withPassword.String(), true},
+		{"query secrets", testDSN + "&password=" + url.QueryEscape(marker) + "&sslpassword=" + url.QueryEscape(marker), true},
+		{"encoded secret key", testDSN + "&pass%77ord=" + url.QueryEscape(marker), true},
+		{"unknown secret option", testDSN + "&custom_token=" + url.QueryEscape(marker), true},
+		{"malformed userinfo", "postgres://user:" + marker + "%zz@localhost/db", false},
+		{"malformed query", testDSN + "&password=%zz", false},
+		{"fragment", testDSN + "#" + marker, false},
+		{"wrong scheme", "mysql://localhost/db", false},
+		{"missing host", "postgres:///db", false},
+		{"missing database", "postgres://localhost", false},
+		{"empty", "", false},
+		{"whitespace", "  ", false},
 	}
-	if !strings.Contains(redacted, "xxxxx") {
-		t.Fatalf("redacted URL should contain a mask: %s", redacted)
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			redacted := (Config{DatabaseURL: tc.dsn}).RedactedDatabaseURL()
+			for _, secret := range []string{marker, url.QueryEscape(marker), url.PathEscape(marker), "synthetic-user", "custom_token", "pass%77ord"} {
+				if strings.Contains(redacted, secret) {
+					t.Fatal("redacted endpoint contains synthetic sensitive information")
+				}
+			}
+			if !tc.valid {
+				if redacted != "<invalid>" {
+					t.Fatal("invalid URL must not be rendered")
+				}
+				return
+			}
+			parsed, err := url.Parse(redacted)
+			if err != nil || parsed.Host != "localhost:5432" || parsed.Path != "/nexora" || parsed.RawQuery != "" {
+				t.Fatal("redaction must preserve the endpoint and remove all query values")
+			}
+			if tc.name == "encoded userinfo" && !strings.Contains(redacted, "xxxxx") {
+				t.Fatal("userinfo must be masked")
+			}
+		})
+	}
+}
+
+func TestInvalidDatabaseURLErrorsDoNotEchoInput(t *testing.T) {
+	const marker = "SYNTHETIC_CONFIG_SECRET"
+	for _, dsn := range []string{
+		"postgres://user:" + marker + "%zz@localhost/db",
+		"postgres://localhost/db?password=" + marker + "%zz",
+		marker + "://localhost/db",
+		"postgres://localhost/db#" + marker,
+	} {
+		_, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": dsn}))
+		if err == nil {
+			t.Fatal("invalid connection URL should be rejected")
+		}
+		if strings.Contains(err.Error(), marker) || strings.Contains(err.Error(), dsn) {
+			t.Fatal("configuration error echoed synthetic credentials")
+		}
+		if !strings.Contains(err.Error(), "NEXORA_DATABASE_URL") {
+			t.Fatal("configuration error must identify the failing setting")
+		}
 	}
 }

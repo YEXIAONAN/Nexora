@@ -45,7 +45,7 @@ func Load() (Config, error) {
 func load(lookup func(string) string) (Config, error) {
 	cfg := Config{
 		Environment:       EnvironmentDevelopment,
-		HTTPAddr:          ":8080",
+		HTTPAddr:          "127.0.0.1:8080",
 		DBMaxConns:        10,
 		DBMinConns:        0,
 		DBConnectTimeout:  10 * time.Second,
@@ -125,12 +125,16 @@ func load(lookup func(string) string) (Config, error) {
 func validateDatabaseURL(raw string) error {
 	parsed, err := url.Parse(raw)
 	if err != nil {
-		return fmt.Errorf("NEXORA_DATABASE_URL is not a valid URL: %w", err)
+		// url.Error includes the original URL, including malformed credentials.
+		return fmt.Errorf("NEXORA_DATABASE_URL is not a valid URL; check syntax and percent-encoding")
 	}
 	switch parsed.Scheme {
 	case "postgres", "postgresql":
 	default:
-		return fmt.Errorf("NEXORA_DATABASE_URL must use the postgres or postgresql scheme (got %q)", parsed.Scheme)
+		return fmt.Errorf("NEXORA_DATABASE_URL must use the postgres or postgresql scheme")
+	}
+	if parsed.Opaque != "" || parsed.Fragment != "" {
+		return fmt.Errorf("NEXORA_DATABASE_URL must be a hierarchical URL without a fragment")
 	}
 	if parsed.Host == "" {
 		return fmt.Errorf("NEXORA_DATABASE_URL must include a host")
@@ -138,19 +142,25 @@ func validateDatabaseURL(raw string) error {
 	if strings.Trim(parsed.Path, "/") == "" {
 		return fmt.Errorf("NEXORA_DATABASE_URL must include a database name")
 	}
+	if _, err := url.ParseQuery(parsed.RawQuery); err != nil {
+		return fmt.Errorf("NEXORA_DATABASE_URL contains invalid query parameters; check percent-encoding")
+	}
 	return nil
 }
 
-// RedactedDatabaseURL returns the configured URL with the password masked so it
-// can be safely written to logs or diagnostics.
+// RedactedDatabaseURL exposes only the endpoint and database. All userinfo and
+// query values are omitted or masked, including unknown/encoded secret keys.
 func (c Config) RedactedDatabaseURL() string {
-	parsed, err := url.Parse(c.DatabaseURL)
-	if err != nil {
+	if validateDatabaseURL(c.DatabaseURL) != nil {
 		return "<invalid>"
 	}
-	if _, hasPassword := parsed.User.Password(); hasPassword {
-		parsed.User = url.UserPassword(parsed.User.Username(), "xxxxx")
+	parsed, _ := url.Parse(c.DatabaseURL)
+	if parsed.User != nil {
+		parsed.User = url.UserPassword("xxxxx", "xxxxx")
 	}
+	// Do not maintain a denylist: future driver options may also contain secrets.
+	parsed.RawQuery = ""
+	parsed.ForceQuery = false
 	return parsed.String()
 }
 

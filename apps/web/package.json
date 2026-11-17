@@ -23,7 +23,8 @@
     "format:check": "prettier --check .",
     "test": "vitest run",
     "test:watch": "vitest",
-    "api:types": "openapi-typescript ../../docs/api/openapi.yaml -o src/api/schema.d.ts"
+    "api:types": "openapi-typescript ../../docs/api/openapi.yaml -o src/api/schema.d.ts",
+    "api:check": "node scripts/check-api-types.mjs"
   },
   "dependencies": {
     "pinia": "^3.0.4",

@@ -44,7 +44,7 @@ func Up(ctx context.Context, db *sql.DB, logger *slog.Logger) error {
 		return err
 	}
 	if err := goose.UpContext(ctx, db, migrationsDir); err != nil {
-		return fmt.Errorf("apply migrations: %w", err)
+		return fmt.Errorf("apply migrations: %w", SafeError(err))
 	}
 	return nil
 }
@@ -60,13 +60,13 @@ func Down(ctx context.Context, db *sql.DB, steps int, logger *slog.Logger) error
 	for range steps {
 		version, err := goose.GetDBVersionContext(ctx, db)
 		if err != nil {
-			return fmt.Errorf("read schema version: %w", err)
+			return fmt.Errorf("read schema version: %w", SafeError(err))
 		}
 		if version == 0 {
 			return nil
 		}
 		if err := goose.DownContext(ctx, db, migrationsDir); err != nil {
-			return fmt.Errorf("roll back migration %d: %w", version, err)
+			return fmt.Errorf("roll back migration %d: %w", version, SafeError(err))
 		}
 	}
 	return nil
@@ -78,7 +78,7 @@ func Status(ctx context.Context, db *sql.DB, logger *slog.Logger) error {
 		return err
 	}
 	if err := goose.StatusContext(ctx, db, migrationsDir); err != nil {
-		return fmt.Errorf("read migration status: %w", err)
+		return fmt.Errorf("read migration status: %w", SafeError(err))
 	}
 	return nil
 }
@@ -90,7 +90,7 @@ func Version(ctx context.Context, db *sql.DB) (int64, error) {
 	}
 	version, err := goose.GetDBVersionContext(ctx, db)
 	if err != nil {
-		return 0, fmt.Errorf("read schema version: %w", err)
+		return 0, fmt.Errorf("read schema version: %w", SafeError(err))
 	}
 	return version, nil
 }

@@ -1,12 +1,14 @@
-# Nexora V2.0
+# Nexora
 
-Nexora 是面向高校科研、软件工程、技能竞赛与创新创业团队的多团队协作平台，覆盖项目、三级任务、成果验收、贡献核算与奖金分配。
+Nexora 是面向高校科研、软件工程、技能竞赛与创新创业团队的多团队协作平台，覆盖项目、三级任务、成果验收、贡献核算与奖金分配。正式需求基线为 `docs/product/product-requirements.md`（V2.0，含多 Team 与独立角色设计）。
 
-本仓库是 **V2.0 从零重建** 的代码库。旧版本实现不作为可信基础。
+> **范围提案（待产品负责人批准，未生效）**：V1.0 缩围方案建议优先服务 ZERO_R 内部小型研发团队，聚焦任务分配、执行、成果提交、负责人验收与必要操作记录，暂缓完整多团队、贡献核算、奖金自动分配与甘特图。该提案尚未获批，不得作为最终产品决策执行；批准前正式需求基线保持不变。
 
-> **当前状态：Phase 0（工程基线）已完成，Phase 1 尚未开始。**
+复用现有 Vue + Go + PostgreSQL 工程，不替换架构。当前工程工作代号：Phase 01 为工程基线修复，Phase 02 进入身份认证与权限开发。阶段代号仅用于工程排期，不构成产品范围决策。
+
+> **当前阶段：Phase 01 工程基线修复。**
 > 当前版本只有健康检查、实例元数据与工程基础设施，没有认证、团队、项目或任务接口。
-> 在 Phase 1 完成认证与授权之前，请勿将本服务暴露到公网。
+> 认证与授权完成前，请勿将本服务暴露到公网。构建通过不代表数据库及完整启动已验证。
 
 ## 技术栈
 
@@ -37,7 +39,7 @@ infra/
 
 ## 快速开始（本地开发）
 
-前置条件：Go 1.26+、Node.js 24+、pnpm 10+、Docker（含 Compose v2）。
+前置条件：Go 1.26.1+、Node.js 24（CI 基线；package.json 允许 Node 22）、pnpm 10.34.5、Python 3.9+（扫描门禁）、Docker（含 Compose v2）。
 
 ```bash
 make env                 # 从 .env.example 生成 .env（仅开发默认值）
@@ -77,11 +79,12 @@ make secret-scan   # 已跟踪文件的密钥扫描
 make verify        # 以上全部
 ```
 
-数据库集成测试需要真实 PostgreSQL：
+数据库集成测试只允许显式配置的独立可丢弃 PostgreSQL，不能使用普通开发或生产库。每个测试使用自动清理的独立 schema，详见测试说明：
 
 ```bash
 cd apps/api
-TEST_DATABASE_URL="postgres://nexora:nexora_dev_password@localhost:5432/nexora?sslmode=disable" \
+NEXORA_ENV=test NEXORA_TEST_DB_DISPOSABLE=1 \
+TEST_DATABASE_URL="postgres://test_runner@127.0.0.1:5432/nexora_test?sslmode=disable" \
   go test -tags=integration ./...
 ```
 

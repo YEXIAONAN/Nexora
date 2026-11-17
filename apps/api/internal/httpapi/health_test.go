@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -8,8 +9,10 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"sort"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 )
@@ -149,5 +152,98 @@ func TestUnknownRouteReturnsJSON(t *testing.T) {
 	}
 	if envelope.Error.Code != "not_found" {
 		t.Errorf("code = %q", envelope.Error.Code)
+	}
+}
+
+func TestDiagnosticLogsDoNotExposeDatabaseErrorDetails(t *testing.T) {
+	const marker = "SYNTHETIC_DIAGNOSTIC_SECRET"
+	var logs bytes.Buffer
+	store := &fakeSystemStore{
+		pingErr: errors.New(marker), schemaErr: errors.New(marker), installErr: errors.New(marker),
+	}
+	server := New(config.Config{Environment: config.EnvironmentTest}, slog.New(slog.NewJSONHandler(&logs, nil)), store)
+	for _, path := range []string{"/readyz", "/api/v1/meta"} {
+		response := performRequest(t, server.Handler(), http.MethodGet, path)
+		if strings.Contains(response.Body.String(), marker) {
+			t.Fatal("diagnostic response exposed synthetic credentials")
+		}
+	}
+	if strings.Contains(logs.String(), marker) {
+		t.Fatal("diagnostic log exposed synthetic database error details")
+	}
+	if !strings.Contains(logs.String(), "database operation failed") {
+		t.Fatal("diagnostic log must retain a safe error category")
+	}
+}
+
+func TestDiagnosticResponseContracts(t *testing.T) {
+	for _, tc := range []struct {
+		name, path, state string
+		store             fakeSystemStore
+		status            int
+		keys              []string
+	}{
+		{"liveness", "/healthz", "ok", fakeSystemStore{}, 200, []string{"checked_at", "status"}},
+		{"ready", "/readyz", "ready", fakeSystemStore{schemaVersion: 1}, 200, []string{"checked_at", "checks", "status"}},
+		{"not migrated", "/readyz", "unavailable", fakeSystemStore{}, 503, []string{"checked_at", "checks", "status"}},
+		{"metadata", "/api/v1/meta", "", fakeSystemStore{installErr: errors.New("not initialized")}, 200, []string{"data"}},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			response := performRequest(t, newTestServer(&tc.store).Handler(), http.MethodGet, tc.path)
+			if response.Code != tc.status {
+				t.Fatalf("status = %d, want %d", response.Code, tc.status)
+			}
+			if response.Header().Get("Content-Type") != "application/json; charset=utf-8" || response.Header().Get("X-Request-Id") == "" {
+				t.Fatal("diagnostic response headers changed")
+			}
+			var body map[string]json.RawMessage
+			if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+				t.Fatal(err)
+			}
+			keys := make([]string, 0, len(body))
+			for key := range body {
+				keys = append(keys, key)
+			}
+			sort.Strings(keys)
+			if strings.Join(keys, ",") != strings.Join(tc.keys, ",") {
+				t.Fatal("diagnostic response envelope changed")
+			}
+			if tc.path == "/api/v1/meta" {
+				var meta map[string]json.RawMessage
+				if err := json.Unmarshal(body["data"], &meta); err != nil {
+					t.Fatal(err)
+				}
+				for _, key := range []string{"name", "version", "commit", "build_time", "environment", "instance_id", "server_time"} {
+					if _, ok := meta[key]; !ok {
+						t.Fatalf("metadata required field missing: %s", key)
+					}
+				}
+				if string(meta["instance_id"]) != "null" {
+					t.Fatal("missing instance ID must remain explicit null")
+				}
+				return
+			}
+			var state, checkedAt string
+			if json.Unmarshal(body["status"], &state) != nil || state != tc.state {
+				t.Fatal("diagnostic status contract changed")
+			}
+			if json.Unmarshal(body["checked_at"], &checkedAt) != nil {
+				t.Fatal("checked_at must be a string")
+			}
+			if _, err := time.Parse(time.RFC3339Nano, checkedAt); err != nil {
+				t.Fatal("checked_at must be RFC3339")
+			}
+			if tc.path == "/readyz" {
+				var checks map[string]checkResult
+				if json.Unmarshal(body["checks"], &checks) != nil || len(checks) != 2 {
+					t.Fatal("readiness checks contract changed")
+				}
+				for _, key := range []string{"database", "schema"} {
+					if checks[key].Status != "up" && checks[key].Status != "down" {
+						t.Fatal("invalid readiness check status")
+					}
+				}
+			}
+		})
 	}
 }

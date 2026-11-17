@@ -16,12 +16,14 @@ const theme = useThemeStore()
 const title = computed(() => (typeof route.meta.title === 'string' ? route.meta.title : 'Nexora'))
 
 const environmentLabel = computed(() => {
+  if (system.loading) return '检查中'
   if (!system.meta) return '未连接'
-  return system.meta.environment === 'production' ? '生产环境' : '开发环境'
+  const labels = { production: '生产环境', test: '测试环境', development: '开发环境' }
+  return labels[system.meta.environment]
 })
 
 const environmentTone = computed(() => {
-  if (system.error) return 'bg-danger'
+  if (system.apiState === 'down') return 'bg-danger'
   if (system.meta) return 'bg-accent'
   return 'bg-ink-subtle'
 })

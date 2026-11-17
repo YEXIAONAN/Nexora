@@ -7,6 +7,7 @@
 | Go | 1.26+ |
 | Node.js | 24+ |
 | pnpm | 10+ |
+| Python | 3.9+，密钥扫描和扫描器回归仅使用标准库 |
 | Docker | 24+，含 Compose v2 |
 
 ## 首次启动
@@ -34,6 +35,8 @@ make dev-web      # http://127.0.0.1:5173
 | 容器化 Web（full profile） | http://localhost:3000 |
 
 Vite 代理 `/api`、`/healthz`、`/readyz` 到 `127.0.0.1:8080`，浏览器同源请求不需要 CORS。
+
+本机 API 默认和 Compose 宿主机发布端口均限制在 loopback；容器内部 API 显式监听 `:8080`。开发 Compose 不是生产部署配置，生产环境要求见部署说明。`make verify` 不执行数据库迁移或写库测试；集成测试必须另行配置独立可丢弃数据库，见测试说明。
 
 ## 常用命令
 

@@ -4,6 +4,8 @@
 
 **模块化单体后端 + 前后端分离 + 单实例多团队隔离**。
 
+以上多团队及后续贡献、奖金模块仍属正式目标架构（V2.0 PRD）。另有 V1.0 单团队缩围提案（优先 ZERO_R 的任务、成果及验收），尚待产品负责人批准，未生效，不得据此删减多 Team 与独立角色设计。当前工程工作代号 Phase 01 仅修复工程基线，Phase 02 开发身份认证与权限，不在本阶段增加业务模块；阶段代号不构成产品范围决策。
+
 不引入微服务、消息队列或 Kubernetes。当前规模下，模块化单体可以用事务保证一致性与部署简单性；模块边界通过包结构与数据库约束维持。
 
 ```text
@@ -61,7 +63,7 @@ Phase 1 起按业务模块增加 `internal/<module>`，每个模块内部再按 
 | 变量 | 默认 | 说明 |
 | --- | --- | --- |
 | `NEXORA_ENV` | development | development / test / production |
-| `NEXORA_HTTP_ADDR` | :8080 | 监听地址 |
+| `NEXORA_HTTP_ADDR` | 127.0.0.1:8080 | 本机进程默认仅监听 loopback；容器内部显式使用 :8080 |
 | `NEXORA_DATABASE_URL` | 必填 | PostgreSQL DSN |
 | `NEXORA_LOG_LEVEL` | info | debug / info / warn / error |
 | `NEXORA_MIGRATE_ON_START` | false | 仅开发可用；生产为 true 时启动失败 |
@@ -87,7 +89,7 @@ Phase 1 起按业务模块增加 `internal/<module>`，每个模块内部再按 
 - 结构化 JSON 日志输出到 stdout，由容器运行时收集。
 - 每个请求一个 `request_id`，错误响应携带同一 ID。
 - 健康检查分离：`/healthz` 只验证进程；`/readyz` 验证数据库与 Schema。
-- 不记录密码、DSN、令牌；DSN 在日志中脱敏。
+- 不记录密码、DSN、令牌；连接诊断仅保留 URL 端点及数据库名，用户信息掩码、全部查询参数移除。URL 解析失败不回显原始输入；数据库错误日志仅保留操作、错误类别及合法 SQLSTATE，原始错误仍供内部 `errors.Is/As` 判断，不输出其文本。
 
 ## 失败处理
 
