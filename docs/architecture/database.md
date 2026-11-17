@@ -38,15 +38,112 @@
 
 `goose_db_version` 由 goose 自动维护，`/readyz` 读取其中最高已应用版本。
 
-## 计划中的核心表（Phase 1–5）
+## Phase 02 Schema（已设计，随方案 B 批准；实现状态见 PRD）
 
-以下为设计方向，尚未创建；实现前会补充字段、约束、索引与迁移。
+迁移 `00002_auth.sql` 与 `00003_teams.sql` 追加于版本 1 之后；不修改已发布的 `00001_baseline.sql`。必须能在全新数据库运行，也能从版本 1 安全升级；Down 提供可逆回滚（开发验证）。
+
+### `users`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | uuid | 主键，默认 `gen_random_uuid()` |
+| `username` | text | NOT NULL UNIQUE，`CHECK (username ~ '^[a-z0-9_-]{3,32}$')`（服务层统一小写） |
+| `display_name` | text | NOT NULL DEFAULT ''，长度 ≤ 64 |
+| `password_hash` | text | NOT NULL，Argon2id PHC 格式，非空白 |
+| `system_root` | boolean | NOT NULL DEFAULT false；部分唯一索引 `users_single_system_root ON users (system_root) WHERE system_root` 保证全库唯一 ROOT |
+| `created_at` / `updated_at` | timestamptz | NOT NULL DEFAULT now() |
+
+### `sessions`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | uuid | 主键 |
+| `user_id` | uuid | NOT NULL，FK → users，ON DELETE RESTRICT |
+| `token_hash` | text | NOT NULL UNIQUE，`CHECK (~ '^[0-9a-f]{64}$')`（SHA-256 hex，不存原始令牌） |
+| `user_agent` | text | NOT NULL DEFAULT ''，≤ 256 |
+| `created_at` / `expires_at` | timestamptz | NOT NULL；`CHECK (expires_at > created_at)` |
+| `revoked_at` | timestamptz | NULL；`CHECK (revoked_at IS NULL OR revoked_at >= created_at)` |
+
+索引：`(user_id)`、`(expires_at)`。有效会话判定：`expires_at > now() AND revoked_at IS NULL`。
+
+### `platform_roles`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `user_id` | uuid | NOT NULL，FK → users RESTRICT；与 role 组成主键 |
+| `role` | text | NOT NULL，`CHECK (role IN ('platform_admin'))` |
+| `granted_by` | uuid | NOT NULL，FK → users RESTRICT |
+| `created_at` | timestamptz | NOT NULL DEFAULT now() |
+
+ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予平台角色（服务层 409）。
+
+### `audit_events`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | bigint | GENERATED ALWAYS AS IDENTITY 主键 |
+| `actor_id` | uuid | NULL（登录失败等无身份事件），FK → users RESTRICT |
+| `action` | text | NOT NULL，非空白 |
+| `target_type` / `target_id` | text / uuid | NULL |
+| `team_id` | uuid | NULL；FK → teams（在 00003 中追加）RESTRICT |
+| `request_id` | text | NOT NULL DEFAULT '' |
+| `details` | jsonb | NOT NULL DEFAULT '{}'（前后状态、原因；禁止密码/Cookie/原始令牌） |
+| `created_at` | timestamptz | NOT NULL DEFAULT now() |
+
+索引：`(team_id, created_at)`、`(actor_id, created_at)`、`(target_type, target_id)`、`(created_at)`。**追加写**：触发器 `audit_events_no_mutation` 禁止 UPDATE/DELETE。业务变更与审计同事务。
+
+### `teams`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | uuid | 主键 |
+| `name` | text | NOT NULL，`CHECK (length(btrim(name)) BETWEEN 1 AND 64)` |
+| `description` | text | NOT NULL DEFAULT ''，≤ 500 |
+| `created_by` | uuid | NOT NULL，FK → users RESTRICT |
+| `created_at` / `updated_at` | timestamptz | NOT NULL DEFAULT now() |
+| `archived_at` | timestamptz | NULL（归档能力后续阶段实现，列先行保留） |
+
+### `team_members`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `team_id` | uuid | NOT NULL，FK → teams RESTRICT；与 user_id 组成主键 |
+| `user_id` | uuid | NOT NULL，FK → users RESTRICT |
+| `role` | text | NOT NULL，`CHECK (role IN ('owner','admin','member'))` |
+| `status` | text | NOT NULL DEFAULT 'active'，`CHECK (status IN ('active','removed'))` |
+| `created_at` / `updated_at` | timestamptz | NOT NULL DEFAULT now() |
+| `removed_at` | timestamptz | NULL；`CHECK` 保证 active↔NULL、removed↔NOT NULL 一致 |
+
+索引：`(user_id, status)`（我的团队列表）、部分索引 `(team_id) WHERE status='active' AND role='owner'`（最后 owner 计数）。
+触发器 `team_members_last_owner_guard`：拒绝使团队失去最后一名 active owner 的 UPDATE/DELETE；服务层成员/角色变更前对 `teams` 行 `FOR UPDATE` 串行化，保证并发下触发器计数正确。
+主键 `(team_id, user_id)` 同时是未来跨表关联的复合外键目标（如项目成员引用 `(team_id, user_id)`），防止跨 Team 错误挂接。
+
+### `team_invitations`
+
+| 列 | 类型 | 约束 |
+| --- | --- | --- |
+| `id` | uuid | 主键 |
+| `team_id` | uuid | NOT NULL，FK → teams RESTRICT |
+| `invited_user_id` | uuid | NOT NULL，FK → users RESTRICT（仅限已存在账号） |
+| `invited_by` | uuid | NOT NULL，FK → users RESTRICT |
+| `role` | text | NOT NULL，`CHECK (role IN ('admin','member'))`（owner 不可经邀请产生） |
+| `status` | text | NOT NULL DEFAULT 'pending'，`CHECK (status IN ('pending','accepted','declined','cancelled'))` |
+| `expires_at` | timestamptz | NOT NULL，`CHECK (expires_at > created_at)`；过期为时间派生态，接受时校验 |
+| `created_at` / `updated_at` | timestamptz | NOT NULL DEFAULT now() |
+| `responded_at` | timestamptz | NULL；`CHECK` 保证 pending↔NULL、非 pending↔NOT NULL 一致 |
+
+索引：部分唯一索引 `(team_id, invited_user_id) WHERE status='pending'`（重复邀请防护）、`(invited_user_id, status)`、`(team_id, status)`。
+接受流程：事务内对邀请行与团队行加锁，校验 pending/未过期/接受人=被邀请者，成员关系只能写入邀请所属 Team。
+
+## 计划中的核心表（Phase 03 起）
+
+以下为设计方向，尚未创建；实现前会补充字段、约束、索引与迁移。身份、审计与团队表已在上方“Phase 02 Schema”完成设计（2026-11-17），此处保留领域总览。
 
 | 领域 | 表 | 关键约束 |
 | --- | --- | --- |
-| 身份 | `users`、`sessions`、`platform_roles` | `users.system_root boolean` 唯一真值；ROOT 唯一部分索引 |
-| 审计 | `audit_events` | 追加写；actor、action、target_type、target_id、team_id、before/after、request_id |
-| 团队 | `teams`、`team_members` | `(team_id,user_id)` 唯一；角色枚举 |
+| 身份 | `users`、`sessions`、`platform_roles` | 见 Phase 02 Schema；`users.system_root` 唯一真值 + ROOT 唯一部分索引 |
+| 审计 | `audit_events` | 见 Phase 02 Schema；追加写、同事务、禁敏感载荷 |
+| 团队 | `teams`、`team_members`、`team_invitations` | 见 Phase 02 Schema；`(team_id,user_id)` 主键；角色枚举；最后 owner 触发器 |
 | 项目 | `projects`、`project_members`、`milestones` | `team_id` 外键；负责人必须是团队成员 |
 | 任务 | `tasks`、`task_collaborators`、`task_dependencies` | `depth <= 3`；父子同项目；依赖唯一且无自环 |
 | 成果 | `task_submissions`、`task_submission_versions`、`task_reviews` | 版本不可变；验收引用具体版本 |

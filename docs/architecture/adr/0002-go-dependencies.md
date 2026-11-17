@@ -15,6 +15,8 @@
 
 依赖版本锁定在 `go.mod` / `go.sum`。不使用 ORM；SQL 显式编写并由集成测试覆盖。
 
+> 2026-11-17 增补（Phase 02，随方案 B 批准）：新增 `golang.org/x/crypto`（Argon2id 密码哈希）与 `golang.org/x/term`（ROOT 引导无回显读密码），决策与参数见 [ADR 0006](0006-auth-session-security.md)。
+
 ## 后果
 
 - 需要手写 SQL 与 Repository 映射。
