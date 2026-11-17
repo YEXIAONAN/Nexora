@@ -12,6 +12,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 )
 
 // SystemStore is the slice of platform state the HTTP layer needs. Keeping it
@@ -24,17 +25,19 @@ type SystemStore interface {
 
 // Server holds the dependencies shared by all handlers.
 type Server struct {
-	cfg         config.Config
-	logger      *slog.Logger
-	system      SystemStore
-	authSvc     *auth.Service
-	authHandler *auth.Handler
+	cfg          config.Config
+	logger       *slog.Logger
+	system       SystemStore
+	authSvc      *auth.Service
+	authHandler  *auth.Handler
+	teamsHandler *teams.Handler
 }
 
 // New builds an HTTP server binding. The auth dependencies may be nil in
-// tests that only exercise diagnostics; auth routes are then not mounted.
-func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler) *Server {
-	return &Server{cfg: cfg, logger: logger, system: system, authSvc: authSvc, authHandler: authHandler}
+// tests that only exercise diagnostics; auth and team routes are then not
+// mounted. The teams handler requires the auth middleware to be active.
+func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler, teamsHandler *teams.Handler) *Server {
+	return &Server{cfg: cfg, logger: logger, system: system, authSvc: authSvc, authHandler: authHandler, teamsHandler: teamsHandler}
 }
 
 // Handler returns the fully configured router.
@@ -67,6 +70,9 @@ func (s *Server) Handler() http.Handler {
 				r.Use(auth.CSRF)
 				r.Use(auth.Middleware(s.authSvc))
 				s.authHandler.AuthenticatedRoutes(r)
+				if s.teamsHandler != nil {
+					s.teamsHandler.AuthenticatedRoutes(r)
+				}
 			})
 		}
 	})

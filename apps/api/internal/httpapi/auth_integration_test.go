@@ -20,6 +20,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/testdb"
 )
 
@@ -40,17 +41,21 @@ func newAuthAPIFixture(t *testing.T, env config.Environment, maxFailures int) *h
 		LoginMaxFailures: maxFailures,
 		LoginWindow:      15 * time.Minute,
 	}
-	svc := auth.NewService(auth.NewRepository(fixture.Pool), audit.NewRepository(fixture.Pool), auth.NewLoginLimiter(cfg.LoginMaxFailures, cfg.LoginWindow), cfg.SessionTTL, logger)
+	auditRepo := audit.NewRepository(fixture.Pool)
+	svc := auth.NewService(auth.NewRepository(fixture.Pool), auditRepo, auth.NewLoginLimiter(cfg.LoginMaxFailures, cfg.LoginWindow), cfg.SessionTTL, logger)
 	handler := auth.NewHandler(svc, cfg.CookieSecure(), cfg.SessionTTL, logger)
-	server := New(cfg, logger, system.NewRepository(fixture.Pool), svc, handler)
-	return &httpAPIFixture{handler: server.Handler(), svc: svc, t: t, ctx: ctx}
+	teamsSvc := teams.NewService(teams.NewRepository(fixture.Pool), svc, auditRepo, logger)
+	teamsHandler := teams.NewHandler(teamsSvc, logger)
+	server := New(cfg, logger, system.NewRepository(fixture.Pool), svc, handler, teamsHandler)
+	return &httpAPIFixture{handler: server.Handler(), svc: svc, teamsSvc: teamsSvc, t: t, ctx: ctx}
 }
 
 type httpAPIFixture struct {
-	handler http.Handler
-	svc     *auth.Service
-	t       *testing.T
-	ctx     context.Context
+	handler  http.Handler
+	svc      *auth.Service
+	teamsSvc *teams.Service
+	t        *testing.T
+	ctx      context.Context
 }
 
 func (f *httpAPIFixture) do(method, path string, body any, cookie *http.Cookie, csrf bool) *httptest.ResponseRecorder {

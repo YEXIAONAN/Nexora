@@ -222,6 +222,24 @@ func (s *Service) BootstrapRoot(ctx context.Context, username, password string) 
 	return user, nil
 }
 
+// Account is the minimal account view shared with other modules (for example
+// team invitations). It never carries password hashes or session data.
+type Account struct {
+	ID          uuid.UUID
+	Username    string
+	DisplayName string
+}
+
+// AccountByUsername resolves an existing account for cross-module lookups.
+// Usernames are normalized the same way as at login.
+func (s *Service) AccountByUsername(ctx context.Context, username string) (Account, error) {
+	u, err := s.repo.UserByUsername(ctx, s.repo.pool, strings.ToLower(strings.TrimSpace(username)))
+	if err != nil {
+		return Account{}, err
+	}
+	return Account{ID: u.ID, Username: u.Username, DisplayName: u.DisplayName}, nil
+}
+
 // RootInitialized reports whether the installation already has its ROOT.
 func (s *Service) RootInitialized(ctx context.Context) (bool, error) {
 	return s.repo.RootExists(ctx, s.repo.pool)
