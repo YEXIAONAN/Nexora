@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable browser E2E stack for the Phase 02 frontend closure.
+# Disposable browser E2E stack for the Phase 02/03 real API frontend workflows.
 #
 # Safety boundary: this script only ever talks to the disposable devtest
 # PostgreSQL container (nexora-devtest-pg, loopback 127.0.0.1:5433) and only

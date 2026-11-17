@@ -44,6 +44,18 @@ const router = createRouter({
       meta: { title: '团队成员', requiresAuth: true },
     },
     {
+      path: '/teams/:teamId/projects',
+      name: 'projects',
+      component: () => import('@/views/ProjectsView.vue'),
+      meta: { title: '项目', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/projects/:projectId',
+      name: 'project-detail',
+      component: () => import('@/views/ProjectDetailView.vue'),
+      meta: { title: '项目工作区', requiresAuth: true },
+    },
+    {
       path: '/invitations',
       name: 'invitations',
       component: () => import('@/views/InvitationsView.vue'),

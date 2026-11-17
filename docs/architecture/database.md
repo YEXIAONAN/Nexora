@@ -38,7 +38,7 @@
 
 `goose_db_version` 由 goose 自动维护，`/readyz` 读取其中最高已应用版本。
 
-## Phase 02 Schema（已开发并验证，PR #2 待合并）
+## Phase 02 Schema（已合并并验证）
 
 迁移 `00002_auth.sql` 与 `00003_teams.sql` 追加于版本 1 之后；不修改已发布的 `00001_baseline.sql`。两个迁移已在全新数据库与版本 1 升级路径上运行，并在一次性测试库完成 up/down/up 回滚验证（2026-11-17）；未触碰运行中的开发数据库。
 
@@ -135,16 +135,16 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 索引：部分唯一索引 `(team_id, invited_user_id) WHERE status='pending'`（重复邀请防护）、`(invited_user_id, status)`、`(team_id, status)`。
 接受流程：事务内对邀请行与团队行加锁，校验 pending/未过期/接受人=被邀请者，成员关系只能写入邀请所属 Team。
 
-## 计划中的核心表（Phase 03 起）
+## 领域总览与后续规划
 
-以下为设计方向，尚未创建；实现前会补充字段、约束、索引与迁移。身份、审计与团队表已在上方“Phase 02 Schema”实现并验证（2026-11-17），此处保留领域总览。
+身份、审计与团队为已合并基线；项目/任务的特性分支 Schema 见下方 Phase 03 章节，尚未合入 develop。成果、贡献与奖金仍为后续设计，此处保留领域总览。
 
 | 领域 | 表 | 关键约束 |
 | --- | --- | --- |
 | 身份 | `users`、`sessions`、`platform_roles` | 见 Phase 02 Schema；`users.system_root` 唯一真值 + ROOT 唯一部分索引 |
 | 审计 | `audit_events` | 见 Phase 02 Schema；追加写、同事务、禁敏感载荷 |
 | 团队 | `teams`、`team_members`、`team_invitations` | 见 Phase 02 Schema；`(team_id,user_id)` 主键；角色枚举；最后 owner 触发器 |
-| 项目 | `projects`、`project_members`、`milestones` | `team_id` 外键；负责人必须是团队成员 |
+| 项目 | `projects`、`project_members`、`project_milestones` | `team_id` 外键；负责人必须是团队成员 |
 | 任务 | `tasks`、`task_collaborators`、`task_dependencies` | `depth <= 3`；父子同项目；依赖唯一且无自环 |
 | 成果 | `task_submissions`、`task_submission_versions`、`task_reviews` | 版本不可变；验收引用具体版本 |
 | 贡献 | `contributions`、`contribution_revisions` | 已确认记录不覆盖；修订保留前后值 |
@@ -161,3 +161,26 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 ## 备份
 
 数据库备份与 Git 仓库分离。备份、恢复与验证流程见 [备份与恢复](../operations/backup-restore.md)。
+
+## Phase 03 设计增补（2026-11-17）
+
+数据库结构、复合外键、锁与历史策略见 [Phase 03 设计说明](../development/phase-03-design.md)。本次任务规则优先于前文历史规划；Phase 02 已合并于 develop `c3fb029`。实现验证另见阶段报告。
+
+## Phase 03 Schema（特性分支开发与验证）
+
+新增 `00004_projects.sql`、`00005_tasks.sql`，版本 3 → 5；00001–00003 原样保留。
+
+| 表 | 约束与索引 |
+| --- | --- |
+| projects | UUID；UNIQUE(team_id,id)；负责人复合 FK→team_members；active/archived 一致性；version；计划先后；Team/创建时间、负责人索引 |
+| project_members | PK(team_id,project_id,user_id)；复合项目及 Team 成员 FK；active/removed；用户/状态索引；lead 角色由 projects.lead_id 唯一推导，避免角色与负责人列不一致 |
+| project_milestones | UUID；复合项目 FK；名称/说明/计划时间/version；项目索引 |
+| tasks | UUID；UNIQUE(team_id,project_id,id)；复合项目/父任务/项目成员 FK；depth 1–3；六状态枚举；actual 0–99；weight 1–1000000；取消原因；version；项目树/负责人索引 |
+| task_collaborators | 复合主键与任务/项目成员 FK；用户索引 |
+| task_dependencies | UUID；同项目复合端点 FK；非自环/唯一；忽略 actor/time/reason 一致性；反向依赖索引 |
+| task_progress_history | bigint；复合任务 FK；actor、old/new 状态/进度/权重、原因、变更前后项目 bps、request_id、时间；追加式触发器；任务/id 倒序索引 |
+| project_progress_snapshots | bigint；复合任务 FK；actor、事件、精确 numeric 分子/分母、bps、有效叶子数、request_id、时间；追加式触发器；项目/id 倒序索引 |
+
+沿用 FK RESTRICT。历史两表复用 audit 的禁止 UPDATE/DELETE 函数，不复制追加写基础设施。task_progress_history 同时保存执行与权重事件，避免另建重复的权重历史表。project_milestones 使用明确模块前缀。
+
+跨行规则由 Team 行锁 + Service 校验承担；延迟结构触发器验证最终父子 depth 差值，严格递增的深度同时排除环。执行触发器拒绝未接入 Phase 04 的状态，校验 active owner；退出保护触发器要求项目负责人先交接，Team 移除后失效项目成员资格。普通 CHECK 不用于声称保证 active 成员或递归无环。历史时间及新业务更新时间使用 clock_timestamp() 记录锁后操作时刻，业务可见性在事务提交时生效。

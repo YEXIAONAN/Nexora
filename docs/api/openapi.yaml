@@ -5,9 +5,8 @@ info:
   description: |
     Nexora V1.0 的 HTTP 接口契约。
 
-    当前处于 Phase 02（认证、团队与权限）：包含存活/就绪检查、实例元数据、
-    认证与会话、ROOT 引导状态、平台管理接口，以及团队、成员角色与受控邀请接口。
-    项目、任务、验收、贡献与奖金接口将在后续阶段加入，并在实现前先更新本文件。
+    Phase 03 增加项目、三级任务、状态机、依赖、权重进度与追加式历史。
+    Phase 04 成果版本与正式验收尚未实现，禁止直接进入待验收/完成/驳回。
 
     约定：
     - 所有时间均为 UTC，使用 RFC 3339 表示。
@@ -28,6 +27,10 @@ tags:
     description: 平台管理（ROOT 与平台管理员）
   - name: Teams
     description: 团队、成员角色与受控邀请（Team 内权限独立于平台角色）
+  - name: Projects
+    description: 项目、成员、里程碑、归档与交接
+  - name: Tasks
+    description: 授权任务树、依赖、执行进度与历史
 paths:
   /healthz:
     get:
@@ -763,6 +766,1117 @@ paths:
           $ref: '#/components/responses/Forbidden'
         '500':
           $ref: '#/components/responses/InternalError'
+  "/api/v1/teams/{teamID}/projects":
+    "get":
+      "tags":
+        - "Projects"
+      "operationId": "listProjects"
+      "summary": "当前 Team 项目概况（active 成员）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectsEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "post":
+      "tags":
+        - "Projects"
+      "operationId": "createProject"
+      "summary": "创建项目（Team owner/admin）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CreateProjectRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}":
+    "get":
+      "tags":
+        - "Projects"
+      "operationId": "getProject"
+      "summary": "项目概况（active Team 成员）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "patch":
+      "tags":
+        - "Projects"
+      "operationId": "editProject"
+      "summary": "编辑项目（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/EditProjectRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/archive":
+    "post":
+      "tags":
+        - "Projects"
+      "operationId": "archiveProject"
+      "summary": "归档项目，之后严格只读（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/VersionRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/handoff":
+    "post":
+      "tags":
+        - "Projects"
+      "operationId": "handoffProject"
+      "summary": "显式交接负责人（项目负责人或 Team owner/admin，必须原因）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/HandoffRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/members":
+    "get":
+      "tags":
+        - "Projects"
+      "operationId": "listProjectMembers"
+      "summary": "项目成员（active Team 成员可读）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectMembersEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "post":
+      "tags":
+        - "Projects"
+      "operationId": "addProjectMember"
+      "summary": "添加 active Team 成员为项目参与者（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectMembersEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/AddProjectMemberRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/members/{userID}":
+    "delete":
+      "tags":
+        - "Projects"
+      "operationId": "removeProjectMember"
+      "summary": "软移除项目成员，无活跃分配方可移除（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/UserID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProjectMembersEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/teams/{teamID}/projects/{projectID}/milestones":
+    "get":
+      "tags":
+        - "Projects"
+      "operationId": "listMilestones"
+      "summary": "项目里程碑计划"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/MilestonesEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "post":
+      "tags":
+        - "Projects"
+      "operationId": "createMilestone"
+      "summary": "创建里程碑计划（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/MilestoneEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CreateMilestoneRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/milestones/{milestoneID}":
+    "patch":
+      "tags":
+        - "Projects"
+      "operationId": "editMilestone"
+      "summary": "编辑里程碑计划（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/MilestoneID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/MilestoneEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/EditMilestoneRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks":
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "getTaskTree"
+      "summary": "授权任务树、依赖和服务端聚合进度"
+      "description": "项目负责人可读全部；参与者仅返回自己承担/协作的节点，其他任务内容不泄露。父节点汇总后代叶子；前端不另算进度。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskTreeEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "createTask"
+      "summary": "创建任务（项目负责人，最多三级）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CreateTaskRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}":
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "getTask"
+      "summary": "读取授权任务"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+    "put":
+      "tags":
+        - "Tasks"
+      "operationId": "editTask"
+      "summary": "编辑/分配任务（项目负责人）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/EditTaskRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/move":
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "moveTask"
+      "summary": "移动子树（项目负责人，无环且最多三级）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/MoveTaskRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/transition":
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "transitionTask"
+      "summary": "叶子开始或取消（授权执行者/负责人）"
+      "description": "Phase 03 仅 pending→in_progress、pending/in_progress→cancelled，取消必须原因；其他转换 409。阻塞禁止开始。协作者不可取消，归档/父节点/失效负责人不可执行。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/TransitionTaskRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/progress":
+    "put":
+      "tags":
+        - "Tasks"
+      "operationId": "recordTaskProgress"
+      "summary": "记录执行进度（授权负责人/协作者）"
+      "description": "仅 in_progress 叶子且未阻塞。actual_progress 整数 0–99，有效进度最高 79%，不等于正式验收完成。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/TaskProgressRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/weight":
+    "put":
+      "tags":
+        - "Tasks"
+      "operationId": "changeTaskWeight"
+      "summary": "变更叶子权重（项目负责人，必须原因）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/TaskWeightRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/dependencies":
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "createDependency"
+      "summary": "建立前置依赖（项目负责人）"
+      "description": "仅同项目非取消叶子之间；目标须 pending；禁止自环、重复、全图环（含已忽略边）；前置取消不解除阻塞。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/DependencyEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/CreateDependencyRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/dependencies/{dependencyID}/ignore":
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "ignoreDependency"
+      "summary": "显式忽略指定依赖（项目负责人，必须原因）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/DependencyID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/DependencyEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/IgnoreDependencyRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/history":
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "getTaskHistory"
+      "summary": "追加式任务执行/权重历史（有任务读取权限）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskHistoriesEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/teams/{teamID}/projects/{projectID}/progress":
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "getProjectProgress"
+      "summary": "服务端统一权威进度"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProgressEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+  "/api/v1/teams/{teamID}/projects/{projectID}/progress/history":
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "getProjectProgressHistory"
+      "summary": "不可覆盖的项目进度快照（最新 200 条）"
+      "description": "实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+      "responses":
+        "200":
+          "description": "操作成功"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProgressSnapshotsEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
 components:
   securitySchemes:
     sessionCookie:
@@ -800,6 +1914,34 @@ components:
       schema:
         type: string
         format: uuid
+    "ProjectID":
+      "name": "projectID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "TaskID":
+      "name": "taskID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "MilestoneID":
+      "name": "milestoneID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "DependencyID":
+      "name": "dependencyID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
   responses:
     BadRequest:
       description: 请求体或路径参数非法
@@ -1325,3 +2467,861 @@ components:
             status:
               type: string
               enum: [declined]
+
+    "Progress":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "progress_bps"
+        - "weighted_sum"
+        - "total_weight"
+        - "leaf_count"
+      "properties":
+        "progress_bps":
+          "type": "integer"
+        "weighted_sum":
+          "type": "string"
+        "total_weight":
+          "type": "string"
+        "leaf_count":
+          "type": "integer"
+    "Project":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "team_id"
+        - "name"
+        - "description"
+        - "lead_id"
+        - "status"
+        - "planned_start_at"
+        - "planned_end_at"
+        - "archived_at"
+        - "version"
+        - "created_by"
+        - "created_at"
+        - "updated_at"
+        - "can_manage"
+        - "can_handoff"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "team_id":
+          "type": "string"
+          "format": "uuid"
+        "name":
+          "type": "string"
+        "description":
+          "type": "string"
+        "lead_id":
+          "type": "string"
+          "format": "uuid"
+        "status":
+          "type": "string"
+          "enum":
+            - "active"
+            - "archived"
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "archived_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "version":
+          "type": "integer"
+          "minimum": 1
+        "created_by":
+          "type": "string"
+          "format": "uuid"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "updated_at":
+          "type": "string"
+          "format": "date-time"
+        "can_manage":
+          "type": "boolean"
+        "can_handoff":
+          "type": "boolean"
+    "CreateProjectRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "name"
+        - "lead_id"
+      "properties":
+        "name":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 120
+        "description":
+          "type": "string"
+          "maxLength": 4000
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "lead_id":
+          "type": "string"
+          "format": "uuid"
+    "EditProjectRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "name"
+        - "expected_version"
+      "properties":
+        "name":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 120
+        "description":
+          "type": "string"
+          "maxLength": 4000
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "VersionRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "expected_version"
+      "properties":
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "HandoffRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "lead_id"
+        - "reason"
+        - "expected_version"
+      "properties":
+        "lead_id":
+          "type": "string"
+          "format": "uuid"
+        "reason":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 1000
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "ProjectMember":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "user_id"
+        - "username"
+        - "display_name"
+        - "role"
+        - "active"
+      "properties":
+        "user_id":
+          "type": "string"
+          "format": "uuid"
+        "username":
+          "type": "string"
+        "display_name":
+          "type": "string"
+        "role":
+          "type": "string"
+          "enum":
+            - "lead"
+            - "participant"
+        "active":
+          "type": "boolean"
+    "AddProjectMemberRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "user_id"
+      "properties":
+        "user_id":
+          "type": "string"
+          "format": "uuid"
+    "Milestone":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "team_id"
+        - "project_id"
+        - "name"
+        - "description"
+        - "planned_at"
+        - "version"
+        - "created_at"
+        - "updated_at"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "team_id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "name":
+          "type": "string"
+        "description":
+          "type": "string"
+        "planned_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "version":
+          "type": "integer"
+          "minimum": 1
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "updated_at":
+          "type": "string"
+          "format": "date-time"
+    "CreateMilestoneRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "name"
+      "properties":
+        "name":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 120
+        "description":
+          "type": "string"
+          "maxLength": 4000
+        "planned_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+    "EditMilestoneRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "name"
+        - "expected_version"
+      "properties":
+        "name":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 120
+        "description":
+          "type": "string"
+          "maxLength": 4000
+        "planned_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "CreateTaskRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "title"
+        - "owner_id"
+        - "weight"
+      "properties":
+        "title":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 200
+        "description":
+          "type": "string"
+          "maxLength": 8000
+        "owner_id":
+          "type": "string"
+          "format": "uuid"
+        "collaborator_ids":
+          "type": "array"
+          "items":
+            "type": "string"
+            "format": "uuid"
+          "maxItems": 50
+          "uniqueItems": true
+        "priority":
+          "type": "string"
+          "enum":
+            - "low"
+            - "normal"
+            - "high"
+            - "urgent"
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "parent_id":
+          "type":
+            - "string"
+            - "null"
+          "format": "uuid"
+        "weight":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 1000000
+    "EditTaskRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "title"
+        - "owner_id"
+        - "expected_version"
+      "properties":
+        "title":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 200
+        "description":
+          "type": "string"
+          "maxLength": 8000
+        "owner_id":
+          "type": "string"
+          "format": "uuid"
+        "collaborator_ids":
+          "type": "array"
+          "items":
+            "type": "string"
+            "format": "uuid"
+          "maxItems": 50
+          "uniqueItems": true
+        "priority":
+          "type": "string"
+          "enum":
+            - "low"
+            - "normal"
+            - "high"
+            - "urgent"
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "Task":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "team_id"
+        - "project_id"
+        - "parent_id"
+        - "depth"
+        - "title"
+        - "description"
+        - "owner_id"
+        - "collaborator_ids"
+        - "priority"
+        - "planned_start_at"
+        - "planned_end_at"
+        - "status"
+        - "actual_progress"
+        - "effective_progress_bps"
+        - "weight"
+        - "is_leaf"
+        - "blocked"
+        - "can_execute"
+        - "can_cancel"
+        - "cancellation_reason"
+        - "version"
+        - "created_by"
+        - "created_at"
+        - "updated_at"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "team_id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "parent_id":
+          "type":
+            - "string"
+            - "null"
+          "format": "uuid"
+        "depth":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 3
+        "title":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 200
+        "description":
+          "type": "string"
+          "maxLength": 8000
+        "owner_id":
+          "type": "string"
+          "format": "uuid"
+        "collaborator_ids":
+          "type": "array"
+          "items":
+            "type": "string"
+            "format": "uuid"
+          "maxItems": 50
+          "uniqueItems": true
+        "priority":
+          "type": "string"
+          "enum":
+            - "low"
+            - "normal"
+            - "high"
+            - "urgent"
+        "planned_start_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "planned_end_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "status":
+          "type": "string"
+          "enum":
+            - "pending"
+            - "in_progress"
+            - "awaiting_review"
+            - "completed"
+            - "rejected"
+            - "cancelled"
+        "actual_progress":
+          "type": "integer"
+          "minimum": 0
+          "maximum": 99
+        "effective_progress_bps":
+          "type": "integer"
+        "weight":
+          "type": "integer"
+        "is_leaf":
+          "type": "boolean"
+        "blocked":
+          "type": "boolean"
+        "can_execute":
+          "type": "boolean"
+        "can_cancel":
+          "type": "boolean"
+        "cancellation_reason":
+          "type": "string"
+        "version":
+          "type": "integer"
+          "minimum": 1
+        "created_by":
+          "type": "string"
+          "format": "uuid"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "updated_at":
+          "type": "string"
+          "format": "date-time"
+    "TransitionTaskRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "status"
+        - "expected_version"
+      "properties":
+        "status":
+          "type": "string"
+          "enum":
+            - "pending"
+            - "in_progress"
+            - "awaiting_review"
+            - "completed"
+            - "rejected"
+            - "cancelled"
+        "reason":
+          "type": "string"
+          "maxLength": 1000
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "TaskProgressRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "actual_progress"
+        - "expected_version"
+      "properties":
+        "actual_progress":
+          "type": "integer"
+          "minimum": 0
+          "maximum": 99
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "TaskWeightRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "weight"
+        - "reason"
+        - "expected_version"
+      "properties":
+        "weight":
+          "type": "integer"
+          "minimum": 1
+          "maximum": 1000000
+        "reason":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 1000
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "MoveTaskRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "parent_id"
+        - "expected_version"
+      "properties":
+        "parent_id":
+          "type":
+            - "string"
+            - "null"
+          "format": "uuid"
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "Dependency":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "team_id"
+        - "project_id"
+        - "task_id"
+        - "predecessor_id"
+        - "created_by"
+        - "created_at"
+        - "ignored_by"
+        - "ignored_at"
+        - "ignore_reason"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "team_id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "task_id":
+          "type": "string"
+          "format": "uuid"
+        "predecessor_id":
+          "type": "string"
+          "format": "uuid"
+        "created_by":
+          "type": "string"
+          "format": "uuid"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "ignored_by":
+          "type":
+            - "string"
+            - "null"
+          "format": "uuid"
+        "ignored_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "ignore_reason":
+          "type": "string"
+    "CreateDependencyRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "predecessor_id"
+        - "expected_version"
+      "properties":
+        "predecessor_id":
+          "type": "string"
+          "format": "uuid"
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "IgnoreDependencyRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "reason"
+        - "expected_version"
+      "properties":
+        "reason":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 1000
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "TaskTree":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "tasks"
+        - "dependencies"
+        - "progress"
+      "properties":
+        "tasks":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Task"
+        "dependencies":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Dependency"
+        "progress":
+          "$ref": "#/components/schemas/Progress"
+    "TaskHistory":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "task_id"
+        - "actor_id"
+        - "event_type"
+        - "old_status"
+        - "new_status"
+        - "old_progress"
+        - "new_progress"
+        - "old_weight"
+        - "new_weight"
+        - "reason"
+        - "before_project_bps"
+        - "after_project_bps"
+        - "request_id"
+        - "created_at"
+      "properties":
+        "id":
+          "type": "integer"
+          "format": "int64"
+        "task_id":
+          "type": "string"
+          "format": "uuid"
+        "actor_id":
+          "type": "string"
+          "format": "uuid"
+        "event_type":
+          "type": "string"
+        "old_status":
+          "type": "string"
+          "enum":
+            - "pending"
+            - "in_progress"
+            - "awaiting_review"
+            - "completed"
+            - "rejected"
+            - "cancelled"
+        "new_status":
+          "type": "string"
+          "enum":
+            - "pending"
+            - "in_progress"
+            - "awaiting_review"
+            - "completed"
+            - "rejected"
+            - "cancelled"
+        "old_progress":
+          "type": "integer"
+        "new_progress":
+          "type": "integer"
+        "old_weight":
+          "type": "integer"
+        "new_weight":
+          "type": "integer"
+        "reason":
+          "type": "string"
+        "before_project_bps":
+          "type": "integer"
+        "after_project_bps":
+          "type": "integer"
+        "request_id":
+          "type": "string"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+    "ProgressSnapshot":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "task_id"
+        - "actor_id"
+        - "event_type"
+        - "progress"
+        - "request_id"
+        - "created_at"
+      "properties":
+        "id":
+          "type": "integer"
+          "format": "int64"
+        "task_id":
+          "type": "string"
+          "format": "uuid"
+        "actor_id":
+          "type": "string"
+          "format": "uuid"
+        "event_type":
+          "type": "string"
+        "progress":
+          "$ref": "#/components/schemas/Progress"
+        "request_id":
+          "type": "string"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+    "ProjectEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/Project"
+    "ProjectsEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Project"
+    "ProjectMembersEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/ProjectMember"
+    "MilestoneEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/Milestone"
+    "MilestonesEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/Milestone"
+    "TaskEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/Task"
+    "TaskTreeEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/TaskTree"
+    "DependencyEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/Dependency"
+    "TaskHistoriesEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/TaskHistory"
+    "ProgressEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/Progress"
+    "ProgressSnapshotsEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/ProgressSnapshot"

@@ -160,6 +160,9 @@ test('the topbar switches between multiple teams', async ({ page }) => {
 test('a revoked session returns to the login page with an expiry notice', async ({ page }) => {
   await login(page, 'root', rootPassword)
   await openMembers(page, teamId)
+  // Wait for the initial member load before expiring the session; otherwise
+  // its 401 can redirect before the test clicks the refresh control.
+  await expect(page.getByRole('button', { name: '刷新', exact: true })).toBeEnabled()
   await page.context().clearCookies()
   await page.getByRole('button', { name: '刷新' }).click()
   await expect(page).toHaveURL(/\/login\?expired=1/)

@@ -39,6 +39,11 @@ async function submitCreate(): Promise<void> {
   }
 }
 
+function enterProjects(teamId: string): void {
+  teams.selectTeam(teamId)
+  void router.push({ name: 'projects', params: { teamId } })
+}
+
 function enterTeam(teamId: string): void {
   teams.selectTeam(teamId)
   void router.push({ name: 'team-members', params: { teamId } })
@@ -176,6 +181,9 @@ function enterTeam(teamId: string): void {
               @click="teams.selectTeam(team.id)"
             >
               设为当前
+            </button>
+            <button type="button" class="btn btn-primary" @click="enterProjects(team.id)">
+              项目
             </button>
             <button type="button" class="btn btn-primary" @click="enterTeam(team.id)">
               <AppIcon name="users" :size="15" />

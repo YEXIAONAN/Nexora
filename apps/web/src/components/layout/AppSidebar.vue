@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 
 import AppIcon from '@/components/ui/AppIcon.vue'
 import type { IconName } from '@/components/ui/icons'
+import { useTeamsStore } from '@/stores/teams'
 import { useAuthStore } from '@/stores/auth'
 
 defineProps<{ open: boolean }>()
@@ -11,6 +12,7 @@ defineEmits<{ close: [] }>()
 
 const appVersion = __APP_VERSION__
 const auth = useAuthStore()
+const teams = useTeamsStore()
 
 const navItems = computed<{ label: string; to: string; icon: IconName }[]>(() => {
   const items: { label: string; to: string; icon: IconName }[] = [
@@ -23,6 +25,8 @@ const navItems = computed<{ label: string; to: string; icon: IconName }[]>(() =>
       { label: '邀请收件箱', to: '/invitations', icon: 'inbox' },
     )
   }
+  if (auth.isAuthenticated && teams.currentTeamId)
+    items.push({ label: '项目', to: `/teams/${teams.currentTeamId}/projects`, icon: 'overview' })
   return items
 })
 </script>
@@ -91,10 +95,10 @@ const navItems = computed<{ label: string; to: string; icon: IconName }[]>(() =>
         <div class="rounded-lg border border-line bg-surface-muted px-3 py-3">
           <p class="flex items-center gap-2 text-xs font-medium text-ink">
             <AppIcon name="shield" :size="14" />
-            Phase 02 · 身份与团队
+            项目与任务
           </p>
           <p class="mt-1.5 text-xs leading-5 text-ink-subtle">
-            认证会话、ROOT 引导与团队权限已交付；项目与任务等业务模块自 Phase 03 起按阶段实现。
+            规划三级任务、协作执行，查看可追溯的项目进展。
           </p>
           <p class="mt-2 font-mono text-[11px] text-ink-subtle">v{{ appVersion }}</p>
         </div>

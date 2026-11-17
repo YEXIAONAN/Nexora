@@ -54,6 +54,12 @@ function cycleTheme(): void {
 async function onTeamChange(event: Event): Promise<void> {
   const teamId = (event.target as HTMLSelectElement).value
   teams.selectTeam(teamId)
+  if (
+    (route.name === 'projects' || route.name === 'project-detail') &&
+    teamId !== route.params.teamId
+  ) {
+    await router.push({ name: 'projects', params: { teamId } })
+  }
   if (route.name === 'team-members' && teamId !== route.params.teamId) {
     await router.push({ name: 'team-members', params: { teamId } })
   }

@@ -345,6 +345,9 @@ func (s *Service) ChangeMemberRole(ctx context.Context, actor reqctx.Identity, t
 			return httpx.Conflict("the member already holds this role")
 		}
 		changed, err := s.repo.UpdateMemberRole(ctx, tx, teamID, userID, role)
+		if errors.Is(err, ErrProjectLead) {
+			return httpx.Conflict("hand off all projects before leaving the team")
+		}
 		if errors.Is(err, ErrLastOwner) {
 			return httpx.Conflict("the team must retain at least one active owner")
 		}
@@ -380,6 +383,9 @@ func (s *Service) RemoveMember(ctx context.Context, actor reqctx.Identity, teamI
 			return &refusal{reason: "admin_cannot_remove_owner", err: httpx.Forbidden("team administrators cannot remove an owner")}
 		}
 		removed, err := s.repo.RemoveMember(ctx, tx, teamID, userID)
+		if errors.Is(err, ErrProjectLead) {
+			return httpx.Conflict("hand off all projects before leaving the team")
+		}
 		if errors.Is(err, ErrLastOwner) {
 			return httpx.Conflict("the team must retain at least one active owner")
 		}

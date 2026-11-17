@@ -92,7 +92,7 @@ function checkLabel(state: CheckState): string {
   <div class="space-y-6">
     <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">Phase 02</p>
+        <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">Phase 03</p>
         <h2 class="mt-1 text-xl font-semibold tracking-tight text-ink">系统总览</h2>
         <p class="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
           以下状态来自真实 API 与 PostgreSQL 检查，不使用前端模拟数据。
@@ -241,9 +241,9 @@ function checkLabel(state: CheckState): string {
       <div class="card-header">
         <div>
           <h3 class="text-sm font-semibold text-ink">本阶段范围</h3>
-          <p class="mt-0.5 text-xs text-ink-muted">Phase 02 交付身份、团队与权限</p>
+          <p class="mt-0.5 text-xs text-ink-muted">身份、团队、项目与任务工作区</p>
         </div>
-        <StatusBadge label="项目任务未包含" tone="warning" />
+        <StatusBadge label="成果验收尚未开放" tone="warning" />
       </div>
       <div class="grid gap-6 px-5 py-4 sm:grid-cols-2">
         <div>
@@ -259,6 +259,9 @@ function checkLabel(state: CheckState): string {
             <li class="flex gap-2">
               <span class="text-accent">·</span>多团队隔离、独立角色与受控邀请
             </li>
+            <li class="flex gap-2">
+              <span class="text-accent">·</span>项目、三级任务、依赖与权重进度
+            </li>
             <li class="flex gap-2"><span class="text-accent">·</span>追加写审计与统一错误响应</li>
             <li class="flex gap-2">
               <span class="text-accent">·</span>Docker Compose、CI 与备份脚本
@@ -268,8 +271,7 @@ function checkLabel(state: CheckState): string {
         <div>
           <p class="text-xs font-medium tracking-wider text-ink-subtle uppercase">尚未实现</p>
           <p class="mt-2 text-sm leading-6 text-ink-muted">
-            项目与三级任务、状态机与依赖、成果提交与验收、贡献核算、奖金分配、通知与导出。这些模块将在
-            Phase 03 起按设计逐步实现，不会以静态页面或模拟数据代替。
+            成果提交与正式验收、贡献核算、奖金分配、通知与导出。当前任务只能开始、记录进度或取消，正式完成须在后续验收功能中形成业务证据。
           </p>
         </div>
       </div>
