@@ -161,3 +161,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 ## 备份
 
 数据库备份与 Git 仓库分离。备份、恢复与验证流程见 [备份与恢复](../operations/backup-restore.md)。
+
+## Phase 03 设计增补（2026-11-17）
+
+数据库结构、复合外键、锁与历史策略见 [Phase 03 设计说明](../development/phase-03-design.md)。本次任务规则优先于前文历史规划；Phase 02 已合并于 develop `c3fb029`。实现验证另见阶段报告。

@@ -124,3 +124,7 @@ Phase 02 起按业务模块增加 `internal/<module>`，每个模块内部再按
 | exports | Excel/PDF/ZIP 导出 | V2.0 |
 
 模块之间通过 Service 调用与数据库事务协作，不直接跨模块写表；审计写入通过 `internal/audit` 的 Repository 在各业务事务内完成。
+
+## Phase 03 设计增补（2026-11-17）
+
+项目/任务模块及事务边界见 [Phase 03 设计说明](../development/phase-03-design.md)。本次任务规则优先于前文历史规划；Phase 02 已合并于 develop `c3fb029`。实现验证另见阶段报告。
