@@ -20,6 +20,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/tasks"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/version"
 )
@@ -76,7 +77,8 @@ func run() error {
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
 	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
 	projectsHandler := projects.NewHandler(projectsSvc, logger)
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler)
+	tasksHandler := tasks.NewHandler(tasks.NewService(tasks.NewRepository(), projectsSvc), logger)
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

@@ -9,6 +9,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
 	"log/slog"
 	"strings"
 	"time"
@@ -91,6 +92,10 @@ func (s *Service) withTeam(ctx context.Context, actor reqctx.Identity, teamID uu
 			s.logger.Warn("project refusal audit failed")
 		}
 		return d.err
+	}
+	var pe *pgconn.PgError
+	if errors.As(err, &pe) && pe.ConstraintName == "project_member_has_tasks" {
+		return httpx.Conflict("reassign active tasks before removing this project member")
 	}
 	if err != nil && !httpx.IsAPIError(err) {
 		return httpx.Internal(err)

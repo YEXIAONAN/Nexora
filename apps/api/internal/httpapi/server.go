@@ -12,7 +12,6 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 )
 
@@ -24,25 +23,25 @@ type SystemStore interface {
 	SchemaVersion(ctx context.Context) (int64, error)
 }
 
+type RouteModule interface{ AuthenticatedRoutes(chi.Router) }
+
 // Server holds the dependencies shared by all handlers.
 type Server struct {
-	cfg             config.Config
-	logger          *slog.Logger
-	system          SystemStore
-	authSvc         *auth.Service
-	authHandler     *auth.Handler
-	teamsHandler    *teams.Handler
-	projectsHandler *projects.Handler
+	cfg              config.Config
+	logger           *slog.Logger
+	system           SystemStore
+	authSvc          *auth.Service
+	authHandler      *auth.Handler
+	teamsHandler     *teams.Handler
+	businessHandlers []RouteModule
 }
 
 // New builds an HTTP server binding. The auth dependencies may be nil in
 // tests that only exercise diagnostics; auth and team routes are then not
 // mounted. The teams handler requires the auth middleware to be active.
-func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler, teamsHandler *teams.Handler, projectHandlers ...*projects.Handler) *Server {
+func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler, teamsHandler *teams.Handler, modules ...RouteModule) *Server {
 	server := &Server{cfg: cfg, logger: logger, system: system, authSvc: authSvc, authHandler: authHandler, teamsHandler: teamsHandler}
-	if len(projectHandlers) > 0 {
-		server.projectsHandler = projectHandlers[0]
-	}
+	server.businessHandlers = modules
 	return server
 }
 
@@ -81,8 +80,8 @@ func (s *Server) Handler() http.Handler {
 				if s.teamsHandler != nil {
 					s.teamsHandler.AuthenticatedRoutes(r)
 				}
-				if s.projectsHandler != nil {
-					s.projectsHandler.AuthenticatedRoutes(r)
+				for _, module := range s.businessHandlers {
+					module.AuthenticatedRoutes(r)
 				}
 			})
 		}

@@ -78,7 +78,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
-CREATE TRIGGER project_lead_team_departure_guard BEFORE UPDATE OF status OR DELETE ON team_members FOR EACH ROW EXECUTE FUNCTION projects_guard_team_departure();
+CREATE TRIGGER project_lead_team_departure_guard AFTER UPDATE OF status OR DELETE ON team_members FOR EACH ROW EXECUTE FUNCTION projects_guard_team_departure();
 
 -- +goose Down
 DROP TRIGGER project_lead_team_departure_guard ON team_members;
