@@ -104,7 +104,7 @@ func TestCookieSecureIsEnvironmentDerived(t *testing.T) {
 		{"test", false},
 		{"production", true},
 	} {
-		cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": tc.env}))
+		cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": tc.env, "NEXORA_ATTACHMENT_DIR": "/private/nexora/attachments"}))
 		if err != nil {
 			t.Fatalf("load %s: %v", tc.env, err)
 		}
@@ -278,6 +278,14 @@ func TestInvalidDatabaseURLErrorsDoNotEchoInput(t *testing.T) {
 		}
 		if !strings.Contains(err.Error(), "NEXORA_DATABASE_URL") {
 			t.Fatal("configuration error must identify the failing setting")
+		}
+	}
+}
+
+func TestProductionPrivateStoragePath(t *testing.T) {
+	for _, path := range []string{"", "relative/path"} {
+		if _, e := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": "production", "NEXORA_ATTACHMENT_DIR": path})); e == nil {
+			t.Fatal("production accepted non-absolute private storage path")
 		}
 	}
 }

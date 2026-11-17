@@ -688,7 +688,7 @@ export interface paths {
         put?: never;
         /**
          * 叶子开始或取消（授权执行者/负责人）
-         * @description Phase 03 仅 pending→in_progress、pending/in_progress→cancelled，取消必须原因；其他转换 409。阻塞禁止开始。协作者不可取消，归档/父节点/失效负责人不可执行。
+         * @description 通用接口只允许 pending→in_progress、pending/in_progress/rejected→cancelled、rejected→in_progress。取消与驳回后补正均须原因。阻塞禁止开始/补正；awaiting_review/completed/rejected 必须走成果或正式审核接口。协作者不可取消，归档/父节点/失效负责人不可执行。
          */
         post: operations["transitionTask"];
         delete?: never;
@@ -829,6 +829,214 @@ export interface paths {
          * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
          */
         get: operations["getProjectProgressHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 成果版本列表（最近 200 个，不可变）
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        get: operations["listSubmissionVersions"];
+        put?: never;
+        /**
+         * 负责人/有效协作者提交或重新提交新成果版本
+         * @description 仅未阻塞 in_progress/rejected 叶子；文字、链接、附件至少一种；client_request_id 同内容重试返回原版本，不再变更任务。新版本进入 awaiting_review=80%，不等于完成。
+         */
+        post: operations["submitTaskVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 读取指定不可变版本及其正式决定
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        get: operations["getSubmissionVersion"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 显式审核当前版本，禁止自审
+         * @description 仅 lead/明确 reviewer 且 Team/项目资格有效，禁止提交人自审。意见必填。迟到旧版本、重复或并发矛盾决定 409。通过后仅当前版本有效证据可完成任务。
+         */
+        post: operations["reviewSubmissionVersion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/reviews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 任务审核历史（不可覆盖）
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        get: operations["listTaskReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 私有附件暂存与幂等重试
+         * @description 仅有提交权限的未阻塞执行/驳回叶子。单文件10MiB；5个/版本、25MiB/版本、512MiB/Team；暂存24h。类型/内容/路径校验，失败补偿与定期清理。
+         */
+        post: operations["uploadSubmissionAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/attachments/{attachmentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 本人显式丢弃未绑定暂存附件（已绑定拒绝）
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        delete: operations["discardStagedAttachment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}/attachments/{attachmentID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 经当前任务权限校验下载绑定该版本的私有附件
+         * @description 强制 attachment/octet-stream/nosniff；无公共存储 URL，不同版本或任务 404，缺失对象 503，归档仍可授权读取。
+         */
+        get: operations["downloadSubmissionAttachment"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/reviewers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 项目审核授权及默认 lead
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        get: operations["listProjectReviewers"];
+        put?: never;
+        /**
+         * lead 向有效项目成员明确授予审核权限
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        post: operations["grantProjectReviewer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/reviewers/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * lead 撤销审核权限，实时生效并审计
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        delete: operations["revokeProjectReviewer"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/reviews/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 待我审核：只返回当前可审且非本人提交的当前版本
+         * @description 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+         */
+        get: operations["listMyPendingReviews"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1252,6 +1460,12 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** Format: uuid */
+            current_submission_version_id?: string | null;
+            /** Format: uuid */
+            accepted_review_id?: string | null;
+            can_submit?: boolean;
+            can_review?: boolean;
         };
         TransitionTaskRequest: {
             /** @enum {string} */
@@ -1377,6 +1591,157 @@ export interface components {
         ProgressSnapshotsEnvelope: {
             data: components["schemas"]["ProgressSnapshot"][];
         };
+        EvidenceReference: {
+            /** @enum {string} */
+            kind: "link" | "git_commit" | "pull_request";
+            /** Format: uri */
+            url: string;
+            label?: string;
+        };
+        Attachment: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            uploader_id: string;
+            /** Format: uuid */
+            submission_version_id: string | null;
+            file_name: string;
+            media_type: string;
+            byte_size: number;
+            sha256: string;
+            /** @enum {string} */
+            status: "staged" | "bound" | "expired";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at: string;
+            /** Format: date-time */
+            removed_at: string | null;
+        };
+        SubmissionReview: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            submission_version_id: string;
+            /** Format: uuid */
+            reviewer_id: string;
+            reviewer_name: string;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            comment: string;
+            /** Format: date-time */
+            reviewed_at: string;
+            request_id: string;
+            task_version: number;
+        };
+        SubmissionVersion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            submission_id: string;
+            version: number;
+            /** Format: uuid */
+            author_id: string;
+            author_name: string;
+            summary: string;
+            references: components["schemas"]["EvidenceReference"][];
+            attachments: components["schemas"]["Attachment"][];
+            /** Format: date-time */
+            submitted_at: string;
+            based_on_task_version: number;
+            review: components["schemas"]["SubmissionReview"] | null;
+        };
+        SubmitVersionRequest: {
+            /** Format: uuid */
+            client_request_id: string;
+            expected_version: number;
+            summary?: string;
+            references?: components["schemas"]["EvidenceReference"][];
+            attachment_ids?: string[];
+        };
+        ReviewVersionRequest: {
+            expected_version: number;
+            /** @enum {string} */
+            decision: "approve" | "reject";
+            comment: string;
+        };
+        ProjectReviewer: {
+            /** Format: uuid */
+            user_id: string;
+            username: string;
+            display_name: string;
+            default_lead: boolean;
+            active: boolean;
+            version: number;
+            /** Format: uuid */
+            granted_by: string | null;
+            /** Format: date-time */
+            granted_at: string | null;
+            reason: string;
+        };
+        GrantReviewerRequest: {
+            /** Format: uuid */
+            user_id: string;
+            reason: string;
+        };
+        RevokeReviewerRequest: {
+            expected_version: number;
+            reason: string;
+        };
+        PendingReview: {
+            /** Format: uuid */
+            project_id: string;
+            project_name: string;
+            /** Format: uuid */
+            task_id: string;
+            task_title: string;
+            task_version: number;
+            /** Format: uuid */
+            submission_version_id: string;
+            version: number;
+            author_name: string;
+            /** Format: date-time */
+            submitted_at: string;
+        };
+        AttachmentEnvelope: {
+            data: components["schemas"]["Attachment"];
+        };
+        SubmissionVersionEnvelope: {
+            data: components["schemas"]["SubmissionVersion"];
+        };
+        SubmissionVersionsEnvelope: {
+            data: components["schemas"]["SubmissionVersion"][];
+        };
+        SubmissionReviewEnvelope: {
+            data: components["schemas"]["SubmissionReview"];
+        };
+        SubmissionReviewsEnvelope: {
+            data: components["schemas"]["SubmissionReview"][];
+        };
+        ProjectReviewersEnvelope: {
+            data: components["schemas"]["ProjectReviewer"][];
+        };
+        PendingReviewsEnvelope: {
+            data: components["schemas"]["PendingReview"][];
+        };
     };
     responses: {
         /** @description 请求体或路径参数非法 */
@@ -1459,6 +1824,15 @@ export interface components {
                 "application/json": components["schemas"]["ErrorEnvelope"];
             };
         };
+        /** @description 私有存储暂时不可用，业务历史保留 */
+        StorageUnavailable: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
     };
     parameters: {
         /** @description 变更请求必须携带值 1；缺失时返回 403。 */
@@ -1470,6 +1844,8 @@ export interface components {
         TaskID: string;
         MilestoneID: string;
         DependencyID: string;
+        SubmissionVersionID: string;
+        AttachmentID: string;
     };
     requestBodies: never;
     headers: {
@@ -3088,6 +3464,448 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    listSubmissionVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionVersionsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    submitTaskVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SubmitVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionVersionEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    getSubmissionVersion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+                submissionVersionID: components["parameters"]["SubmissionVersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionVersionEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    reviewSubmissionVersion: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+                submissionVersionID: components["parameters"]["SubmissionVersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ReviewVersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionReviewEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    listTaskReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionReviewsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    uploadSubmissionAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+                /** @description 客户端本次文件请求的 UUID；相同文件重试复用，服务端存储键仍随机生成。 */
+                "X-Nexora-Upload-Id": string;
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "multipart/form-data": {
+                    /** Format: binary */
+                    file: string;
+                };
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    discardStagedAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+                attachmentID: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AttachmentEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    downloadSubmissionAttachment: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+                submissionVersionID: components["parameters"]["SubmissionVersionID"];
+                attachmentID: components["parameters"]["AttachmentID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    /** @description 安全编码的 attachment 文件名 */
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/octet-stream": string;
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    listProjectReviewers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectReviewersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    grantProjectReviewer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["GrantReviewerRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectReviewersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    revokeProjectReviewer: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RevokeReviewerRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectReviewersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    listMyPendingReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PendingReviewsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["StorageUnavailable"];
         };
     };
 }

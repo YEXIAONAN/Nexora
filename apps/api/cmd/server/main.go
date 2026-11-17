@@ -19,6 +19,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/submissions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/tasks"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
@@ -64,6 +65,15 @@ func run() error {
 	}
 	defer pool.Close()
 
+	var schemaVersion int
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion != 6 {
+		return fmt.Errorf("Phase 04 API requires schema v6; apply reviewed migrations explicitly before startup")
+	}
+	store, err := submissions.OpenStore(cfg.AttachmentDir)
+	if err != nil {
+		return fmt.Errorf("open private attachment storage: %w", err)
+	}
+	defer store.Close()
 	auditRepo := audit.NewRepository(pool)
 	authSvc := auth.NewService(
 		auth.NewRepository(pool),
@@ -77,8 +87,32 @@ func run() error {
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
 	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
 	projectsHandler := projects.NewHandler(projectsSvc, logger)
-	tasksHandler := tasks.NewHandler(tasks.NewService(tasks.NewRepository(), projectsSvc), logger)
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler)
+	tasksSvc := tasks.NewService(tasks.NewRepository(), projectsSvc)
+	tasksHandler := tasks.NewHandler(tasksSvc, logger)
+	submissionsSvc := submissions.NewService(submissions.NewRepository(pool), projectsSvc, tasksSvc)
+	submissionsSvc.SetStore(store)
+	recoveryCtx, recoveryCancel := context.WithCancel(rootCtx)
+	recoveryDone := make(chan struct{})
+	defer func() { recoveryCancel(); <-recoveryDone }()
+	go func() {
+		defer close(recoveryDone)
+		tick := time.NewTicker(time.Hour)
+		defer tick.Stop()
+		for {
+			ctx, cancel := context.WithTimeout(recoveryCtx, 30*time.Second)
+			e := submissionsSvc.Sweep(ctx, time.Now().UTC())
+			cancel()
+			if e != nil && recoveryCtx.Err() == nil {
+				logger.Warn("attachment recovery will retry")
+			}
+			select {
+			case <-recoveryCtx.Done():
+				return
+			case <-tick.C:
+			}
+		}
+	}()
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger))
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

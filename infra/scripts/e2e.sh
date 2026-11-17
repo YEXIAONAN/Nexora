@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Disposable browser E2E stack for the Phase 02/03 real API frontend workflows.
+# Disposable browser E2E stack for the Phase 02/03/04 real API frontend workflows.
 #
 # Safety boundary: this script only ever talks to the disposable devtest
 # PostgreSQL container (nexora-devtest-pg, loopback 127.0.0.1:5433) and only
@@ -54,12 +54,21 @@ ROOT_PASSWORD="$(openssl rand -hex 16)"
 export E2E_ROOT_PASSWORD="$ROOT_PASSWORD"
 export NEXORA_DATABASE_URL="$DB_URL"
 
+ATTACHMENT_TMP="$(mktemp -d "$CACHE_DIR/e2e-attachments.XXXXXX")"
+export NEXORA_ATTACHMENT_DIR="$ATTACHMENT_TMP"
+export NEXORA_MIGRATE_ON_START=false
 API_PID=""
 WEB_PID=""
 cleanup() {
   if [ -n "$API_PID" ]; then kill "$API_PID" 2>/dev/null || true; fi
   if [ -n "$WEB_PID" ]; then kill "$WEB_PID" 2>/dev/null || true; fi
   wait 2>/dev/null || true
+  python3 - "$ATTACHMENT_TMP" <<'PY_CLEANUP'
+import pathlib, shutil, sys
+p=pathlib.Path(sys.argv[1])
+if p.parent.name == '.cache' and p.name.startswith('e2e-attachments.'):
+    shutil.rmtree(p)
+PY_CLEANUP
   psql_exec -d postgres -c "DROP DATABASE IF EXISTS $E2E_DB;" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -85,7 +94,7 @@ curl -fsS "http://$API_ADDR/readyz" >/dev/null 2>&1 ||
 echo "e2e: starting vite on 127.0.0.1:$WEB_PORT"
 pushd apps/web >/dev/null
 VITE_DEV_API_TARGET="http://$API_ADDR" node node_modules/vite/bin/vite.js \
-  --port "$WEB_PORT" --strictPort >"$CACHE_DIR/e2e-web.log" 2>&1 &
+  --host 127.0.0.1 --port "$WEB_PORT" --strictPort >"$CACHE_DIR/e2e-web.log" 2>&1 &
 WEB_PID=$!
 popd >/dev/null
 

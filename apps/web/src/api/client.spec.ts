@@ -69,6 +69,20 @@ describe('mutating requests', () => {
     expect(init?.credentials).toBe('same-origin')
   })
 
+  it('sends multipart bytes with CSRF and the browser-generated boundary', async () => {
+    const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
+      Promise.resolve(jsonResponse({ data: { id: 'file' } })),
+    )
+    vi.stubGlobal('fetch', fetchMock)
+    const body = new FormData()
+    body.append('file', new File(['evidence'], 'result.txt'))
+    await requestJSON('/api/v1/attachments', { method: 'POST', body })
+    const init = fetchMock.mock.calls[0]?.[1]
+    expect(init?.body).toBe(body)
+    expect((init?.headers as Record<string, string>)['Content-Type']).toBeUndefined()
+    expect((init?.headers as Record<string, string>)['X-Nexora-CSRF']).toBe('1')
+  })
+
   it('sends the CSRF header on DELETE without a body', async () => {
     const fetchMock = vi.fn((_input: RequestInfo | URL, _init?: RequestInit) =>
       Promise.resolve(jsonResponse({ data: { revoked: true } })),

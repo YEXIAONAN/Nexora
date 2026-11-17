@@ -218,7 +218,12 @@ test('real UI: an inactive collaborator can be explicitly removed and the task s
   await page.getByRole('button', { name: '编辑任务', exact: true }).click()
   await page.getByLabel('任务负责人', { exact: true }).selectOption(root)
   await page.getByLabel('协作者（可多选）', { exact: true }).selectOption(member)
+  const saved = page.waitForResponse(
+    (r) => r.request().method() === 'PUT' && r.url().endsWith(`/tasks/${leaf}`),
+  )
   await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  expect((await saved).status()).toBe(200)
+  await expect(page.getByRole('button', { name: '保存任务', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '接口实现', exact: true })).toBeVisible()
   await page.goto(`/teams/${team}/members`)
   await page

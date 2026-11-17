@@ -111,3 +111,6 @@
 
 - 跨团队行为必须通过真实 PostgreSQL 集成测试验证（两个以上真实测试 Team），复用 testdb 护栏。
 - 强制安全测试矩阵见 [Phase 02 实施计划](../../development/phase-02-plan.md) 与 [权限矩阵](../permissions.md)。
+## Phase 04 实施细则（2026-11-18）
+
+成果提交严格要求当前任务分配及有效 Team / Project 资格，项目负责人也不自动取得提交权。默认项目负责人及明确授权的有效成员可审核；ROOT、Team owner/admin 不绕过项目资格，提交者禁止自审。授权与撤销追加审计，授权绑定成员资格 epoch，移除/重加不复活旧授权。此增补收紧到实际业务证据边界，不改变方案 B 的多 Team 隔离原则；验证见 [Phase 04 报告](../../development/phase-04-report.md)。

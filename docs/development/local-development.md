@@ -106,3 +106,10 @@ GOMODCACHE="$PWD/.cache/go-mod" GOCACHE="$PWD/.cache/go-build" go test ./...
 ```
 
 普通本地开发无需设置。
+
+
+## Phase 04 本地环境
+
+当前 API 要求 schema v6；启动时只检查版本，NEXORA_MIGRATE_ON_START 默认 false。旧运行栈不会随源码更新自动迁移；在已确认目标和备份后显式 make migrate-up。默认私有附件目录相对 API 工作目录为 .data/attachments，生产必须配置绝对 NEXORA_ATTACHMENT_DIR；目录不能作为 Web 静态资源暴露。Docker 新增专用 attachment_data 卷，不依赖其他项目存储。
+
+集成验证按仓库 README 的 test-db.sh 和 testdb 三项环境护栏执行。make e2e 独占 8081/5173 与 nexora_e2e；不要并发启动两个 E2E 脚本。

@@ -92,7 +92,7 @@ function checkLabel(state: CheckState): string {
   <div class="space-y-6">
     <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
       <div>
-        <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">Phase 03</p>
+        <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">Phase 04</p>
         <h2 class="mt-1 text-xl font-semibold tracking-tight text-ink">系统总览</h2>
         <p class="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
           以下状态来自真实 API 与 PostgreSQL 检查，不使用前端模拟数据。

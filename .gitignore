@@ -32,3 +32,6 @@ backups/
 .idea/
 .vscode/*
 !.vscode/extensions.json
+
+# Private submission bytes; metadata is backed up separately in PostgreSQL.
+.data/

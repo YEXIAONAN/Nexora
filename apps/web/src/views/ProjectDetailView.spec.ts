@@ -6,10 +6,15 @@ import { nextTick } from 'vue'
 import { listTeamMembers } from '@/api/teams'
 import { ApiError } from '@/api/client'
 import * as projects from '@/api/projects'
+import * as submissions from '@/api/submissions'
 import * as tasks from '@/api/tasks'
 import TaskPanel from '@/components/projects/TaskPanel.vue'
 import ProjectDetailView from './ProjectDetailView.vue'
 
+vi.mock('@/api/submissions', () => ({
+  listVersions: vi.fn().mockResolvedValue([]),
+  attachmentURL: vi.fn(),
+}))
 vi.mock('@/api/projects', () => ({
   getProject: vi.fn(),
   listProjectMembers: vi.fn().mockResolvedValue([]),
@@ -76,6 +81,7 @@ const task = (team: string, project: string): tasks.Task => ({
 })
 beforeEach(() => {
   vi.clearAllMocks()
+  vi.mocked(submissions.listVersions).mockResolvedValue([])
   vi.mocked(projects.listProjectMembers).mockResolvedValue([])
   vi.mocked(projects.listMilestones).mockResolvedValue([])
   vi.mocked(tasks.getSnapshots).mockResolvedValue([])
@@ -134,7 +140,7 @@ describe('project context isolation', () => {
     await flushPromises()
     pending.reject(new ApiError('old denied', 404))
     await flushPromises()
-    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.findAll('[role="alert"]').map((a) => a.text())).toEqual([])
     expect(wrapper.text()).toContain('Project b')
     wrapper.unmount()
   })
@@ -167,7 +173,7 @@ describe('project context isolation', () => {
     pending.reject(new ApiError('old write failed', 409))
     await flushPromises()
     expect(wrapper.text()).toContain('Project b')
-    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.findAll('[role="alert"]').map((a) => a.text())).toEqual([])
     wrapper.unmount()
   })
   it('does not revive an earlier mutation after A → B → A', async () => {
@@ -183,7 +189,7 @@ describe('project context isolation', () => {
     await flushPromises()
     pending.reject(new ApiError('stale A error', 409))
     await flushPromises()
-    expect(wrapper.find('[role="alert"]').exists()).toBe(false)
+    expect(wrapper.findAll('[role="alert"]').map((a) => a.text())).toEqual([])
     wrapper.unmount()
   })
 })

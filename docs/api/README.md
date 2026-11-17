@@ -98,3 +98,12 @@ pnpm api:types
 项目资源前缀 `/api/v1/teams/{teamID}/projects/{projectID}`。项目/任务编辑与动作使用 expected_version，旧版本 409；通用编辑不能绕过专用状态/进度接口。实际进度整数 0–99，有效进度以 bps 表示（100=1%，10000=100%）。精确加权分子/分母为字符串，前端只格式化服务端结果。
 
 仅 pending→in_progress 与 pending/in_progress→cancelled；取消必须原因。awaiting_review/completed/rejected 保留枚举但不开放转换，没有提交/审核路由。没有物理删除项目/任务或依赖的接口；归档、取消、显式忽略保留业务证据。
+
+
+## Phase 04 成果与审核（本次分支）
+
+新增 12 个 operation（总计 61），路径以 OpenAPI 为准：任务 submissions 的列表/创建/版本详情、版本 reviews 创建、任务 reviews 历史、attachments 上传/暂存删除/版本下载、项目 reviewers 列表/授予/撤销、Team reviews/pending。
+
+提交需要 client_request_id UUID 和 expected_version；相同 key/作者/归一化内容返回原版本，key 被用于不同内容返回 409。审核显式指定 submissionVersionID 和最新任务 expected_version，必须当前 awaiting_review 版本、实时审核权限且非提交者本人。意见不能为空。
+
+上传为 multipart/form-data 单一 file 字段，X-Nexora-Upload-Id UUID 重试键和现有 X-Nexora-CSRF 必需，文件 ID 由服务端生成。下载限定完整 Team/Project/Task/Version/Attachment，上下文不符或无读取权返回 404；存储内容缺失或校验失败返回 503 并保留业务证据。所有读取和上传均使用真实 API。

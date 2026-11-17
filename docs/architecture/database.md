@@ -137,7 +137,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 
 ## 领域总览与后续规划
 
-身份、审计与团队为已合并基线；项目/任务的特性分支 Schema 见下方 Phase 03 章节，尚未合入 develop。成果、贡献与奖金仍为后续设计，此处保留领域总览。
+身份、审计与团队为已合并基线；项目/任务 Schema 已通过 PR #3 合入 develop。成果验收见下方 Phase 04；贡献与奖金仍为后续设计，此处保留领域总览。
 
 | 领域 | 表 | 关键约束 |
 | --- | --- | --- |
@@ -166,7 +166,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 
 数据库结构、复合外键、锁与历史策略见 [Phase 03 设计说明](../development/phase-03-design.md)。本次任务规则优先于前文历史规划；Phase 02 已合并于 develop `c3fb029`。实现验证另见阶段报告。
 
-## Phase 03 Schema（特性分支开发与验证）
+## Phase 03 Schema（已合并 develop）
 
 新增 `00004_projects.sql`、`00005_tasks.sql`，版本 3 → 5；00001–00003 原样保留。
 
@@ -184,3 +184,18 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 沿用 FK RESTRICT。历史两表复用 audit 的禁止 UPDATE/DELETE 函数，不复制追加写基础设施。task_progress_history 同时保存执行与权重事件，避免另建重复的权重历史表。project_milestones 使用明确模块前缀。
 
 跨行规则由 Team 行锁 + Service 校验承担；延迟结构触发器验证最终父子 depth 差值，严格递增的深度同时排除环。执行触发器拒绝未接入 Phase 04 的状态，校验 active owner；退出保护触发器要求项目负责人先交接，Team 移除后失效项目成员资格。普通 CHECK 不用于声称保证 active 成员或递归无环。历史时间及新业务更新时间使用 clock_timestamp() 记录锁后操作时刻，业务可见性在事务提交时生效。
+
+
+## Phase 04 Schema v6（本次分支，待合并）
+
+新增迁移 `00006_submissions_reviews.sql`，不修改已发布 00001–00005。
+
+- task_submissions：任务唯一成果根；task_submission_versions：按任务单调版本号、author、summary、JSON 引用、幂等请求 UUID、归一化内容摘要、任务版本与 request_id。
+- task_reviews：版本唯一决定，记录独立审核人、approve/reject、意见、时间、任务版本和 request_id；根、版本、审核全部禁止 UPDATE / DELETE。不可变 based_on_task_version 与强制单调的任务版本限定附件只可在版本创建事务推进任务状态之前绑定，提交后不能追加，也不能倒退任务版本重新打开窗口。
+- project_reviewers：明确授权、原因、授予人、授权版本；绑定 project_members.authorization_version，移除/重新加入不复活权限。phase04_can_review 同时检查 Team / Project 的实时资格。
+- submission_attachments：同 Team/Project/Task/上传者暂存；随机私有键、内容 SHA-256、类型/大小、TTL、staged/bound/expired 和物理移除时间。bound 元数据不可变；复合外键绑定相同上下文版本及作者。
+- tasks.current_submission_version_id / accepted_review_id：延迟复合外键；task_acceptance_evidence 仅返回 completed 且当前版本对应 approve 的记录，进度和依赖读取此证据。
+
+Team 行锁沿用既有写入次序；版本与审核插入亦锁任务。唯一约束与 expected_version 防止并发双版本/矛盾决定。延迟约束强制版本/任务待验收、审核/任务终态同事务；直接 SQL 的 completed 也必须引用当前正式批准。Service 在同一事务追加任务历史、项目快照和审计；提交或审核失败整体回滚。
+
+v5→v6、空库安装、全量空库 down/up 已在独立 PostgreSQL 验证；有成果根或任何附件证据时 v6 down 拒绝，不能通过回滚删除不可变历史。生产恢复需匹配的数据库和文件备份。运行中的旧开发库未升级。

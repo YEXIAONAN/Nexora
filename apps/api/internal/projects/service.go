@@ -356,3 +356,8 @@ func (s *Service) SaveMilestone(ctx context.Context, actor reqctx.Identity, team
 	})
 	return
 }
+
+// WithTeam exposes the existing membership lock for a team-scoped review inbox.
+func (s *Service) WithTeam(ctx context.Context, a reqctx.Identity, teamID uuid.UUID, fn func(pgx.Tx, teams.Member) error) error {
+	return s.withTeam(ctx, a, teamID, fn)
+}

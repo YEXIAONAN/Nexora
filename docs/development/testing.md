@@ -86,3 +86,10 @@ make e2e 包含 Phase 02 的 11 项和 Phase 03 的 9 项串行真实 API/浏览
 本次一次性 PG 为 nexora-devtest-pg（loopback 5433、无其他项目挂载），随机口令只存忽略的 .cache/devtest-pg-password（0600），显式注入 TEST_DATABASE_URL，不加载开发 .env。用后只停止并删除本次创建的容器及其自有数据，不执行 prune。运行中的开发服务 /readyz 只读观察仍为 schema v1，未升级。
 
 PR #3 首轮评审补充 TaskEditing.spec.ts 4 项组件回归：执行中的汇总任务可创建/移入子任务；失效协作者可显式清除（含无其他可选成员）。修复前 4 项失败，修复后全量 Vitest 66 项通过；真实 E2E 现为 20 项。
+
+
+## Phase 04 验证与安全命令
+
+README 的 test-db.sh start / race integration / make e2e / stop 是当前可执行示例，专用容器带 nexora.purpose=phase04-disposable 标签、loopback 5433、nexora_test。不能将 TEST_DATABASE_URL 改为普通 nexora 库，也不能放宽 testdb 护栏。每次 E2E 独立初始化 nexora_e2e 和临时附件目录，并通过真实 HTTP 工作流验收；浏览器使用显式 127.0.0.1 host，避免 localhost 的 IPv6 解析差异。
+
+新增测试覆盖：版本不可变/幂等/并发、V1 驳回与 V2 独立批准、显式授权/撤销/成员 epoch/自审、SQL 伪造完成拒绝、审计失败事务回滚、精确进度和依赖、文件路径/类型/大小/版本总量/Team 配额、私有下载、缺失文件、暂存/孤立文件回收、v5 升级及空库回滚/有证据拒绝回滚。Vitest 使用可控 Promise 验证 Team/Project/Task/Version 竞态与旧上传链中止。完整命令、数量和结果只以 [Phase 04 报告](phase-04-report.md) 的实测记录为准。

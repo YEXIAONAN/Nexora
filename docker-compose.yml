@@ -50,6 +50,9 @@ services:
       NEXORA_DATABASE_URL: postgres://${NEXORA_POSTGRES_USER:-nexora}:${NEXORA_POSTGRES_PASSWORD:-nexora_dev_password}@postgres:5432/${NEXORA_POSTGRES_DB:-nexora}?sslmode=disable
       NEXORA_LOG_LEVEL: info
       NEXORA_MIGRATE_ON_START: "false"
+      NEXORA_ATTACHMENT_DIR: /app/.data/attachments
+    volumes:
+      - attachment_data:/app/.data/attachments
     ports:
       - "127.0.0.1:${NEXORA_API_PORT:-8080}:8080"
     depends_on:
@@ -72,3 +75,4 @@ services:
 
 volumes:
   postgres_data:
+  attachment_data:

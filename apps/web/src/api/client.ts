@@ -72,12 +72,13 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
   try {
     const requestHeaders: Record<string, string> = { Accept: 'application/json', ...headers }
     if (MUTATING_METHODS.has(method)) requestHeaders['X-Nexora-CSRF'] = '1'
-    if (body !== undefined) requestHeaders['Content-Type'] = 'application/json'
+    const multipart = body instanceof FormData
+    if (body !== undefined && !multipart) requestHeaders['Content-Type'] = 'application/json'
 
     const response = await fetch(`${API_BASE_URL}${path}`, {
       method,
       headers: requestHeaders,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body !== undefined ? (multipart ? body : JSON.stringify(body)) : undefined,
       credentials: 'same-origin',
       signal: controller.signal,
     })

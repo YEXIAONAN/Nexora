@@ -56,10 +56,10 @@ func TestOnlyLeavesAndAllDescendantsCount(t *testing.T) {
 		t.Fatal(p, e)
 	}
 }
-func TestPhase03TransitionsOnly(t *testing.T) {
+func TestOrdinaryTransitionsStillRequireEvidence(t *testing.T) {
 	for _, from := range []string{Pending, InProgress, AwaitingReview, Completed, Rejected, Cancelled} {
 		for _, to := range []string{Pending, InProgress, AwaitingReview, Completed, Rejected, Cancelled} {
-			want := (from == Pending && to == InProgress) || ((from == Pending || from == InProgress) && to == Cancelled)
+			want := ((from == Pending || from == Rejected) && to == InProgress) || ((from == Pending || from == InProgress || from == Rejected) && to == Cancelled)
 			if transitionAllowed(from, to) != want {
 				t.Fatalf("%s -> %s", from, to)
 			}

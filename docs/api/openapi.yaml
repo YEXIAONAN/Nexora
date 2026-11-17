@@ -5,8 +5,8 @@ info:
   description: |
     Nexora V1.0 的 HTTP 接口契约。
 
-    Phase 03 增加项目、三级任务、状态机、依赖、权重进度与追加式历史。
-    Phase 04 成果版本与正式验收尚未实现，禁止直接进入待验收/完成/驳回。
+    Phase 04 增加不可变成果版本、明确审核授权、正式验收和私有附件。
+    成果提交与正式完成分离；通用状态接口不能代替当前版本的正式审核。
 
     约定：
     - 所有时间均为 UTC，使用 RFC 3339 表示。
@@ -27,6 +27,8 @@ tags:
     description: 平台管理（ROOT 与平台管理员）
   - name: Teams
     description: 团队、成员角色与受控邀请（Team 内权限独立于平台角色）
+  - name: Submissions
+    description: 成果版本、正式审核、明确授权与私有附件
   - name: Projects
     description: 项目、成员、里程碑、归档与交接
   - name: Tasks
@@ -1517,7 +1519,7 @@ paths:
         - "Tasks"
       "operationId": "transitionTask"
       "summary": "叶子开始或取消（授权执行者/负责人）"
-      "description": "Phase 03 仅 pending→in_progress、pending/in_progress→cancelled，取消必须原因；其他转换 409。阻塞禁止开始。协作者不可取消，归档/父节点/失效负责人不可执行。"
+      "description": "通用接口只允许 pending→in_progress、pending/in_progress/rejected→cancelled、rejected→in_progress。取消与驳回后补正均须原因。阻塞禁止开始/补正；awaiting_review/completed/rejected 必须走成果或正式审核接口。协作者不可取消，归档/父节点/失效负责人不可执行。"
       "security":
         -
           "sessionCookie": []
@@ -1877,6 +1879,530 @@ paths:
           "$ref": "#/components/responses/ValidationFailed"
         "500":
           "$ref": "#/components/responses/InternalError"
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions:
+    get:
+      tags:
+        - Submissions
+      operationId: listSubmissionVersions
+      summary: 成果版本列表（最近 200 个，不可变）
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionVersionsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+    post:
+      tags:
+        - Submissions
+      operationId: submitTaskVersion
+      summary: 负责人/有效协作者提交或重新提交新成果版本
+      description: >-
+        仅未阻塞 in_progress/rejected 叶子；文字、链接、附件至少一种；client_request_id 同内容重试返回原版本，不再变更任务。新版本进入
+        awaiting_review=80%，不等于完成。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '201':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubmitVersionRequest'
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}:
+    get:
+      tags:
+        - Submissions
+      operationId: getSubmissionVersion
+      summary: 读取指定不可变版本及其正式决定
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/SubmissionVersionID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionVersionEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}/reviews:
+    post:
+      tags:
+        - Submissions
+      operationId: reviewSubmissionVersion
+      summary: 显式审核当前版本，禁止自审
+      description: 仅 lead/明确 reviewer 且 Team/项目资格有效，禁止提交人自审。意见必填。迟到旧版本、重复或并发矛盾决定 409。通过后仅当前版本有效证据可完成任务。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/SubmissionVersionID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '201':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionReviewEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ReviewVersionRequest'
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/reviews:
+    get:
+      tags:
+        - Submissions
+      operationId: listTaskReviews
+      summary: 任务审核历史（不可覆盖）
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubmissionReviewsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/attachments:
+    post:
+      tags:
+        - Submissions
+      operationId: uploadSubmissionAttachment
+      summary: 私有附件暂存与幂等重试
+      description: 仅有提交权限的未阻塞执行/驳回叶子。单文件10MiB；5个/版本、25MiB/版本、512MiB/Team；暂存24h。类型/内容/路径校验，失败补偿与定期清理。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/CSRFHeader'
+        - name: X-Nexora-Upload-Id
+          in: header
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: 客户端本次文件请求的 UUID；相同文件重试复用，服务端存储键仍随机生成。
+      responses:
+        '201':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              required:
+                - file
+              properties:
+                file:
+                  type: string
+                  format: binary
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/attachments/{attachmentID}:
+    delete:
+      tags:
+        - Submissions
+      operationId: discardStagedAttachment
+      summary: 本人显式丢弃未绑定暂存附件（已绑定拒绝）
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/AttachmentID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AttachmentEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+  /api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/submissions/{submissionVersionID}/attachments/{attachmentID}:
+    get:
+      tags:
+        - Submissions
+      operationId: downloadSubmissionAttachment
+      summary: 经当前任务权限校验下载绑定该版本的私有附件
+      description: 强制 attachment/octet-stream/nosniff；无公共存储 URL，不同版本或任务 404，缺失对象 503，归档仍可授权读取。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/TaskID'
+        - $ref: '#/components/parameters/SubmissionVersionID'
+        - $ref: '#/components/parameters/AttachmentID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Content-Disposition:
+              schema:
+                type: string
+              description: 安全编码的 attachment 文件名
+          content:
+            application/octet-stream:
+              schema:
+                type: string
+                format: binary
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+  /api/v1/teams/{teamID}/projects/{projectID}/reviewers:
+    get:
+      tags:
+        - Submissions
+      operationId: listProjectReviewers
+      summary: 项目审核授权及默认 lead
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReviewersEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+    post:
+      tags:
+        - Submissions
+      operationId: grantProjectReviewer
+      summary: lead 向有效项目成员明确授予审核权限
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '201':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReviewersEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/GrantReviewerRequest'
+  /api/v1/teams/{teamID}/projects/{projectID}/reviewers/{userID}:
+    delete:
+      tags:
+        - Submissions
+      operationId: revokeProjectReviewer
+      summary: lead 撤销审核权限，实时生效并审计
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - $ref: '#/components/parameters/ProjectID'
+        - $ref: '#/components/parameters/UserID'
+        - $ref: '#/components/parameters/CSRFHeader'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectReviewersEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/RevokeReviewerRequest'
+  /api/v1/teams/{teamID}/reviews/pending:
+    get:
+      tags:
+        - Submissions
+      operationId: listMyPendingReviews
+      summary: 待我审核：只返回当前可审且非本人提交的当前版本
+      description: 有效 Team/Project/Task 授权，跨上下文 404，归档只读；当前版本与 expected_version 共同校验。
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: 操作成功
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PendingReviewsEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationFailed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/StorageUnavailable'
 components:
   securitySchemes:
     sessionCookie:
@@ -1942,6 +2468,20 @@ components:
       "schema":
         "type": "string"
         "format": "uuid"
+    SubmissionVersionID:
+      name: submissionVersionID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    AttachmentID:
+      name: attachmentID
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
   responses:
     BadRequest:
       description: 请求体或路径参数非法
@@ -2011,6 +2551,12 @@ components:
       headers:
         X-Request-Id:
           $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorEnvelope'
+    StorageUnavailable:
+      description: 私有存储暂时不可用，业务历史保留
       content:
         application/json:
           schema:
@@ -2845,127 +3391,141 @@ components:
         "expected_version":
           "type": "integer"
           "minimum": 1
-    "Task":
-      "type": "object"
-      "additionalProperties": false
-      "required":
-        - "id"
-        - "team_id"
-        - "project_id"
-        - "parent_id"
-        - "depth"
-        - "title"
-        - "description"
-        - "owner_id"
-        - "collaborator_ids"
-        - "priority"
-        - "planned_start_at"
-        - "planned_end_at"
-        - "status"
-        - "actual_progress"
-        - "effective_progress_bps"
-        - "weight"
-        - "is_leaf"
-        - "blocked"
-        - "can_execute"
-        - "can_cancel"
-        - "cancellation_reason"
-        - "version"
-        - "created_by"
-        - "created_at"
-        - "updated_at"
-      "properties":
-        "id":
-          "type": "string"
-          "format": "uuid"
-        "team_id":
-          "type": "string"
-          "format": "uuid"
-        "project_id":
-          "type": "string"
-          "format": "uuid"
-        "parent_id":
-          "type":
-            - "string"
-            - "null"
-          "format": "uuid"
-        "depth":
-          "type": "integer"
-          "minimum": 1
-          "maximum": 3
-        "title":
-          "type": "string"
-          "minLength": 1
-          "maxLength": 200
-        "description":
-          "type": "string"
-          "maxLength": 8000
-        "owner_id":
-          "type": "string"
-          "format": "uuid"
-        "collaborator_ids":
-          "type": "array"
-          "items":
-            "type": "string"
-            "format": "uuid"
-          "maxItems": 50
-          "uniqueItems": true
-        "priority":
-          "type": "string"
-          "enum":
-            - "low"
-            - "normal"
-            - "high"
-            - "urgent"
-        "planned_start_at":
-          "type":
-            - "string"
-            - "null"
-          "format": "date-time"
-        "planned_end_at":
-          "type":
-            - "string"
-            - "null"
-          "format": "date-time"
-        "status":
-          "type": "string"
-          "enum":
-            - "pending"
-            - "in_progress"
-            - "awaiting_review"
-            - "completed"
-            - "rejected"
-            - "cancelled"
-        "actual_progress":
-          "type": "integer"
-          "minimum": 0
-          "maximum": 99
-        "effective_progress_bps":
-          "type": "integer"
-        "weight":
-          "type": "integer"
-        "is_leaf":
-          "type": "boolean"
-        "blocked":
-          "type": "boolean"
-        "can_execute":
-          "type": "boolean"
-        "can_cancel":
-          "type": "boolean"
-        "cancellation_reason":
-          "type": "string"
-        "version":
-          "type": "integer"
-          "minimum": 1
-        "created_by":
-          "type": "string"
-          "format": "uuid"
-        "created_at":
-          "type": "string"
-          "format": "date-time"
-        "updated_at":
-          "type": "string"
-          "format": "date-time"
+    Task:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - team_id
+        - project_id
+        - parent_id
+        - depth
+        - title
+        - description
+        - owner_id
+        - collaborator_ids
+        - priority
+        - planned_start_at
+        - planned_end_at
+        - status
+        - actual_progress
+        - effective_progress_bps
+        - weight
+        - is_leaf
+        - blocked
+        - can_execute
+        - can_cancel
+        - cancellation_reason
+        - version
+        - created_by
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        parent_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        depth:
+          type: integer
+          minimum: 1
+          maximum: 3
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 8000
+        owner_id:
+          type: string
+          format: uuid
+        collaborator_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 50
+          uniqueItems: true
+        priority:
+          type: string
+          enum:
+            - low
+            - normal
+            - high
+            - urgent
+        planned_start_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        planned_end_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        status:
+          type: string
+          enum:
+            - pending
+            - in_progress
+            - awaiting_review
+            - completed
+            - rejected
+            - cancelled
+        actual_progress:
+          type: integer
+          minimum: 0
+          maximum: 99
+        effective_progress_bps:
+          type: integer
+        weight:
+          type: integer
+        is_leaf:
+          type: boolean
+        blocked:
+          type: boolean
+        can_execute:
+          type: boolean
+        can_cancel:
+          type: boolean
+        cancellation_reason:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        created_by:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        current_submission_version_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        accepted_review_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        can_submit:
+          type: boolean
+        can_review:
+          type: boolean
     "TransitionTaskRequest":
       "type": "object"
       "additionalProperties": false
@@ -3325,3 +3885,416 @@ components:
           "type": "array"
           "items":
             "$ref": "#/components/schemas/ProgressSnapshot"
+
+    EvidenceReference:
+      type: object
+      additionalProperties: false
+      required:
+        - kind
+        - url
+      properties:
+        kind:
+          type: string
+          enum:
+            - link
+            - git_commit
+            - pull_request
+        url:
+          type: string
+          format: uri
+          maxLength: 2048
+        label:
+          type: string
+          maxLength: 200
+    Attachment:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - team_id
+        - project_id
+        - task_id
+        - uploader_id
+        - submission_version_id
+        - file_name
+        - media_type
+        - byte_size
+        - sha256
+        - status
+        - created_at
+        - expires_at
+        - removed_at
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        uploader_id:
+          type: string
+          format: uuid
+        submission_version_id:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        file_name:
+          type: string
+        media_type:
+          type: string
+        byte_size:
+          type: integer
+          minimum: 1
+          maximum: 10485760
+        sha256:
+          type: string
+        status:
+          type: string
+          enum:
+            - staged
+            - bound
+            - expired
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        removed_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+    SubmissionReview:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - team_id
+        - project_id
+        - task_id
+        - submission_version_id
+        - reviewer_id
+        - reviewer_name
+        - decision
+        - comment
+        - reviewed_at
+        - request_id
+        - task_version
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        submission_version_id:
+          type: string
+          format: uuid
+        reviewer_id:
+          type: string
+          format: uuid
+        reviewer_name:
+          type: string
+        decision:
+          type: string
+          enum:
+            - approve
+            - reject
+        comment:
+          type: string
+        reviewed_at:
+          type: string
+          format: date-time
+        request_id:
+          type: string
+        task_version:
+          type: integer
+    SubmissionVersion:
+      type: object
+      additionalProperties: false
+      required:
+        - id
+        - team_id
+        - project_id
+        - task_id
+        - submission_id
+        - version
+        - author_id
+        - author_name
+        - summary
+        - references
+        - attachments
+        - submitted_at
+        - based_on_task_version
+        - review
+      properties:
+        id:
+          type: string
+          format: uuid
+        team_id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        task_id:
+          type: string
+          format: uuid
+        submission_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        author_id:
+          type: string
+          format: uuid
+        author_name:
+          type: string
+        summary:
+          type: string
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceReference'
+        attachments:
+          type: array
+          items:
+            $ref: '#/components/schemas/Attachment'
+        submitted_at:
+          type: string
+          format: date-time
+        based_on_task_version:
+          type: integer
+        review:
+          anyOf:
+            - $ref: '#/components/schemas/SubmissionReview'
+            - type: 'null'
+    SubmitVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - client_request_id
+        - expected_version
+      properties:
+        client_request_id:
+          type: string
+          format: uuid
+        expected_version:
+          type: integer
+          minimum: 1
+        summary:
+          type: string
+          maxLength: 8000
+        references:
+          type: array
+          items:
+            $ref: '#/components/schemas/EvidenceReference'
+          maxItems: 20
+        attachment_ids:
+          type: array
+          items:
+            type: string
+            format: uuid
+          maxItems: 5
+          uniqueItems: true
+    ReviewVersionRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+        - decision
+        - comment
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        decision:
+          type: string
+          enum:
+            - approve
+            - reject
+        comment:
+          type: string
+          minLength: 1
+          maxLength: 4000
+    ProjectReviewer:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - username
+        - display_name
+        - default_lead
+        - active
+        - version
+        - granted_by
+        - granted_at
+        - reason
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        display_name:
+          type: string
+        default_lead:
+          type: boolean
+        active:
+          type: boolean
+        version:
+          type: integer
+        granted_by:
+          type:
+            - string
+            - 'null'
+          format: uuid
+        granted_at:
+          type:
+            - string
+            - 'null'
+          format: date-time
+        reason:
+          type: string
+    GrantReviewerRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - user_id
+        - reason
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    RevokeReviewerRequest:
+      type: object
+      additionalProperties: false
+      required:
+        - expected_version
+        - reason
+      properties:
+        expected_version:
+          type: integer
+          minimum: 1
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    PendingReview:
+      type: object
+      additionalProperties: false
+      required:
+        - project_id
+        - project_name
+        - task_id
+        - task_title
+        - task_version
+        - submission_version_id
+        - version
+        - author_name
+        - submitted_at
+      properties:
+        project_id:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        task_id:
+          type: string
+          format: uuid
+        task_title:
+          type: string
+        task_version:
+          type: integer
+        submission_version_id:
+          type: string
+          format: uuid
+        version:
+          type: integer
+        author_name:
+          type: string
+        submitted_at:
+          type: string
+          format: date-time
+    AttachmentEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/Attachment'
+    SubmissionVersionEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/SubmissionVersion'
+    SubmissionVersionsEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionVersion'
+    SubmissionReviewEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          $ref: '#/components/schemas/SubmissionReview'
+    SubmissionReviewsEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/SubmissionReview'
+    ProjectReviewersEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/ProjectReviewer'
+    PendingReviewsEnvelope:
+      type: object
+      additionalProperties: false
+      required:
+        - data
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/PendingReview'

@@ -54,7 +54,7 @@ docker compose --profile full exec api nexora-bootstrap -username waiting
 
 ## 生产注意事项
 
-1. **认证尚未实现**：身份与权限验收前，API 不得暴露公网。开发 Compose 固定 `NEXORA_ENV=development`，不应直接当作生产配置。
+1. **认证已合并，生产环境仍须单独验收**：必须部署 HTTPS、强凭据、反向代理和运行权限边界。开发 Compose 固定 `NEXORA_ENV=development`，不应直接当作生产配置。
 2. **TLS**：在反向代理或负载均衡器终止 TLS；HSTS 仅在 `NEXORA_ENV=production` 时由 API 返回。
 3. **密钥**：数据库密码、会话密钥通过部署平台注入，不写入镜像或仓库。
 4. **迁移**：生产禁止 `NEXORA_MIGRATE_ON_START=true`（配置校验会拒绝启动）；部署流程先运行 `nexora-migrate -command up`，再滚动更新 API。
@@ -97,3 +97,8 @@ Web 镜像构建参数 `VITE_API_BASE_URL` 默认为空，表示同源 `/api`。
 4. 应用回滚需要数据库向下迁移时，先确认迁移提供可逆的 `Down`，并在生产显式传入 `-allow-destructive`。
 
 不提供未经验证的“一键回滚”脚本。
+
+
+## Phase 04 部署增补
+
+本次只构建镜像和验证开发配置，不升级运行中的旧栈。新 API 要求 schema v6；生产禁止启动自动迁移，维护窗口显式执行已评审迁移。生产必须提供私有绝对 NEXORA_ATTACHMENT_DIR 并赋予 API 用户写权限；Docker 镜像创建 /app/.data/attachments，Compose 使用独立 attachment_data 卷。数据库和文件需同恢复点备份；单机目录方案不支持直接横向扩容，不提供病毒扫描。禁止将附件目录挂到 nginx 的静态站点路径。
