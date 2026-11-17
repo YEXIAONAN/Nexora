@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/testdb"
+	"github.com/pressly/goose/v3"
 )
 
 func TestMigrationsApplyIdempotently(t *testing.T) {
@@ -64,7 +65,7 @@ func TestPhase03FreshUpgradeAndRollback(t *testing.T) {
 			t.Fatalf("schema %d want %d: %v", got, want, e)
 		}
 	}
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 5); e != nil {
 		t.Fatal(e)
 	}
 	check(5)
@@ -72,7 +73,7 @@ func TestPhase03FreshUpgradeAndRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	check(3)
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 5); e != nil {
 		t.Fatal(e)
 	}
 	check(5)
@@ -80,8 +81,48 @@ func TestPhase03FreshUpgradeAndRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	check(0)
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 5); e != nil {
 		t.Fatal(e)
 	}
 	check(5)
+}
+
+// v5 upgrade, new installation, full empty rollback and reapply use only isolated fixtures.
+func TestPhase04FreshUpgradeAndRollback(t *testing.T) {
+	f := testdb.New(t, os.Getenv)
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if e := configure(logger); e != nil {
+		t.Fatal(e)
+	}
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 5); e != nil {
+		t.Fatal(e)
+	}
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check := func(want int64) {
+		t.Helper()
+		v, e := Version(ctx, f.SQL)
+		if e != nil || v != want {
+			t.Fatalf("schema %d want %d: %v", v, want, e)
+		}
+	}
+	check(6)
+	if e := Down(ctx, f.SQL, 1, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(5)
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(6)
+	if e := Down(ctx, f.SQL, 6, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(0)
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(6)
 }
