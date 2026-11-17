@@ -41,6 +41,12 @@ const actionError = ref<string | null>(null)
 const actionMessage = ref<string | null>(null)
 const busy = ref<string | null>(null)
 
+// confirmedTeamId is the team whose data is fully loaded and displayed. It is
+// set only after every response for that team has been applied, so actions and
+// preference writes never bind to a team that is still loading or stale.
+const confirmedTeamId = ref<string | null>(null)
+let loadGeneration = 0
+
 const inviteUsername = ref('')
 const inviteRole = ref<InvitationRole>('member')
 const inviteHours = ref('72')
@@ -48,33 +54,60 @@ const inviteHours = ref('72')
 const pendingInvitations = computed(() => invitations.value.filter((i) => i.status === 'pending'))
 const historyInvitations = computed(() => invitations.value.filter((i) => i.status !== 'pending'))
 
+// Actions are enabled only when the displayed team is confirmed, matches the
+// current route, and nothing is loading or in flight. The instant the route
+// changes this turns false, disabling controls bound to the previous team.
+const actionsEnabled = computed(
+  () =>
+    !loading.value &&
+    busy.value === null &&
+    confirmedTeamId.value !== null &&
+    confirmedTeamId.value === teamId.value,
+)
+
 function messageOf(reason: unknown): string {
   return reason instanceof ApiError ? reason.message : '无法连接到 Nexora API'
 }
 
+function clearTeamState(): void {
+  team.value = null
+  permissions.value = null
+  members.value = []
+  invitations.value = []
+  confirmedTeamId.value = null
+  actionError.value = null
+  actionMessage.value = null
+}
+
 async function loadAll(): Promise<void> {
+  const id = teamId.value
+  const generation = ++loadGeneration
+  clearTeamState()
   loading.value = true
   loadError.value = null
   notFound.value = false
-  actionError.value = null
-  actionMessage.value = null
+  const stale = () => generation !== loadGeneration || id !== teamId.value
   try {
-    const id = teamId.value
     const [detail, caps, memberList] = await Promise.all([
       getTeam(id),
       getTeamPermissions(id),
       listTeamMembers(id),
     ])
+    if (stale()) return
     team.value = detail
     permissions.value = caps
     members.value = memberList
-    invitations.value = caps.can_manage_invitations ? await listTeamInvitations(id) : []
+    const invites = caps.can_manage_invitations ? await listTeamInvitations(id) : []
+    if (stale()) return
+    invitations.value = invites
+    confirmedTeamId.value = id
     teams.selectTeam(id)
   } catch (reason) {
+    if (stale()) return
     if (reason instanceof ApiError && reason.status === 404) notFound.value = true
     else loadError.value = messageOf(reason)
   } finally {
-    loading.value = false
+    if (!stale()) loading.value = false
   }
 }
 
@@ -98,60 +131,80 @@ function canRemove(target: TeamMember): boolean {
   return !(caps.role === 'admin' && target.role === 'owner')
 }
 
-async function runAction(key: string, action: () => Promise<void>): Promise<void> {
-  if (busy.value) return
+// runTeamAction binds a mutation to the confirmed team captured at click time
+// and re-checks the route before applying any result, so a stale action can
+// neither target nor pollute a different team.
+async function runTeamAction(key: string, action: (id: string) => Promise<void>): Promise<void> {
+  const id = confirmedTeamId.value
+  if (!actionsEnabled.value || id === null) return
   busy.value = key
   actionError.value = null
   actionMessage.value = null
   try {
-    await action()
+    await action(id)
   } catch (reason) {
-    actionError.value = messageOf(reason)
+    if (id === teamId.value) actionError.value = messageOf(reason)
   } finally {
-    busy.value = null
+    if (busy.value === key) busy.value = null
   }
 }
 
 async function changeRole(target: TeamMember, role: TeamRole): Promise<void> {
-  await runAction(`role:${target.user_id}`, async () => {
-    await changeMemberRole(teamId.value, target.user_id, role)
+  await runTeamAction(`role:${target.user_id}`, async (id) => {
+    await changeMemberRole(id, target.user_id, role)
+    if (id !== teamId.value) return
     await loadAll()
-    actionMessage.value = `已将 ${target.username} 的角色变更为${teamRoleLabel(role)}。`
+    if (id === teamId.value) {
+      actionMessage.value = `已将 ${target.username} 的角色变更为${teamRoleLabel(role)}。`
+    }
   })
 }
 
 async function removeMember(target: TeamMember): Promise<void> {
-  await runAction(`remove:${target.user_id}`, async () => {
-    await removeTeamMember(teamId.value, target.user_id)
+  await runTeamAction(`remove:${target.user_id}`, async (id) => {
+    await removeTeamMember(id, target.user_id)
+    if (id !== teamId.value) return
     await loadAll()
-    actionMessage.value = `已移除成员 ${target.username}，其访问权限立即失效。`
+    if (id === teamId.value) {
+      actionMessage.value = `已移除成员 ${target.username}，其访问权限立即失效。`
+    }
   })
 }
 
 async function leaveTeam(): Promise<void> {
   if (!auth.user) return
-  await runAction('leave', async () => {
-    await removeTeamMember(teamId.value, auth.user!.id)
+  const userId = auth.user.id
+  await runTeamAction('leave', async (id) => {
+    await removeTeamMember(id, userId)
+    if (id !== teamId.value) return
     if (auth.user) await teams.loadTeams(auth.user.id, true)
     await router.push({ name: 'teams' })
   })
 }
 
 async function submitInvite(): Promise<void> {
-  await runAction('invite', async () => {
-    const hours = inviteHours.value.trim() === '' ? undefined : Number(inviteHours.value)
-    await createInvitation(teamId.value, inviteUsername.value.trim(), inviteRole.value, hours)
-    actionMessage.value = `已向 ${inviteUsername.value.trim()} 发出邀请。`
+  const username = inviteUsername.value.trim()
+  const role = inviteRole.value
+  const hours = inviteHours.value.trim() === '' ? undefined : Number(inviteHours.value)
+  await runTeamAction('invite', async (id) => {
+    await createInvitation(id, username, role, hours)
+    if (id !== teamId.value) return
+    const invites = await listTeamInvitations(id)
+    if (id !== teamId.value) return
+    invitations.value = invites
+    actionMessage.value = `已向 ${username} 发出邀请。`
     inviteUsername.value = ''
-    invitations.value = await listTeamInvitations(teamId.value)
   })
 }
 
 async function cancelInvite(invitation: TeamInvitation): Promise<void> {
-  await runAction(`cancel:${invitation.id}`, async () => {
-    await cancelInvitation(teamId.value, invitation.id)
+  await runTeamAction(`cancel:${invitation.id}`, async (id) => {
+    await cancelInvitation(id, invitation.id)
+    if (id !== teamId.value) return
+    const invites = await listTeamInvitations(id)
+    if (id !== teamId.value) return
+    invitations.value = invites
     actionMessage.value = `已取消对 ${invitation.invited_username} 的邀请。`
-    invitations.value = await listTeamInvitations(teamId.value)
   })
 }
 </script>
@@ -192,7 +245,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
           </p>
         </div>
         <div class="flex shrink-0 items-center gap-2">
-          <button type="button" class="btn" :disabled="loading" @click="loadAll">
+          <button type="button" class="btn" :disabled="loading || busy !== null" @click="loadAll">
             <AppIcon name="refresh" :size="15" :class="loading ? 'animate-spin' : ''" />
             刷新
           </button>
@@ -200,7 +253,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
             v-if="permissions?.can_leave"
             type="button"
             class="btn"
-            :disabled="busy !== null"
+            :disabled="!actionsEnabled"
             @click="leaveTeam"
           >
             <AppIcon name="logout" :size="15" />
@@ -262,7 +315,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
                 v-if="roleOptions(member).length > 0"
                 class="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-accent focus:outline-none"
                 :value="member.role"
-                :disabled="busy !== null"
+                :disabled="!actionsEnabled"
                 :aria-label="`变更 ${member.username} 的角色`"
                 @change="changeRole(member, ($event.target as HTMLSelectElement).value as TeamRole)"
               >
@@ -274,7 +327,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
                 v-if="canRemove(member)"
                 type="button"
                 class="btn px-2.5 py-1.5 text-xs"
-                :disabled="busy !== null"
+                :disabled="!actionsEnabled"
                 @click="removeMember(member)"
               >
                 移除
@@ -331,7 +384,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
           <button
             type="submit"
             class="btn btn-primary"
-            :disabled="busy !== null || !inviteUsername.trim()"
+            :disabled="!actionsEnabled || !inviteUsername.trim()"
           >
             <AppIcon name="plus" :size="15" />
             发出邀请
@@ -362,7 +415,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
               <button
                 type="button"
                 class="btn shrink-0 px-2.5 py-1.5 text-xs"
-                :disabled="busy !== null"
+                :disabled="!actionsEnabled"
                 @click="cancelInvite(invitation)"
               >
                 取消邀请
