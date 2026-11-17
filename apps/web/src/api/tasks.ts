@@ -134,3 +134,9 @@ export const taskStatusLabel: Record<Task['status'], string> = {
 export function percent(bps: number): string {
   return `${(bps / 100).toFixed(2)}%`
 }
+
+// This is only an option filter. The server still checks execution history,
+// dependencies, qualification and the resulting subtree depth.
+export function canSelectParent(task: Task): boolean {
+  return task.depth < 3 && (!task.is_leaf || task.status === 'pending')
+}

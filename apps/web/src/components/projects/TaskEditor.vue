@@ -1,7 +1,7 @@
 <script setup lang="ts">
-import { reactive, watch } from 'vue'
+import { computed, reactive, watch } from 'vue'
 import type { ProjectMember } from '@/api/projects'
-import type { CreateTask, Task } from '@/api/tasks'
+import { canSelectParent, type CreateTask, type Task } from '@/api/tasks'
 const props = defineProps<{
   task?: Task
   tasks: Task[]
@@ -26,6 +26,16 @@ const form = reactive({
   start: localDate(props.task?.planned_start_at),
   end: localDate(props.task?.planned_end_at),
 })
+const inactiveCollaborators = computed(() =>
+  form.collaborators.filter((id) => !props.members.some((m) => m.user_id === id && m.active)),
+)
+function memberName(id: string) {
+  const member = props.members.find((m) => m.user_id === id)
+  return member?.display_name || member?.username || id
+}
+function removeCollaborator(id: string) {
+  form.collaborators = form.collaborators.filter((current) => current !== id)
+}
 watch(
   () => form.owner,
   (id) => {
@@ -92,15 +102,34 @@ function save() {
           </option>
         </select></label
       >
+      <div
+        v-if="inactiveCollaborators.length"
+        class="rounded-lg border border-warning/40 bg-warning-soft p-3 sm:col-span-2"
+      >
+        <p class="text-xs text-warning">以下协作者的成员资格已失效，请移除后保存任务。</p>
+        <ul class="mt-2 space-y-2">
+          <li
+            v-for="id in inactiveCollaborators"
+            :key="id"
+            class="flex items-center justify-between gap-3"
+          >
+            <span class="text-sm text-ink-muted">{{ memberName(id) }} · 已失效</span>
+            <button
+              class="btn"
+              type="button"
+              :aria-label="`移除失效协作者 ${memberName(id)}`"
+              @click="removeCollaborator(id)"
+            >
+              移除失效协作者
+            </button>
+          </li>
+        </ul>
+      </div>
       <template v-if="!task"
         ><label class="form-label"
           >父任务<select aria-label="父任务" v-model="form.parent" class="form-input">
             <option value="">无（一级任务）</option>
-            <option
-              v-for="t in tasks.filter((t) => t.depth < 3 && t.status === 'pending')"
-              :key="t.id"
-              :value="t.id"
-            >
+            <option v-for="t in tasks.filter(canSelectParent)" :key="t.id" :value="t.id">
               {{ t.depth }} 级 · {{ t.title }}
             </option>
           </select></label
@@ -119,7 +148,7 @@ function save() {
         >计划结束<input v-model="form.end" type="datetime-local" class="form-input"
       /></label>
       <div class="sm:col-span-2">
-        <button class="btn btn-primary" type="submit">
+        <button class="btn btn-primary" type="submit" :disabled="inactiveCollaborators.length > 0">
           {{ task ? '保存任务' : '保存新任务' }}
         </button>
       </div>

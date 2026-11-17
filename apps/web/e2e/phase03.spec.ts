@@ -140,6 +140,30 @@ test('real participant: only assigned task is visible and progress is authoritat
   await expect(page.getByRole('button', { name: '移除', exact: true })).toHaveCount(0)
 })
 
+test('real UI: an executing task group accepts new children and moved leaves', async ({ page }) => {
+  await login(page)
+  await workspace(page)
+  await createTask(page, '增量子任务', middle, 2, root)
+  await selectTask(page, '增量子任务')
+  await page.getByLabel('取消原因', { exact: true }).fill('取消增量计划，保留验证历史')
+  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await expect(page.getByTestId('project-progress')).toHaveText('60.00%')
+  await createTask(page, '待移入计划', '', 2, root)
+  await selectTask(page, '待移入计划')
+  await page.getByLabel('移动到父任务', { exact: true }).selectOption(middle)
+  await page.getByRole('button', { name: '移动子树', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '待移入计划', exact: true })).toBeVisible()
+  const tree = await page.request.get(`/api/v1/teams/${team}/projects/${project}/tasks`)
+  const moved = (await tree.json()).data.tasks.find(
+    (t: { title: string }) => t.title === '待移入计划',
+  )
+  expect(moved.parent_id).toBe(middle)
+  expect(moved.depth).toBe(3)
+  await page.getByLabel('取消原因', { exact: true }).fill('结束结构验证')
+  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await expect(page.getByTestId('project-progress')).toHaveText('60.00%')
+})
+
 test('real UI: 99% execution caps aggregation at 79% and dependencies block', async ({ page }) => {
   await login(page)
   await workspace(page)
@@ -183,6 +207,34 @@ test('real UI: 99% execution caps aggregation at 79% and dependencies block', as
     () => document.documentElement.scrollWidth > window.innerWidth,
   )
   expect(overflow).toBe(false)
+})
+
+test('real UI: an inactive collaborator can be explicitly removed and the task saved', async ({
+  page,
+}) => {
+  await login(page)
+  await workspace(page)
+  await selectTask(page, '接口实现')
+  await page.getByRole('button', { name: '编辑任务', exact: true }).click()
+  await page.getByLabel('任务负责人', { exact: true }).selectOption(root)
+  await page.getByLabel('协作者（可多选）', { exact: true }).selectOption(member)
+  await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  await expect(page.getByRole('heading', { name: '接口实现', exact: true })).toBeVisible()
+  await page.goto(`/teams/${team}/members`)
+  await page
+    .locator(`li[data-user-id="${member}"]`)
+    .getByRole('button', { name: '移除', exact: true })
+    .click()
+  await expect(page.getByRole('status')).toContainText('已移除成员 phase03_member')
+  await workspace(page)
+  await selectTask(page, '接口实现')
+  await page.getByRole('button', { name: '编辑任务', exact: true }).click()
+  await page.getByRole('button', { name: '移除失效协作者 Lin', exact: true }).click()
+  await page.getByLabel('任务描述', { exact: true }).fill('成员离队后显式修复任务分配')
+  await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  await expect(page.getByText('成员离队后显式修复任务分配', { exact: true })).toBeVisible()
+  const response = await page.request.get(`/api/v1/teams/${team}/projects/${project}/tasks/${leaf}`)
+  expect((await response.json()).data.collaborator_ids).toEqual([])
 })
 
 test('real UI: weight history, milestone plan, edit project and archive read-only', async ({

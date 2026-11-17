@@ -38,7 +38,7 @@
 
 `goose_db_version` 由 goose 自动维护，`/readyz` 读取其中最高已应用版本。
 
-## Phase 02 Schema（已开发并验证，PR #2 待合并）
+## Phase 02 Schema（已合并并验证）
 
 迁移 `00002_auth.sql` 与 `00003_teams.sql` 追加于版本 1 之后；不修改已发布的 `00001_baseline.sql`。两个迁移已在全新数据库与版本 1 升级路径上运行，并在一次性测试库完成 up/down/up 回滚验证（2026-11-17）；未触碰运行中的开发数据库。
 
@@ -135,16 +135,16 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 索引：部分唯一索引 `(team_id, invited_user_id) WHERE status='pending'`（重复邀请防护）、`(invited_user_id, status)`、`(team_id, status)`。
 接受流程：事务内对邀请行与团队行加锁，校验 pending/未过期/接受人=被邀请者，成员关系只能写入邀请所属 Team。
 
-## 计划中的核心表（Phase 03 起）
+## 领域总览与后续规划
 
-以下为设计方向，尚未创建；实现前会补充字段、约束、索引与迁移。身份、审计与团队表已在上方“Phase 02 Schema”实现并验证（2026-11-17），此处保留领域总览。
+身份、审计与团队为已合并基线；项目/任务的特性分支 Schema 见下方 Phase 03 章节，尚未合入 develop。成果、贡献与奖金仍为后续设计，此处保留领域总览。
 
 | 领域 | 表 | 关键约束 |
 | --- | --- | --- |
 | 身份 | `users`、`sessions`、`platform_roles` | 见 Phase 02 Schema；`users.system_root` 唯一真值 + ROOT 唯一部分索引 |
 | 审计 | `audit_events` | 见 Phase 02 Schema；追加写、同事务、禁敏感载荷 |
 | 团队 | `teams`、`team_members`、`team_invitations` | 见 Phase 02 Schema；`(team_id,user_id)` 主键；角色枚举；最后 owner 触发器 |
-| 项目 | `projects`、`project_members`、`milestones` | `team_id` 外键；负责人必须是团队成员 |
+| 项目 | `projects`、`project_members`、`project_milestones` | `team_id` 外键；负责人必须是团队成员 |
 | 任务 | `tasks`、`task_collaborators`、`task_dependencies` | `depth <= 3`；父子同项目；依赖唯一且无自环 |
 | 成果 | `task_submissions`、`task_submission_versions`、`task_reviews` | 版本不可变；验收引用具体版本 |
 | 贡献 | `contributions`、`contribution_revisions` | 已确认记录不覆盖；修订保留前后值 |

@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { computed, reactive, ref } from 'vue'
 import type { ProjectMember } from '@/api/projects'
-import { percent, taskStatusLabel, type Dependency, type Task, type TaskHistory } from '@/api/tasks'
+import {
+  canSelectParent,
+  percent,
+  taskStatusLabel,
+  type Dependency,
+  type Task,
+  type TaskHistory,
+} from '@/api/tasks'
 import { formatDateTime } from '@/utils/format'
 const props = defineProps<{
   task: Task
@@ -169,9 +176,7 @@ const title = (id: string) => props.tasks.find((t) => t.id === id)?.title ?? '�
           >移动到父任务<select aria-label="移动到父任务" v-model="parent" class="form-input">
             <option value="">无（一级任务）</option>
             <option
-              v-for="t in tasks.filter(
-                (t) => t.id !== task.id && t.depth < 3 && t.status === 'pending',
-              )"
+              v-for="t in tasks.filter((t) => t.id !== task.id && canSelectParent(t))"
               :key="t.id"
               :value="t.id"
             >

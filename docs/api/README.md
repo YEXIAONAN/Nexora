@@ -12,7 +12,7 @@ OpenAPI 3.1 定义位于 [openapi.yaml](openapi.yaml)。
 | GET | `/readyz` | 数据库连接与 Schema 版本；未就绪返回 503 |
 | GET | `/api/v1/meta` | 构建信息、环境、安装实例 ID 与 ROOT 引导状态 |
 
-### 认证与平台管理（Phase 02，已开发并验证，PR #2 待合并）
+### 认证与平台管理（Phase 02，已合并并验证）
 
 | 方法 | 路径 | 认证 | 权限 | 说明 |
 | --- | --- | --- | --- | --- |
@@ -24,7 +24,7 @@ OpenAPI 3.1 定义位于 [openapi.yaml](openapi.yaml)。
 | POST | `/api/v1/admin/platform-roles` | 会话 | 仅 ROOT | 授予平台管理员 |
 | DELETE | `/api/v1/admin/platform-roles/{userID}` | 会话 | 仅 ROOT | 撤销平台管理员 |
 
-### 团队与邀请（Phase 02，已开发并验证，PR #2 待合并）
+### 团队与邀请（Phase 02，已合并并验证）
 
 | 方法 | 路径 | 认证 | 权限 | 说明 |
 | --- | --- | --- | --- | --- |

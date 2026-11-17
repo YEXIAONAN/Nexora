@@ -1,6 +1,6 @@
 # Nexora V1.0 Phase 03 开发与验收报告
 
-日期：2026-11-17（Asia/Shanghai）。状态：功能已在 feature/phase03-projects-tasks 开发并本地验证；PR、CI 和 Review 交付状态见 G。尚未合入 develop，不标注为正式集成完成，更不表示 V1.0 已全部完成。
+日期：2026-11-17（Asia/Shanghai）。状态：功能已开发并验证，PR #3 已创建且首轮必要 CI 全部通过；最终 Review 交付状态见 G。尚未合入 develop，不标注为正式集成完成，更不表示 V1.0 已全部完成。
 
 ## A. 功能完成情况
 
@@ -81,7 +81,7 @@ ADR 0005 只接受进度部分；金额、舍入及余额归属仍 Proposed，�
 
 ## E. 安全和测试
 
-真实通过的门禁：make verify（gofmt、vet、Go 单元、ESLint、Prettier、vue-tsc、Vitest、Go/Web 构建、契约一致、密钥扫描）；go vet -tags=integration；真实 PG17 的 go test -race -count=1 -tags=integration ./...；Compose 完整配置；API/Web Docker 镜像构建；浏览器 E2E。
+真实通过的门禁：make verify（gofmt、vet、Go 单元、ESLint、Prettier、vue-tsc、Vitest（12 文件 / 66 用例）、Go/Web 构建、契约一致、密钥扫描）；go vet -tags=integration；真实 PG17 的 go test -race -count=1 -tags=integration ./...；Compose 完整配置；API/Web Docker 镜像构建；浏览器 E2E。
 
 | 强制矩阵 | 证据 |
 | --- | --- |
@@ -102,7 +102,7 @@ ADR 0005 只接受进度部分；金额、舍入及余额归属仍 Proposed，�
 
 Vue 3 延续现有组件/色彩/响应式样式，没有新增大型 UI 库。数据全部来自真实 HTTP API，无 Mock 伪装。加载、空列表、无权限/失效资格、错误和旧版本均有页面反馈。项目上下文变化立即清除已确认状态，旧响应不得落地；所有写入捕获已确认 Team/Project，迟到成功或失败不影响新上下文（含 A→B→A）。
 
-make e2e 在一次性真实栈运行 **18/18 通过**：Phase 02 原 11 项 + Phase 03 新 7 项。新场景：
+make e2e 在一次性真实栈运行 **20/20 通过**：Phase 02 原 11 项 + Phase 03 新 9 项。新场景：
 
 1. 登录→选择 Team→UI 创建项目。
 2. 真实受控账号/邀请加入→UI 添加项目参与者。
@@ -111,6 +111,8 @@ make e2e 在一次性真实栈运行 **18/18 通过**：Phase 02 原 11 项 + Ph
 5. 实际 99% 时有效 79%；新叶权重 1 后项目 59.25%；配置依赖阻塞；原因明确忽略后才开始。
 6. 权重变更后项目 39.50%，历史仍可见 59.25%；里程碑、项目编辑、归档后只读且后端拒绝写入。
 7. 顶栏切换 Team，离开旧项目上下文，旧项目名称不在新 Team 页面显示。
+8. 已有后代执行中的汇总任务仍可选择为父节点，新增子任务及移入叶子均成功，取消测试叶子后原进度保持。
+9. 协作者离开 Team 后，UI 显示明确失效状态及移除动作；只剩负责人时也能清除失效协作者并保存任务。
 
 已检查桌面浅色、桌面深色、390px 手机截图，手机无横向溢出。截图/测试日志保存在本地忽略目录 .cache；不把随机口令、环境文件或临时运行数据提交到仓库。
 
@@ -118,7 +120,10 @@ make e2e 在一次性真实栈运行 **18/18 通过**：Phase 02 原 11 项 + Ph
 
 - 基于重新 fetch 的 develop c3fb029（与指定基线相同），合并 CI 44097502361 四项 success；Phase 02 的两个审查线程 resolved，开放 Issue 查询为空。
 - 分支 feature/phase03-projects-tasks，M1–M6 使用普通 Conventional Commits，无历史重写、force push 或 AI 联合署名。
-- 本地交付提交与 PR/CI/Review 链接在创建 PR 后补充；当前不得仅因本地通过就声称全部最终条件已满足。
+- [PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)：feature/phase03-projects-tasks → develop，OPEN、非草稿、尚未合并。
+- 功能交付 HEAD `0ba1cbef6255824e80c52b5f33542a1fbdf34800` 的 [PR CI 44108231549](https://github.com/YEXIAONAN/Nexora/actions/runs/44108231549)：Backend (Go)、Frontend (Vue)、Secret scan、Containers 全部 success。
+- 已通过 [显式审查请求](https://github.com/YEXIAONAN/Nexora/pull/3#issuecomment-6951608259) 请求代码审查；首轮两项 P2 均已整改并新增 4 项组件回归和 2 项真实 E2E；处置与复审结果见 PR Review Summary，不代替人工最终批准。
+- 阶段提交：66a7d55（M1 设计/规则）、0da9620（M1 契约生成）、422ec35（M2 项目）、eb846fb（M3 三级任务）、1e14616（M4 依赖/进度）、d36cff9（M5 前端）、0ba1cbe（M6 综合验收）。后续仅追加验收状态或评审修复提交，不重写上述历史。
 - main 36bddd6 与 develop c3fb029 不由本次任务修改。禁止自动合并。
 
 ## H. Phase 04 准备与未开发边界
@@ -130,3 +135,10 @@ make e2e 在一次性真实栈运行 **18/18 通过**：Phase 02 原 11 项 + Ph
 已明确的首版限制：同 Team 业务读写串行，适合小团队、未做大规模吞吐验证；历史 API 返回最近 200 条但数据库完整保留；没有父任务依赖/批量取消/物理删除；里程碑仅为计划。归档严格只读，连负责人交接也拒绝，因此归档前须安排长期保管负责人，归档负责人离队被保护拒绝；未来若需更正应单独设计受控修订。活跃项目负责人可先交接再退出。
 
 验收过程修正：新增迁移的一条重复里程碑索引定义已删除，并重跑空库/v3 升级/回滚与全量集成；原 Phase 02 会话失效 E2E 增加等待初始加载完成的条件，避免页面已正确跳到登录后测试仍尝试点击旧刷新按钮。未增加随机 sleep 或以自动重试隐藏失败。
+
+
+## PR 首轮评审整改
+
+首轮 Codex Review 于 0ba1cbe 返回两项 P2：汇总任务的派生 in_progress 被前端误用于过滤父节点；失效协作者 ID 仍在表单但无可操作控件。均按原后端规则修复，没有放宽状态/资格授权：父候选区分 summary 与 leaf，最终结构仍由服务端校验；失效协作者以具名列表和显式移除按钮处理，未静默丢弃分配或历史。
+
+TaskEditing.spec.ts 新增 4 个用例，修复前 4/4 失败，修复后 4/4 通过；全量 Vitest 66/66。真实浏览器新增上述两条流程后 20/20 通过。未修改已发布迁移或 Phase 04 边界。CI 与复审按 PR 当前 HEAD 核验，最终交付答复列出最新结果。

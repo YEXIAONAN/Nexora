@@ -4,7 +4,7 @@ Nexora 是面向 ZERO_R 等小型研发团队的内部工程管理平台，以�
 
 复用现有 Vue + Go + PostgreSQL 工程，不替换架构。当前工程工作代号：**Phase 03（项目与三级任务）**；Phase 02 已合入 develop `c3fb029`。阶段代号仅用于工程排期，不构成产品范围决策；Phase 03 不代表 V1.0 开发完成。
 
-> **当前阶段：Phase 03 项目与三级任务（特性分支已开发并本地验证，待 PR/CI 交付评审）。**
+> **当前阶段：Phase 03 项目与三级任务（已开发并验证，[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3) 待最终评审，未合并）。**
 > 项目、成员与交接、里程碑、归档只读、三级任务、开始/取消、依赖、精确权重进度及历史快照，见 [设计](docs/development/phase-03-design.md) 与 [验收报告](docs/development/phase-03-report.md)。
 > 成果版本、待验收、正式完成、驳回与重新提交属于 Phase 04，尚未开发。实际进度最高 99%，有效进度最高 79%；不能手动完成。
 > 运行中的旧开发栈未自动升级。新迁移只在独立一次性 PostgreSQL 验证，部署升级需显式操作。
