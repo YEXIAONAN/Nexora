@@ -2,13 +2,15 @@ package tasks
 
 import (
 	"context"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"strings"
-	"time"
 )
 
 func (s *Service) Weight(ctx context.Context, a reqctx.Identity, teamID, pid, id uuid.UUID, weight, version int, reason string) (out Task, err error) {
@@ -16,6 +18,9 @@ func (s *Service) Weight(ctx context.Context, a reqctx.Identity, teamID, pid, id
 		t := g.tasks[id]
 		if t == nil {
 			return projects.NotFound()
+		}
+		if e := s.execution(ctx, tx, a, sc, *t, false); e != nil {
+			return e
 		}
 		if e := projects.CheckVersion(version, t.Version); e != nil {
 			return e
@@ -55,7 +60,13 @@ func (s *Service) AddDependency(ctx context.Context, a reqctx.Identity, teamID, 
 		if t == nil || p == nil {
 			return projects.NotFound()
 		}
+		if e := s.execution(ctx, tx, a, sc, *t, false); e != nil {
+			return e
+		}
 		if e := projects.CheckVersion(version, t.Version); e != nil {
+			return e
+		}
+		if e := s.execution(ctx, tx, a, sc, *p, false); e != nil {
 			return e
 		}
 		if id == predecessor {
@@ -88,6 +99,9 @@ func (s *Service) IgnoreDependency(ctx context.Context, a reqctx.Identity, teamI
 		t := g.tasks[id]
 		if t == nil {
 			return projects.NotFound()
+		}
+		if e := s.execution(ctx, tx, a, sc, *t, false); e != nil {
+			return e
 		}
 		if e := projects.CheckVersion(version, t.Version); e != nil {
 			return e

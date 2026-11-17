@@ -1,12 +1,15 @@
 package tasks
 
 import (
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
+	"encoding/json"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 )
 
 type Handler struct {
@@ -73,13 +76,20 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			data, err = h.svc.Edit(r.Context(), a, team, pid, id, in)
 		case "move":
 			var in struct {
-				ParentID        *uuid.UUID `json:"parent_id"`
-				ExpectedVersion int        `json:"expected_version"`
+				ParentID        json.RawMessage `json:"parent_id"`
+				ExpectedVersion int             `json:"expected_version"`
 			}
 			if !httpx.DecodeBody(w, r, h.logger, &in) {
 				return
 			}
-			data, err = h.svc.Move(r.Context(), a, team, pid, id, in.ParentID, in.ExpectedVersion)
+			var parent *uuid.UUID
+			if len(in.ParentID) == 0 {
+				err = httpx.ValidationFailed(map[string]string{"parent_id": "is required; use null for a root task"})
+			} else if e := json.Unmarshal(in.ParentID, &parent); e != nil {
+				err = httpx.BadRequest("parent_id must be a UUID or null")
+			} else {
+				data, err = h.svc.Move(r.Context(), a, team, pid, id, parent, in.ExpectedVersion)
+			}
 		case "transition":
 			var in struct {
 				Status          string `json:"status"`

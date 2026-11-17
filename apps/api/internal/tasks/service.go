@@ -2,13 +2,15 @@ package tasks
 
 import (
 	"context"
+	"strings"
+	"unicode/utf8"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"strings"
-	"unicode/utf8"
 )
 
 type Service struct {
@@ -211,6 +213,9 @@ func (s *Service) Create(ctx context.Context, a reqctx.Identity, teamID, pid uui
 			if p == nil {
 				return projects.NotFound()
 			}
+			if e := s.execution(ctx, tx, a, sc, *p, false); e != nil {
+				return e
+			}
 			if p.Status == Cancelled {
 				return httpx.Conflict("cannot add a child to a cancelled task")
 			}
@@ -234,6 +239,7 @@ func (s *Service) Create(ctx context.Context, a reqctx.Identity, teamID, pid uui
 			return e
 		}
 		g.tasks[out.ID] = &out
+		g.nonLeaves = nil
 		g.order = append(g.order, out.ID)
 		if e = s.record(ctx, tx, a, g, Task{ID: out.ID, Status: Pending}, out, "created", "", before); e != nil {
 			return e
@@ -297,6 +303,9 @@ func (s *Service) Move(ctx context.Context, a reqctx.Identity, teamID, pid, id u
 			if p.ID == id || g.descendant(p.ID, id) {
 				return httpx.Conflict("a task cannot be moved under itself or a descendant")
 			}
+			if e := s.execution(ctx, tx, a, sc, *p, false); e != nil {
+				return e
+			}
 			if p.Status == Cancelled {
 				return httpx.Conflict("cannot move under a cancelled task")
 			}
@@ -326,8 +335,12 @@ func (s *Service) Move(ctx context.Context, a reqctx.Identity, teamID, pid, id u
 		}
 		old := *t
 		t.ParentID = parent
+		g.nonLeaves = nil
 		for _, child := range ids {
 			node := g.tasks[child]
+			if e := s.execution(ctx, tx, a, sc, *node, false); e != nil {
+				return e
+			}
 			node.Depth += delta
 			if e = s.repo.save(ctx, tx, node); e != nil {
 				return e

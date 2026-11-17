@@ -2,6 +2,7 @@ package tasks
 
 import (
 	"context"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
@@ -89,7 +90,7 @@ func (r *Repository) insert(ctx context.Context, tx pgx.Tx, t *Task) error {
 	return tx.QueryRow(ctx, `INSERT INTO tasks(id,team_id,project_id,parent_id,depth,title,description,owner_id,priority,planned_start_at,planned_end_at,weight,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13) RETURNING version,status,created_at,updated_at`, t.ID, t.TeamID, t.ProjectID, t.ParentID, t.Depth, t.Title, t.Description, t.OwnerID, t.Priority, t.PlannedStartAt, t.PlannedEndAt, t.Weight, t.CreatedBy).Scan(&t.Version, &t.Status, &t.CreatedAt, &t.UpdatedAt)
 }
 func (r *Repository) save(ctx context.Context, tx pgx.Tx, t *Task) error {
-	return tx.QueryRow(ctx, `UPDATE tasks SET parent_id=$4,depth=$5,title=$6,description=$7,owner_id=$8,priority=$9,planned_start_at=$10,planned_end_at=$11,status=$12,actual_progress=$13,weight=$14,cancellation_reason=$15,version=version+1,updated_at=now() WHERE team_id=$1 AND project_id=$2 AND id=$3 RETURNING version,updated_at`, t.TeamID, t.ProjectID, t.ID, t.ParentID, t.Depth, t.Title, t.Description, t.OwnerID, t.Priority, t.PlannedStartAt, t.PlannedEndAt, t.Status, t.ActualProgress, t.Weight, t.CancellationReason).Scan(&t.Version, &t.UpdatedAt)
+	return tx.QueryRow(ctx, `UPDATE tasks SET parent_id=$4,depth=$5,title=$6,description=$7,owner_id=$8,priority=$9,planned_start_at=$10,planned_end_at=$11,status=$12,actual_progress=$13,weight=$14,cancellation_reason=$15,version=version+1,updated_at=clock_timestamp() WHERE team_id=$1 AND project_id=$2 AND id=$3 RETURNING version,updated_at`, t.TeamID, t.ProjectID, t.ID, t.ParentID, t.Depth, t.Title, t.Description, t.OwnerID, t.Priority, t.PlannedStartAt, t.PlannedEndAt, t.Status, t.ActualProgress, t.Weight, t.CancellationReason).Scan(&t.Version, &t.UpdatedAt)
 }
 func (r *Repository) collaborators(ctx context.Context, tx pgx.Tx, t Task) error {
 	if _, err := tx.Exec(ctx, `DELETE FROM task_collaborators WHERE team_id=$1 AND project_id=$2 AND task_id=$3`, t.TeamID, t.ProjectID, t.ID); err != nil {

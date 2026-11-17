@@ -5,6 +5,15 @@ package projects
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
+	"os"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -12,13 +21,6 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/testdb"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"log/slog"
-	"os"
-	"testing"
-	"time"
 )
 
 type fixture struct {
@@ -167,4 +169,23 @@ func TestProjectAuditFailureRollsBack(t *testing.T) {
 	if e != nil || got.Name != p.Name || got.Version != p.Version {
 		t.Fatalf("non-atomic edit: %+v %v", got, e)
 	}
+}
+func TestRemovedMemberCannotLeadAndForeignAdminCannotEdit(t *testing.T) {
+	f := setup(t)
+	create(t, f)
+	if e := f.t.RemoveMember(f.ctx, f.root, f.team, f.user.UserID); e != nil {
+		t.Fatal(e)
+	}
+	_, e := f.s.Create(f.ctx, f.root, f.team, CreateInput{ProjectInput: ProjectInput{Name: "invalid lead"}, LeadID: f.user.UserID})
+	status(t, e, 422)
+	other, e := f.t.CreateTeam(f.ctx, f.user, "Other", "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := f.s.Create(f.ctx, f.user, other.ID, CreateInput{ProjectInput: ProjectInput{Name: "Other project"}, LeadID: f.user.UserID})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.s.Edit(f.ctx, f.root, other.ID, p.ID, EditInput{ProjectInput: ProjectInput{Name: "tampered"}, ExpectedVersion: p.Version})
+	status(t, e, 404)
 }

@@ -17,8 +17,8 @@ CREATE TABLE tasks (
  cancellation_reason text NOT NULL DEFAULT '' CHECK(length(cancellation_reason)<=1000),
  version integer NOT NULL DEFAULT 1 CHECK(version>0),
  created_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
- created_at timestamptz NOT NULL DEFAULT now(),
- updated_at timestamptz NOT NULL DEFAULT now(),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  UNIQUE(team_id,project_id,id),
  FOREIGN KEY(team_id,project_id) REFERENCES projects(team_id,id) ON DELETE RESTRICT,
  FOREIGN KEY(team_id,project_id,parent_id) REFERENCES tasks(team_id,project_id,id) ON DELETE RESTRICT,
@@ -36,7 +36,7 @@ CREATE TABLE task_collaborators (
  project_id uuid NOT NULL,
  task_id uuid NOT NULL,
  user_id uuid NOT NULL,
- created_at timestamptz NOT NULL DEFAULT now(),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  PRIMARY KEY(team_id,project_id,task_id,user_id),
  FOREIGN KEY(team_id,project_id,task_id) REFERENCES tasks(team_id,project_id,id) ON DELETE RESTRICT,
  FOREIGN KEY(team_id,project_id,user_id) REFERENCES project_members(team_id,project_id,user_id) ON DELETE RESTRICT
@@ -49,7 +49,7 @@ CREATE TABLE task_dependencies (
  task_id uuid NOT NULL,
  predecessor_id uuid NOT NULL,
  created_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
- created_at timestamptz NOT NULL DEFAULT now(),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  ignored_by uuid REFERENCES users(id) ON DELETE RESTRICT,
  ignored_at timestamptz,
  ignore_reason text NOT NULL DEFAULT '' CHECK(length(ignore_reason)<=1000),
@@ -77,7 +77,7 @@ CREATE TABLE task_progress_history (
  before_project_bps integer NOT NULL CHECK(before_project_bps BETWEEN 0 AND 10000),
  after_project_bps integer NOT NULL CHECK(after_project_bps BETWEEN 0 AND 10000),
  request_id text NOT NULL,
- created_at timestamptz NOT NULL DEFAULT now(),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  FOREIGN KEY(team_id,project_id,task_id) REFERENCES tasks(team_id,project_id,id) ON DELETE RESTRICT
 );
 CREATE INDEX task_progress_history_task_idx ON task_progress_history(team_id,project_id,task_id,id DESC);
@@ -89,11 +89,11 @@ CREATE TABLE project_progress_snapshots (
  actor_id uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
  event_type text NOT NULL,
  progress_bps integer NOT NULL CHECK(progress_bps BETWEEN 0 AND 10000),
- weighted_sum numeric NOT NULL CHECK(weighted_sum>=0),
- total_weight numeric NOT NULL CHECK(total_weight>=0),
+ weighted_sum numeric NOT NULL CHECK(weighted_sum::text ~ '^[0-9]+$'),
+ total_weight numeric NOT NULL CHECK(total_weight::text ~ '^[0-9]+$'),
  leaf_count integer NOT NULL CHECK(leaf_count>=0),
  request_id text NOT NULL,
- created_at timestamptz NOT NULL DEFAULT now(),
+ created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  FOREIGN KEY(team_id,project_id,task_id) REFERENCES tasks(team_id,project_id,id) ON DELETE RESTRICT
 );
 CREATE INDEX project_progress_snapshots_project_idx ON project_progress_snapshots(team_id,project_id,id DESC);

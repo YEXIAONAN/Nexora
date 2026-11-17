@@ -1,12 +1,14 @@
 package projects
 
 import (
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/go-chi/chi/v5"
-	"github.com/google/uuid"
 	"log/slog"
 	"net/http"
+
+	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 )
 
 type Handler struct {

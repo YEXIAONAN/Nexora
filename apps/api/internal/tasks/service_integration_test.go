@@ -5,6 +5,16 @@ package tasks
 import (
 	"context"
 	"errors"
+	"io"
+	"log/slog"
+	"os"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -13,14 +23,6 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/testdb"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgxpool"
-	"io"
-	"log/slog"
-	"os"
-	"sync"
-	"testing"
-	"time"
 )
 
 type fixture struct {
@@ -121,6 +123,14 @@ func TestTaskHierarchyAndSafeConversion(t *testing.T) {
 	moved, e := f.svc.Move(f.ctx, f.a, f.team, f.p.ID, two.ID, nil, two.Version)
 	if e != nil || moved.Depth != 1 {
 		t.Fatalf("move: %+v %v", moved, e)
+	}
+	progress, e := f.svc.ProjectProgress(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || progress.TotalWeight != "104" || progress.LeafCount != 3 {
+		t.Fatalf("subtree move double-counted summary weights: %+v %v", progress, e)
+	}
+	snapshots, e := f.svc.Snapshots(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || snapshots[0].EventType != "moved" || snapshots[0].Progress.TotalWeight != "104" {
+		t.Fatal("structure snapshot missing", e)
 	}
 	got, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, three.ID)
 	if e != nil || got.Depth != 2 {
@@ -546,5 +556,118 @@ func TestDependenciesRejectCrossProjectAndCrossTeamReferences(t *testing.T) {
 	wantStatus(t, e, 404)
 	if _, e = f.pool.Exec(f.ctx, `INSERT INTO task_dependencies(team_id,project_id,task_id,predecessor_id,created_by) VALUES($1,$2,$3,$4,$5)`, f.team, f.p.ID, a.ID, c.ID, f.a.UserID); e == nil {
 		t.Fatal("composite FK accepted cross-team dependency")
+	}
+}
+func TestIgnoredDependencyStillParticipatesInCycleDetection(t *testing.T) {
+	f := setup(t)
+	a := f.create(nil, 1)
+	b := f.create(nil, 1)
+	d, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, b.ID, a.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	a, e = f.svc.Get(f.ctx, f.a, f.team, f.p.ID, a.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.svc.IgnoreDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, d.ID, a.Version, "explicit exception"); e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, b.ID, a.ID, b.Version)
+	wantStatus(t, e, 409)
+}
+func TestConcurrentRemovalAndExecutionRespectMembership(t *testing.T) {
+	f := setup(t)
+	user := f.user("executor", true)
+	task := f.create(nil, 1)
+	fields := task.TaskFields
+	fields.OwnerID = user.UserID
+	task, e := f.svc.Edit(f.ctx, f.a, f.team, f.p.ID, task.ID, EditInput{fields, task.Version})
+	if e != nil {
+		t.Fatal(e)
+	}
+	var wg sync.WaitGroup
+	wg.Add(2)
+	var removeErr, startErr error
+	go func() { defer wg.Done(); removeErr = f.ts.RemoveMember(f.ctx, f.a, f.team, user.UserID) }()
+	go func() {
+		defer wg.Done()
+		_, startErr = f.svc.Transition(f.ctx, user, f.team, f.p.ID, task.ID, InProgress, "", task.Version)
+	}()
+	wg.Wait()
+	if removeErr != nil {
+		t.Fatal(removeErr)
+	}
+	if startErr != nil {
+		wantStatus(t, startErr, 404)
+	}
+	_, e = f.svc.Get(f.ctx, user, f.team, f.p.ID, task.ID)
+	wantStatus(t, e, 404)
+	current, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, task.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Weight(f.ctx, f.a, f.team, f.p.ID, task.ID, 2, current.Version, "re-estimate after departure")
+	wantStatus(t, e, 409)
+	var started, audited int
+	if e = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM task_progress_history WHERE team_id=$1 AND task_id=$2 AND event_type='started'`, f.team, task.ID).Scan(&started); e != nil {
+		t.Fatal(e)
+	}
+	if e = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM audit_events WHERE team_id=$1 AND target_id=$2 AND action='task.started'`, f.team, task.ID).Scan(&audited); e != nil {
+		t.Fatal(e)
+	}
+	if started != audited {
+		t.Fatal("execution and audit diverged")
+	}
+}
+func TestTeamRejoinRequiresExplicitProjectReauthorization(t *testing.T) {
+	f := setup(t)
+	u := f.user("rejoining", true)
+	task := f.create(nil, 1)
+	fields := task.TaskFields
+	fields.OwnerID = u.UserID
+	task, e := f.svc.Edit(f.ctx, f.a, f.team, f.p.ID, task.ID, EditInput{fields, task.Version})
+	if e != nil {
+		t.Fatal(e)
+	}
+	if e = f.ts.RemoveMember(f.ctx, f.a, f.team, u.UserID); e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Create(f.ctx, f.a, f.team, f.p.ID, CreateInput{TaskFields: TaskFields{Title: "child", OwnerID: f.a.UserID}, ParentID: &task.ID, Weight: 1})
+	wantStatus(t, e, 409)
+	inv, e := f.ts.Invite(f.ctx, f.a, f.team, "rejoining", teams.RoleMember, 1)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.ts.AcceptInvitation(f.ctx, u, inv.ID); e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Get(f.ctx, u, f.team, f.p.ID, task.ID)
+	wantStatus(t, e, 404)
+	if _, e = f.ps.ChangeMember(f.ctx, f.a, f.team, f.p.ID, u.UserID, true); e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.svc.Get(f.ctx, u, f.team, f.p.ID, task.ID); e != nil {
+		t.Fatal(e)
+	}
+}
+func TestInvalidCollaboratorSetLeavesAssignmentUnchanged(t *testing.T) {
+	f := setup(t)
+	task := f.create(nil, 1)
+	valid := f.user("valid_collab", true)
+	foreign := f.user("foreign_collab", false)
+	in := task.TaskFields
+	in.CollaboratorIDs = []uuid.UUID{valid.UserID, foreign.UserID}
+	_, e := f.svc.Edit(f.ctx, f.a, f.team, f.p.ID, task.ID, EditInput{in, task.Version})
+	wantStatus(t, e, 422)
+	got, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, task.ID)
+	if e != nil || got.Version != task.Version || len(got.CollaboratorIDs) != 0 {
+		t.Fatal("partial collaborator update", got, e)
+	}
+	for _, illegal := range []string{"NaN", "Infinity", "-1", "1.5"} {
+		_, e = f.pool.Exec(f.ctx, `INSERT INTO project_progress_snapshots(team_id,project_id,task_id,actor_id,event_type,progress_bps,weighted_sum,total_weight,leaf_count,request_id) VALUES($1,$2,$3,$4,'invalid',0,$5::numeric,1,1,'')`, f.team, f.p.ID, task.ID, f.a.UserID, illegal)
+		if e == nil {
+			t.Fatalf("snapshot accepted %s", illegal)
+		}
 	}
 }

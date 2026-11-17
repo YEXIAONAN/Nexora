@@ -165,3 +165,22 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 ## Phase 03 设计增补（2026-11-17）
 
 数据库结构、复合外键、锁与历史策略见 [Phase 03 设计说明](../development/phase-03-design.md)。本次任务规则优先于前文历史规划；Phase 02 已合并于 develop `c3fb029`。实现验证另见阶段报告。
+
+## Phase 03 Schema（特性分支开发与验证）
+
+新增 `00004_projects.sql`、`00005_tasks.sql`，版本 3 → 5；00001–00003 原样保留。
+
+| 表 | 约束与索引 |
+| --- | --- |
+| projects | UUID；UNIQUE(team_id,id)；负责人复合 FK→team_members；active/archived 一致性；version；计划先后；Team/创建时间、负责人索引 |
+| project_members | PK(team_id,project_id,user_id)；复合项目及 Team 成员 FK；active/removed；用户/状态索引；lead 角色由 projects.lead_id 唯一推导，避免角色与负责人列不一致 |
+| project_milestones | UUID；复合项目 FK；名称/说明/计划时间/version；项目索引 |
+| tasks | UUID；UNIQUE(team_id,project_id,id)；复合项目/父任务/项目成员 FK；depth 1–3；六状态枚举；actual 0–99；weight 1–1000000；取消原因；version；项目树/负责人索引 |
+| task_collaborators | 复合主键与任务/项目成员 FK；用户索引 |
+| task_dependencies | UUID；同项目复合端点 FK；非自环/唯一；忽略 actor/time/reason 一致性；反向依赖索引 |
+| task_progress_history | bigint；复合任务 FK；actor、old/new 状态/进度/权重、原因、变更前后项目 bps、request_id、时间；追加式触发器；任务/id 倒序索引 |
+| project_progress_snapshots | bigint；复合任务 FK；actor、事件、精确 numeric 分子/分母、bps、有效叶子数、request_id、时间；追加式触发器；项目/id 倒序索引 |
+
+沿用 FK RESTRICT。历史两表复用 audit 的禁止 UPDATE/DELETE 函数，不复制追加写基础设施。task_progress_history 同时保存执行与权重事件，避免另建重复的权重历史表。project_milestones 使用明确模块前缀。
+
+跨行规则由 Team 行锁 + Service 校验承担；延迟结构触发器验证最终父子 depth 差值，严格递增的深度同时排除环。执行触发器拒绝未接入 Phase 04 的状态，校验 active owner；退出保护触发器要求项目负责人先交接，Team 移除后失效项目成员资格。普通 CHECK 不用于声称保证 active 成员或递归无环。历史时间及新业务更新时间使用 clock_timestamp() 记录锁后操作时刻，业务可见性在事务提交时生效。

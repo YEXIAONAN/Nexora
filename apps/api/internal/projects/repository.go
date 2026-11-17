@@ -3,6 +3,7 @@ package projects
 import (
 	"context"
 	"errors"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -41,7 +42,7 @@ func (r *Repository) insert(ctx context.Context, tx pgx.Tx, p *Project) error {
 	return tx.QueryRow(ctx, `INSERT INTO projects(id,team_id,name,description,lead_id,planned_start_at,planned_end_at,created_by) VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING status,version,created_at,updated_at`, p.ID, p.TeamID, p.Name, p.Description, p.LeadID, p.PlannedStartAt, p.PlannedEndAt, p.CreatedBy).Scan(&p.Status, &p.Version, &p.CreatedAt, &p.UpdatedAt)
 }
 func (r *Repository) save(ctx context.Context, tx pgx.Tx, p *Project) error {
-	return tx.QueryRow(ctx, `UPDATE projects SET name=$3,description=$4,lead_id=$5,status=$6,planned_start_at=$7,planned_end_at=$8,archived_at=$9,version=version+1,updated_at=now() WHERE team_id=$1 AND id=$2 RETURNING version,updated_at`, p.TeamID, p.ID, p.Name, p.Description, p.LeadID, p.Status, p.PlannedStartAt, p.PlannedEndAt, p.ArchivedAt).Scan(&p.Version, &p.UpdatedAt)
+	return tx.QueryRow(ctx, `UPDATE projects SET name=$3,description=$4,lead_id=$5,status=$6,planned_start_at=$7,planned_end_at=$8,archived_at=$9,version=version+1,updated_at=clock_timestamp() WHERE team_id=$1 AND id=$2 RETURNING version,updated_at`, p.TeamID, p.ID, p.Name, p.Description, p.LeadID, p.Status, p.PlannedStartAt, p.PlannedEndAt, p.ArchivedAt).Scan(&p.Version, &p.UpdatedAt)
 }
 
 // Qualified is a live Team + project qualification check within the caller's lock.
@@ -51,7 +52,7 @@ func (r *Repository) Qualified(ctx context.Context, tx pgx.Tx, teamID, projectID
 	return ok, err
 }
 func (r *Repository) addMember(ctx context.Context, tx pgx.Tx, teamID, projectID, userID uuid.UUID) error {
-	_, err := tx.Exec(ctx, `INSERT INTO project_members(team_id,project_id,user_id) VALUES($1,$2,$3) ON CONFLICT(team_id,project_id,user_id) DO UPDATE SET status='active',updated_at=now()`, teamID, projectID, userID)
+	_, err := tx.Exec(ctx, `INSERT INTO project_members(team_id,project_id,user_id) VALUES($1,$2,$3) ON CONFLICT(team_id,project_id,user_id) DO UPDATE SET status='active',updated_at=clock_timestamp()`, teamID, projectID, userID)
 	return err
 }
 func (r *Repository) members(ctx context.Context, tx pgx.Tx, p Project) ([]Member, error) {
@@ -76,7 +77,7 @@ func (r *Repository) members(ctx context.Context, tx pgx.Tx, p Project) ([]Membe
 }
 
 func (r *Repository) removeMember(ctx context.Context, tx pgx.Tx, teamID, projectID, userID uuid.UUID) error {
-	tag, err := tx.Exec(ctx, `UPDATE project_members SET status='removed',updated_at=now() WHERE team_id=$1 AND project_id=$2 AND user_id=$3 AND status='active'`, teamID, projectID, userID)
+	tag, err := tx.Exec(ctx, `UPDATE project_members SET status='removed',updated_at=clock_timestamp() WHERE team_id=$1 AND project_id=$2 AND user_id=$3 AND status='active'`, teamID, projectID, userID)
 	if err == nil && tag.RowsAffected() == 0 {
 		return pgx.ErrNoRows
 	}
@@ -112,6 +113,6 @@ func (r *Repository) saveMilestone(ctx context.Context, tx pgx.Tx, m *Milestone,
 	if create {
 		return tx.QueryRow(ctx, `INSERT INTO project_milestones(id,team_id,project_id,name,description,planned_at) VALUES($1,$2,$3,$4,$5,$6) RETURNING version,created_at,updated_at`, m.ID, m.TeamID, m.ProjectID, m.Name, m.Description, m.PlannedAt).Scan(&m.Version, &m.CreatedAt, &m.UpdatedAt)
 	}
-	return tx.QueryRow(ctx, `UPDATE project_milestones SET name=$4,description=$5,planned_at=$6,version=version+1,updated_at=now() WHERE team_id=$1 AND project_id=$2 AND id=$3 RETURNING version,updated_at`, m.TeamID, m.ProjectID, m.ID, m.Name, m.Description, m.PlannedAt).Scan(&m.Version, &m.UpdatedAt)
+	return tx.QueryRow(ctx, `UPDATE project_milestones SET name=$4,description=$5,planned_at=$6,version=version+1,updated_at=clock_timestamp() WHERE team_id=$1 AND project_id=$2 AND id=$3 RETURNING version,updated_at`, m.TeamID, m.ProjectID, m.ID, m.Name, m.Description, m.PlannedAt).Scan(&m.Version, &m.UpdatedAt)
 }
 func missing(err error) bool { return errors.Is(err, pgx.ErrNoRows) }

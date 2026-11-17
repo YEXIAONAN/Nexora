@@ -11,8 +11,8 @@ CREATE TABLE projects (
     archived_at timestamptz,
     version integer NOT NULL DEFAULT 1 CHECK (version > 0),
     created_by uuid NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     UNIQUE (team_id, id),
     FOREIGN KEY (team_id, lead_id) REFERENCES team_members(team_id,user_id) ON DELETE RESTRICT,
     CHECK (planned_start_at IS NULL OR planned_end_at IS NULL OR planned_start_at <= planned_end_at),
@@ -25,8 +25,8 @@ CREATE TABLE project_members (
     project_id uuid NOT NULL,
     user_id uuid NOT NULL,
     status text NOT NULL DEFAULT 'active' CHECK (status IN ('active','removed')),
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     PRIMARY KEY (team_id,project_id,user_id),
     FOREIGN KEY (team_id,project_id) REFERENCES projects(team_id,id) ON DELETE RESTRICT,
     FOREIGN KEY (team_id,user_id) REFERENCES team_members(team_id,user_id) ON DELETE RESTRICT
@@ -40,11 +40,11 @@ CREATE TABLE project_milestones (
     description text NOT NULL DEFAULT '' CHECK (length(description) <= 4000),
     planned_at timestamptz,
     version integer NOT NULL DEFAULT 1 CHECK (version > 0),
-    created_at timestamptz NOT NULL DEFAULT now(),
-    updated_at timestamptz NOT NULL DEFAULT now(),
+    created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+    updated_at timestamptz NOT NULL DEFAULT clock_timestamp(),
     FOREIGN KEY (team_id,project_id) REFERENCES projects(team_id,id) ON DELETE RESTRICT
 );
-CREATE INDEX project_milestones_project_idx ON project_milestones(team_id,project_id,planned_at,id);
+CREATE INDEX project_milestones_project_idx ON project_milestones(team_id,project_id,planned_at,created_at,id);
 
 -- Active membership is a cross-table condition, not a CHECK. Services acquire
 -- the team lock before authorization or qualification changes.
@@ -70,7 +70,7 @@ BEGIN
         IF EXISTS (SELECT 1 FROM projects WHERE team_id=OLD.team_id AND lead_id=OLD.user_id) THEN
             RAISE EXCEPTION 'project lead must be handed off before leaving team' USING ERRCODE='23514', CONSTRAINT='project_lead_handoff_required';
         END IF;
-        UPDATE project_members SET status='removed',updated_at=now()
+        UPDATE project_members SET status='removed',updated_at=clock_timestamp()
         WHERE team_id=OLD.team_id AND user_id=OLD.user_id AND status='active';
     END IF;
     IF TG_OP='DELETE' THEN RETURN OLD; END IF;

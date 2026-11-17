@@ -3,17 +3,19 @@ package projects
 import (
 	"context"
 	"errors"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"github.com/jackc/pgx/v5/pgconn"
 	"log/slog"
 	"strings"
 	"time"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 )
 
 type Service struct {

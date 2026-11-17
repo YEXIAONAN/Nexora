@@ -80,3 +80,5 @@ ROOT/平台管理员不绕过上述规则；跨 Team 或项目资源不存在统
 完整 Contract First 设计见 `docs/api/openapi.yaml`：项目、成员、交接、里程碑、任务树/详情/编辑/移动/状态/进度/权重、依赖/忽略、执行历史与进度快照。所有变更使用 CSRF、自会话推导 actor，URL 固定 Team/Project，拒绝请求体覆盖资源归属。
 
 依次 M2 项目 → M3 任务 → M4 依赖与进度 → M5 Vue → M6 全门禁、真实 PG 并发/回滚与浏览器 E2E、PR/CI/请求审查。按阶段普通 Conventional Commits；不触碰 main/develop，不自动合并。
+
+实现收尾：任务图缓存非叶子节点集合，结构变动后失效重建，避免每次叶子判断扫描全图。任务动作在负责人离队后要求先重新分配（409），避免触发器校验失败映射为 500。历史时间与更新时间使用 clock_timestamp()；快照 numeric 用整数文本 CHECK 排除 NaN、Infinity 与小数。

@@ -160,9 +160,25 @@ test('real UI: 99% execution caps aggregation at 79% and dependencies block', as
   await expect(page.getByRole('button', { name: '开始任务', exact: true })).toBeVisible()
   await page.getByRole('button', { name: '开始任务', exact: true }).click()
   await expect(page.getByLabel('实际进度（0–99%）', { exact: true })).toBeVisible()
-  await page.screenshot({ path: '../../.cache/phase03-workspace-desktop.png', fullPage: true })
+  await page.screenshot({
+    path: '../../.cache/phase03-workspace-desktop.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
+  await page.getByRole('button', { name: '主题：跟随系统', exact: true }).click()
+  await page.getByRole('button', { name: '主题：浅色', exact: true }).click()
+  await page.screenshot({
+    path: '../../.cache/phase03-workspace-dark.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
   await page.setViewportSize({ width: 390, height: 844 })
-  await page.screenshot({ path: '../../.cache/phase03-workspace-mobile.png', fullPage: true })
+  await expect(page.getByRole('complementary', { name: '主导航' })).not.toBeInViewport()
+  await page.screenshot({
+    path: '../../.cache/phase03-workspace-mobile.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
   const overflow = await page.evaluate(
     () => document.documentElement.scrollWidth > window.innerWidth,
   )

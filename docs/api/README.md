@@ -90,3 +90,11 @@ pnpm api:types
 ## 版本与兼容
 
 当前使用 URL 前缀 `/api/v1`。破坏性变更必须提供新版本前缀；新增可选字段视为兼容变更。
+
+## Phase 03 项目与任务
+
+新增 25 个 operation，完整路径/权限表见 [Phase 03 报告 D](../development/phase-03-report.md#d-api)，契约仍以 openapi.yaml 为唯一来源，前端生成类型经 api:check 验证。Phase 02 的 PR #2 已合并；前文状态是历史描述。
+
+项目资源前缀 `/api/v1/teams/{teamID}/projects/{projectID}`。项目/任务编辑与动作使用 expected_version，旧版本 409；通用编辑不能绕过专用状态/进度接口。实际进度整数 0–99，有效进度以 bps 表示（100=1%，10000=100%）。精确加权分子/分母为字符串，前端只格式化服务端结果。
+
+仅 pending→in_progress 与 pending/in_progress→cancelled；取消必须原因。awaiting_review/completed/rejected 保留枚举但不开放转换，没有提交/审核路由。没有物理删除项目/任务或依赖的接口；归档、取消、显式忽略保留业务证据。

@@ -76,3 +76,11 @@ PostgreSQL URL 与 `POSTGRES_PASSWORD` 赋值两条规则一致地把纯 shell �
 4. Containers：`docker compose config`、构建 API 与 Web 镜像。
 
 测试失败不得通过删除测试或降低类型检查绕过。
+
+## Phase 03 验证
+
+项目/任务专项：internal/projects/service_integration_test.go、internal/tasks 的领域与集成测试、internal/httpapi/projects_tasks_integration_test.go、TestPhase03FreshUpgradeAndRollback。沿用 testdb 护栏，真实 PG17 随机 schema，覆盖并发状态、结构/依赖环及成员退出/执行竞争。
+
+make e2e 包含 Phase 02 的 11 项和 Phase 03 的 7 项串行真实 API/浏览器用例。覆盖三级任务、人员分配、参与者可见性、79% 上限、阻塞与忽略、权重历史、里程碑、归档、Team 切换，检查手机宽度不横向溢出。截图在 .cache/phase03-workspace-{desktop,dark,mobile}.png。Vitest 的 5 项 ProjectDetailView 竞态用例使用可控 Promise，不用 sleep。
+
+本次一次性 PG 为 nexora-devtest-pg（loopback 5433、无其他项目挂载），随机口令只存忽略的 .cache/devtest-pg-password（0600），显式注入 TEST_DATABASE_URL，不加载开发 .env。用后只停止并删除本次创建的容器及其自有数据，不执行 prune。运行中的开发服务 /readyz 只读观察仍为 schema v1，未升级。

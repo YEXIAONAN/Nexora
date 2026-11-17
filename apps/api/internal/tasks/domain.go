@@ -3,9 +3,10 @@ package tasks
 
 import (
 	"fmt"
-	"github.com/google/uuid"
 	"math/big"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 const (
@@ -161,20 +162,25 @@ func Aggregate(leaves []WeightedLeaf) (Progress, error) {
 }
 
 type graph struct {
-	tasks    map[uuid.UUID]*Task
-	order    []uuid.UUID
-	deps     []Dependency
-	executed map[uuid.UUID]bool
+	nonLeaves map[uuid.UUID]bool
+	tasks     map[uuid.UUID]*Task
+	order     []uuid.UUID
+	deps      []Dependency
+	executed  map[uuid.UUID]bool
 }
 
 func (g *graph) leaf(id uuid.UUID) bool {
-	for _, t := range g.tasks {
-		if t.ParentID != nil && *t.ParentID == id {
-			return false
+	if g.nonLeaves == nil {
+		g.nonLeaves = map[uuid.UUID]bool{}
+		for _, t := range g.tasks {
+			if t.ParentID != nil {
+				g.nonLeaves[*t.ParentID] = true
+			}
 		}
 	}
-	return true
+	return !g.nonLeaves[id]
 }
+
 func (g *graph) descendant(id, ancestor uuid.UUID) bool {
 	for n := 0; n < 4; n++ {
 		t := g.tasks[id]
