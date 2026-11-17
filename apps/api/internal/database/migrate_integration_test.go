@@ -52,3 +52,36 @@ func TestMigrationsApplyIdempotently(t *testing.T) {
 		t.Fatal("a fresh fixture can see another fixture's migrated tables")
 	}
 }
+
+func TestPhase03FreshUpgradeAndRollback(t *testing.T) {
+	f := testdb.New(t, os.Getenv)
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	check := func(want int64) {
+		t.Helper()
+		got, e := Version(ctx, f.SQL)
+		if e != nil || got != want {
+			t.Fatalf("schema %d want %d: %v", got, want, e)
+		}
+	}
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(5)
+	if e := Down(ctx, f.SQL, 2, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(3)
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(5)
+	if e := Down(ctx, f.SQL, 5, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(0)
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	check(5)
+}

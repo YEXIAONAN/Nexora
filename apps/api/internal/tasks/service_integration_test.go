@@ -307,3 +307,244 @@ func TestConcurrentSubtreeMovesPreserveDepth(t *testing.T) {
 		}
 	}
 }
+func TestDependenciesBlockingIgnoreAndCycles(t *testing.T) {
+	f := setup(t)
+	a := f.create(nil, 1)
+	b := f.create(nil, 1)
+	c := f.create(nil, 1)
+	_, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, a.ID, a.Version)
+	wantStatus(t, e, 409)
+	dep, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, b.ID, a.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	a, e = f.svc.Get(f.ctx, f.a, f.team, f.p.ID, a.ID)
+	if e != nil || !a.Blocked {
+		t.Fatal("missing block", e)
+	}
+	_, e = f.svc.Transition(f.ctx, f.a, f.team, f.p.ID, a.ID, InProgress, "", a.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.Progress(f.ctx, f.a, f.team, f.p.ID, a.ID, 50, a.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, b.ID, a.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, b.ID, a.ID, b.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.Create(f.ctx, f.a, f.team, f.p.ID, CreateInput{TaskFields: a.TaskFields, ParentID: &b.ID, Weight: 1})
+	wantStatus(t, e, 409)
+	_, e = f.svc.Move(f.ctx, f.a, f.team, f.p.ID, c.ID, &b.ID, c.Version)
+	wantStatus(t, e, 409)
+	b, e = f.svc.Transition(f.ctx, f.a, f.team, f.p.ID, b.ID, Cancelled, "obsolete predecessor", b.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Transition(f.ctx, f.a, f.team, f.p.ID, a.ID, InProgress, "", a.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.IgnoreDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, dep.ID, a.Version, "")
+	wantStatus(t, e, 422)
+	participant := f.user("participant", true)
+	_, e = f.svc.IgnoreDependency(f.ctx, participant, f.team, f.p.ID, a.ID, dep.ID, a.Version, "no authority")
+	wantStatus(t, e, 403)
+	ignored, e := f.svc.IgnoreDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, dep.ID, a.Version, "approved alternative")
+	if e != nil || ignored.IgnoredBy == nil || ignored.IgnoreReason == "" {
+		t.Fatal(ignored, e)
+	}
+	a, e = f.svc.Get(f.ctx, f.a, f.team, f.p.ID, a.ID)
+	if e != nil || a.Blocked {
+		t.Fatal("ignore did not unblock", e)
+	}
+	_, e = f.svc.Transition(f.ctx, f.a, f.team, f.p.ID, a.ID, InProgress, "", a.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	bGot, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, b.ID)
+	if e != nil || bGot.Status != Cancelled {
+		t.Fatal("ignore changed predecessor", e)
+	}
+	var audits int
+	e = f.pool.QueryRow(f.ctx, `SELECT count(*) FROM audit_events WHERE team_id=$1 AND target_id=$2 AND action='task.dependency_ignored' AND details->>'reason'='approved alternative'`, f.team, dep.ID).Scan(&audits)
+	if e != nil || audits != 1 {
+		t.Fatal("ignore audit missing", e)
+	}
+}
+func TestDependencyIsolationAndConcurrentCycle(t *testing.T) {
+	f := setup(t)
+	a := f.create(nil, 1)
+	b := f.create(nil, 1)
+	p, e := f.ps.Create(f.ctx, f.a, f.team, projects.CreateInput{ProjectInput: projects.ProjectInput{Name: "P2"}, LeadID: f.a.UserID})
+	if e != nil {
+		t.Fatal(e)
+	}
+	other, e := f.svc.Create(f.ctx, f.a, f.team, p.ID, CreateInput{TaskFields: a.TaskFields, Weight: 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, other.ID, a.Version)
+	wantStatus(t, e, 404)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for _, pair := range [][2]Task{{a, b}, {b, a}} {
+		wg.Add(1)
+		go func(pair [2]Task) {
+			defer wg.Done()
+			_, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, pair[0].ID, pair[1].ID, pair[0].Version)
+			errs <- e
+		}(pair)
+	}
+	wg.Wait()
+	close(errs)
+	success := 0
+	for e := range errs {
+		if e == nil {
+			success++
+		} else {
+			wantStatus(t, e, 409)
+		}
+	}
+	if success != 1 {
+		t.Fatal("concurrent dependency cycle")
+	}
+	tree, e := f.svc.Tree(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || len(tree.Dependencies) != 1 {
+		t.Fatal(tree, e)
+	}
+	d := tree.Dependencies[0]
+	task, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, d.TaskID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	if _, e = f.svc.IgnoreDependency(f.ctx, f.a, f.team, f.p.ID, d.TaskID, d.ID, task.Version, "explicit ignore"); e != nil {
+		t.Fatal(e)
+	}
+	pred, e := f.svc.Get(f.ctx, f.a, f.team, f.p.ID, d.PredecessorID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, pred.ID, d.TaskID, pred.Version)
+	wantStatus(t, e, 409)
+}
+func TestWeightHistorySnapshotsAndArchiveProtection(t *testing.T) {
+	f := setup(t)
+	parent := f.create(nil, 999)
+	a := f.create(&parent.ID, 1)
+	b := f.create(&parent.ID, 3)
+	a, e := f.svc.Transition(f.ctx, f.a, f.team, f.p.ID, a.ID, InProgress, "", a.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	a, e = f.svc.Progress(f.ctx, f.a, f.team, f.p.ID, a.ID, 60, a.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := f.svc.ProjectProgress(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || p.ProgressBPS != 1500 || p.TotalWeight != "4" {
+		t.Fatal(p, e)
+	}
+	old, e := f.svc.Snapshots(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Weight(f.ctx, f.a, f.team, f.p.ID, parent.ID, 1, parent.Version, "no double count")
+	wantStatus(t, e, 409)
+	_, e = f.svc.Weight(f.ctx, f.a, f.team, f.p.ID, a.ID, 3, a.Version, "")
+	wantStatus(t, e, 422)
+	a, e = f.svc.Weight(f.ctx, f.a, f.team, f.p.ID, a.ID, 3, a.Version, "re-estimate")
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e = f.svc.ProjectProgress(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || p.ProgressBPS != 3000 {
+		t.Fatal(p, e)
+	}
+	ss, e := f.svc.Snapshots(f.ctx, f.a, f.team, f.p.ID)
+	if e != nil || len(ss) != len(old)+1 {
+		t.Fatal("snapshot missing", e)
+	}
+	for i := range old {
+		if ss[i+1] != old[i] {
+			t.Fatal("historical snapshots recalculated")
+		}
+	}
+	hs, e := f.svc.History(f.ctx, f.a, f.team, f.p.ID, a.ID)
+	if e != nil || hs[0].OldWeight != 1 || hs[0].NewWeight != 3 || hs[0].Reason != "re-estimate" || hs[0].BeforeProjectBPS != 1500 || hs[0].AfterProjectBPS != 3000 {
+		t.Fatal("weight provenance", hs, e)
+	}
+	for _, table := range []string{"task_progress_history", "project_progress_snapshots"} {
+		if _, e = f.pool.Exec(f.ctx, `UPDATE `+table+` SET event_type='overwrite' WHERE team_id=$1`, f.team); e == nil {
+			t.Fatal("mutable history", table)
+		}
+	}
+	_, e = f.ps.Archive(f.ctx, f.a, f.team, f.p.ID, f.p.Version)
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.Progress(f.ctx, f.a, f.team, f.p.ID, a.ID, 50, a.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.Weight(f.ctx, f.a, f.team, f.p.ID, b.ID, 1, b.Version, "archived")
+	wantStatus(t, e, 409)
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, b.ID, a.ID, b.Version)
+	wantStatus(t, e, 409)
+	_, e = f.svc.Move(f.ctx, f.a, f.team, f.p.ID, b.ID, nil, b.Version)
+	wantStatus(t, e, 409)
+}
+func TestConcurrentDependenciesCannotFormCycle(t *testing.T) {
+	f := setup(t)
+	a := f.create(nil, 1)
+	b := f.create(nil, 1)
+	var wg sync.WaitGroup
+	errs := make(chan error, 2)
+	for _, pair := range [][2]Task{{a, b}, {b, a}} {
+		wg.Add(1)
+		go func(pair [2]Task) {
+			defer wg.Done()
+			_, e := f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, pair[0].ID, pair[1].ID, pair[0].Version)
+			errs <- e
+		}(pair)
+	}
+	wg.Wait()
+	close(errs)
+	ok := 0
+	for e := range errs {
+		if e == nil {
+			ok++
+		} else {
+			wantStatus(t, e, 409)
+		}
+	}
+	if ok != 1 {
+		t.Fatal("cycle race", ok)
+	}
+}
+func TestDependenciesRejectCrossProjectAndCrossTeamReferences(t *testing.T) {
+	f := setup(t)
+	a := f.create(nil, 1)
+	other, e := f.ps.Create(f.ctx, f.a, f.team, projects.CreateInput{ProjectInput: projects.ProjectInput{Name: "Other"}, LeadID: f.a.UserID})
+	if e != nil {
+		t.Fatal(e)
+	}
+	b, e := f.svc.Create(f.ctx, f.a, f.team, other.ID, CreateInput{TaskFields: a.TaskFields, Weight: 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, b.ID, a.Version)
+	wantStatus(t, e, 404)
+	team, e := f.ts.CreateTeam(f.ctx, f.a, "Team B", "")
+	if e != nil {
+		t.Fatal(e)
+	}
+	p, e := f.ps.Create(f.ctx, f.a, team.ID, projects.CreateInput{ProjectInput: projects.ProjectInput{Name: "B"}, LeadID: f.a.UserID})
+	if e != nil {
+		t.Fatal(e)
+	}
+	c, e := f.svc.Create(f.ctx, f.a, team.ID, p.ID, CreateInput{TaskFields: a.TaskFields, Weight: 1})
+	if e != nil {
+		t.Fatal(e)
+	}
+	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, c.ID, a.Version)
+	wantStatus(t, e, 404)
+	_, e = f.svc.Create(f.ctx, f.a, f.team, f.p.ID, CreateInput{TaskFields: a.TaskFields, ParentID: &c.ID, Weight: 1})
+	wantStatus(t, e, 404)
+	if _, e = f.pool.Exec(f.ctx, `INSERT INTO task_dependencies(team_id,project_id,task_id,predecessor_id,created_by) VALUES($1,$2,$3,$4,$5)`, f.team, f.p.ID, a.ID, c.ID, f.a.UserID); e == nil {
+		t.Fatal("composite FK accepted cross-team dependency")
+	}
+}

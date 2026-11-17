@@ -102,3 +102,10 @@ func (r *Repository) collaborators(ctx context.Context, tx pgx.Tx, t Task) error
 	}
 	return nil
 }
+func (r *Repository) insertDependency(ctx context.Context, tx pgx.Tx, d *Dependency) error {
+	return tx.QueryRow(ctx, `INSERT INTO task_dependencies(id,team_id,project_id,task_id,predecessor_id,created_by) VALUES($1,$2,$3,$4,$5,$6) RETURNING created_at`, d.ID, d.TeamID, d.ProjectID, d.TaskID, d.PredecessorID, d.CreatedBy).Scan(&d.CreatedAt)
+}
+func (r *Repository) ignoreDependency(ctx context.Context, tx pgx.Tx, d Dependency) error {
+	_, e := tx.Exec(ctx, `UPDATE task_dependencies SET ignored_by=$4,ignored_at=$5,ignore_reason=$6 WHERE team_id=$1 AND project_id=$2 AND id=$3`, d.TeamID, d.ProjectID, d.ID, d.IgnoredBy, d.IgnoredAt, d.IgnoreReason)
+	return e
+}

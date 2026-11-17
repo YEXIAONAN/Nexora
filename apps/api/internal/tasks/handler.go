@@ -20,6 +20,9 @@ func (h *Handler) AuthenticatedRoutes(r chi.Router) {
 	for _, route := range []struct{ method, path, action string }{
 		{"GET", "/tasks", "tree"}, {"POST", "/tasks", "create"}, {"GET", "/tasks/{taskID}", "get"}, {"PUT", "/tasks/{taskID}", "edit"},
 		{"POST", "/tasks/{taskID}/move", "move"}, {"POST", "/tasks/{taskID}/transition", "transition"}, {"PUT", "/tasks/{taskID}/progress", "progress"},
+		{"PUT", "/tasks/{taskID}/weight", "weight"},
+		{"POST", "/tasks/{taskID}/dependencies", "add_dependency"},
+		{"POST", "/tasks/{taskID}/dependencies/{dependencyID}/ignore", "ignore_dependency"},
 		{"GET", "/tasks/{taskID}/history", "history"}, {"GET", "/progress", "project_progress"}, {"GET", "/progress/history", "snapshots"},
 	} {
 		r.MethodFunc(route.method, b+route.path, h.handle(route.action))
@@ -100,6 +103,39 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			} else {
 				data, err = h.svc.Progress(r.Context(), a, team, pid, id, *in.ActualProgress, in.ExpectedVersion)
 			}
+		case "weight":
+			var in struct {
+				Weight          int    `json:"weight"`
+				ExpectedVersion int    `json:"expected_version"`
+				Reason          string `json:"reason"`
+			}
+			if !httpx.DecodeBody(w, r, h.logger, &in) {
+				return
+			}
+			data, err = h.svc.Weight(r.Context(), a, team, pid, id, in.Weight, in.ExpectedVersion, in.Reason)
+		case "add_dependency":
+			var in struct {
+				PredecessorID   uuid.UUID `json:"predecessor_id"`
+				ExpectedVersion int       `json:"expected_version"`
+			}
+			if !httpx.DecodeBody(w, r, h.logger, &in) {
+				return
+			}
+			data, err = h.svc.AddDependency(r.Context(), a, team, pid, id, in.PredecessorID, in.ExpectedVersion)
+			status = 201
+		case "ignore_dependency":
+			dep, ok := httpx.ParseUUIDParam(w, r, h.logger, "dependencyID")
+			if !ok {
+				return
+			}
+			var in struct {
+				Reason          string `json:"reason"`
+				ExpectedVersion int    `json:"expected_version"`
+			}
+			if !httpx.DecodeBody(w, r, h.logger, &in) {
+				return
+			}
+			data, err = h.svc.IgnoreDependency(r.Context(), a, team, pid, id, dep, in.ExpectedVersion, in.Reason)
 		case "history":
 			data, err = h.svc.History(r.Context(), a, team, pid, id)
 		case "project_progress":
