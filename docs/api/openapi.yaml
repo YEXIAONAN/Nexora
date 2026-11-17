@@ -38,35 +38,7 @@ paths:
       operationId: getLiveness
       summary: 进程存活检查
       description: 仅确认 HTTP 进程可以响应，不访问数据库。
-        "ProjectID":
-      "name": "projectID"
-      "in": "path"
-      "required": true
-      "schema":
-        "type": "string"
-        "format": "uuid"
-    "TaskID":
-      "name": "taskID"
-      "in": "path"
-      "required": true
-      "schema":
-        "type": "string"
-        "format": "uuid"
-    "MilestoneID":
-      "name": "milestoneID"
-      "in": "path"
-      "required": true
-      "schema":
-        "type": "string"
-        "format": "uuid"
-    "DependencyID":
-      "name": "dependencyID"
-      "in": "path"
-      "required": true
-      "schema":
-        "type": "string"
-        "format": "uuid"
-  responses:
+      responses:
         '200':
           description: 进程存活
           headers:
@@ -1942,6 +1914,34 @@ components:
       schema:
         type: string
         format: uuid
+    "ProjectID":
+      "name": "projectID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "TaskID":
+      "name": "taskID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "MilestoneID":
+      "name": "milestoneID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
+    "DependencyID":
+      "name": "dependencyID"
+      "in": "path"
+      "required": true
+      "schema":
+        "type": "string"
+        "format": "uuid"
   responses:
     BadRequest:
       description: 请求体或路径参数非法

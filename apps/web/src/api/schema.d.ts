@@ -433,6 +433,410 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{teamID}/projects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 当前 Team 项目概况（active 成员）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["listProjects"];
+        put?: never;
+        /**
+         * 创建项目（Team owner/admin）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["createProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 项目概况（active Team 成员）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["getProject"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 编辑项目（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        patch: operations["editProject"];
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/archive": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 归档项目，之后严格只读（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["archiveProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/handoff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 显式交接负责人（项目负责人或 Team owner/admin，必须原因）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["handoffProject"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 项目成员（active Team 成员可读）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["listProjectMembers"];
+        put?: never;
+        /**
+         * 添加 active Team 成员为项目参与者（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["addProjectMember"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/members/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * 软移除项目成员，无活跃分配方可移除（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        delete: operations["removeProjectMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/milestones": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 项目里程碑计划
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["listMilestones"];
+        put?: never;
+        /**
+         * 创建里程碑计划（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["createMilestone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/milestones/{milestoneID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * 编辑里程碑计划（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        patch: operations["editMilestone"];
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 授权任务树、依赖和服务端聚合进度
+         * @description 项目负责人可读全部；参与者仅返回自己承担/协作的节点，其他任务内容不泄露。父节点汇总后代叶子；前端不另算进度。
+         */
+        get: operations["getTaskTree"];
+        put?: never;
+        /**
+         * 创建任务（项目负责人，最多三级）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["createTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 读取授权任务
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["getTask"];
+        /**
+         * 编辑/分配任务（项目负责人）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        put: operations["editTask"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 移动子树（项目负责人，无环且最多三级）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["moveTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/transition": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 叶子开始或取消（授权执行者/负责人）
+         * @description Phase 03 仅 pending→in_progress、pending/in_progress→cancelled，取消必须原因；其他转换 409。阻塞禁止开始。协作者不可取消，归档/父节点/失效负责人不可执行。
+         */
+        post: operations["transitionTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 记录执行进度（授权负责人/协作者）
+         * @description 仅 in_progress 叶子且未阻塞。actual_progress 整数 0–99，有效进度最高 79%，不等于正式验收完成。
+         */
+        put: operations["recordTaskProgress"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/weight": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * 变更叶子权重（项目负责人，必须原因）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        put: operations["changeTaskWeight"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/dependencies": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 建立前置依赖（项目负责人）
+         * @description 仅同项目非取消叶子之间；目标须 pending；禁止自环、重复、全图环（含已忽略边）；前置取消不解除阻塞。
+         */
+        post: operations["createDependency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/dependencies/{dependencyID}/ignore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * 显式忽略指定依赖（项目负责人，必须原因）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        post: operations["ignoreDependency"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 追加式任务执行/权重历史（有任务读取权限）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["getTaskHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/progress": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 服务端统一权威进度
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["getProjectProgress"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/progress/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 不可覆盖的项目进度快照（最新 200 条）
+         * @description 实时 active Team 身份校验；跨 Team/Project 返回 404，资源归档或旧版本返回 409。
+         */
+        get: operations["getProjectProgressHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -676,6 +1080,303 @@ export interface components {
                 status: "declined";
             };
         };
+        Progress: {
+            progress_bps: number;
+            weighted_sum: string;
+            total_weight: string;
+            leaf_count: number;
+        };
+        Project: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            name: string;
+            description: string;
+            /** Format: uuid */
+            lead_id: string;
+            /** @enum {string} */
+            status: "active" | "archived";
+            /** Format: date-time */
+            planned_start_at: string | null;
+            /** Format: date-time */
+            planned_end_at: string | null;
+            /** Format: date-time */
+            archived_at: string | null;
+            version: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+            can_manage: boolean;
+            can_handoff: boolean;
+        };
+        CreateProjectRequest: {
+            name: string;
+            description?: string;
+            /** Format: date-time */
+            planned_start_at?: string | null;
+            /** Format: date-time */
+            planned_end_at?: string | null;
+            /** Format: uuid */
+            lead_id: string;
+        };
+        EditProjectRequest: {
+            name: string;
+            description?: string;
+            /** Format: date-time */
+            planned_start_at?: string | null;
+            /** Format: date-time */
+            planned_end_at?: string | null;
+            expected_version: number;
+        };
+        VersionRequest: {
+            expected_version: number;
+        };
+        HandoffRequest: {
+            /** Format: uuid */
+            lead_id: string;
+            reason: string;
+            expected_version: number;
+        };
+        ProjectMember: {
+            /** Format: uuid */
+            user_id: string;
+            username: string;
+            display_name: string;
+            /** @enum {string} */
+            role: "lead" | "participant";
+            active: boolean;
+        };
+        AddProjectMemberRequest: {
+            /** Format: uuid */
+            user_id: string;
+        };
+        Milestone: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            name: string;
+            description: string;
+            /** Format: date-time */
+            planned_at: string | null;
+            version: number;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CreateMilestoneRequest: {
+            name: string;
+            description?: string;
+            /** Format: date-time */
+            planned_at?: string | null;
+        };
+        EditMilestoneRequest: {
+            name: string;
+            description?: string;
+            /** Format: date-time */
+            planned_at?: string | null;
+            expected_version: number;
+        };
+        CreateTaskRequest: {
+            title: string;
+            description?: string;
+            /** Format: uuid */
+            owner_id: string;
+            collaborator_ids?: string[];
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+            /** Format: date-time */
+            planned_start_at?: string | null;
+            /** Format: date-time */
+            planned_end_at?: string | null;
+            /** Format: uuid */
+            parent_id?: string | null;
+            weight: number;
+        };
+        EditTaskRequest: {
+            title: string;
+            description?: string;
+            /** Format: uuid */
+            owner_id: string;
+            collaborator_ids?: string[];
+            /** @enum {string} */
+            priority?: "low" | "normal" | "high" | "urgent";
+            /** Format: date-time */
+            planned_start_at?: string | null;
+            /** Format: date-time */
+            planned_end_at?: string | null;
+            expected_version: number;
+        };
+        Task: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            parent_id: string | null;
+            depth: number;
+            title: string;
+            description: string;
+            /** Format: uuid */
+            owner_id: string;
+            collaborator_ids: string[];
+            /** @enum {string} */
+            priority: "low" | "normal" | "high" | "urgent";
+            /** Format: date-time */
+            planned_start_at: string | null;
+            /** Format: date-time */
+            planned_end_at: string | null;
+            /** @enum {string} */
+            status: "pending" | "in_progress" | "awaiting_review" | "completed" | "rejected" | "cancelled";
+            actual_progress: number;
+            effective_progress_bps: number;
+            weight: number;
+            is_leaf: boolean;
+            blocked: boolean;
+            can_execute: boolean;
+            can_cancel: boolean;
+            cancellation_reason: string;
+            version: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TransitionTaskRequest: {
+            /** @enum {string} */
+            status: "pending" | "in_progress" | "awaiting_review" | "completed" | "rejected" | "cancelled";
+            reason?: string;
+            expected_version: number;
+        };
+        TaskProgressRequest: {
+            actual_progress: number;
+            expected_version: number;
+        };
+        TaskWeightRequest: {
+            weight: number;
+            reason: string;
+            expected_version: number;
+        };
+        MoveTaskRequest: {
+            /** Format: uuid */
+            parent_id: string | null;
+            expected_version: number;
+        };
+        Dependency: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            predecessor_id: string;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: uuid */
+            ignored_by: string | null;
+            /** Format: date-time */
+            ignored_at: string | null;
+            ignore_reason: string;
+        };
+        CreateDependencyRequest: {
+            /** Format: uuid */
+            predecessor_id: string;
+            expected_version: number;
+        };
+        IgnoreDependencyRequest: {
+            reason: string;
+            expected_version: number;
+        };
+        TaskTree: {
+            tasks: components["schemas"]["Task"][];
+            dependencies: components["schemas"]["Dependency"][];
+            progress: components["schemas"]["Progress"];
+        };
+        TaskHistory: {
+            /** Format: int64 */
+            id: number;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            actor_id: string;
+            event_type: string;
+            /** @enum {string} */
+            old_status: "pending" | "in_progress" | "awaiting_review" | "completed" | "rejected" | "cancelled";
+            /** @enum {string} */
+            new_status: "pending" | "in_progress" | "awaiting_review" | "completed" | "rejected" | "cancelled";
+            old_progress: number;
+            new_progress: number;
+            old_weight: number;
+            new_weight: number;
+            reason: string;
+            before_project_bps: number;
+            after_project_bps: number;
+            request_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProgressSnapshot: {
+            /** Format: int64 */
+            id: number;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            actor_id: string;
+            event_type: string;
+            progress: components["schemas"]["Progress"];
+            request_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ProjectEnvelope: {
+            data: components["schemas"]["Project"];
+        };
+        ProjectsEnvelope: {
+            data: components["schemas"]["Project"][];
+        };
+        ProjectMembersEnvelope: {
+            data: components["schemas"]["ProjectMember"][];
+        };
+        MilestoneEnvelope: {
+            data: components["schemas"]["Milestone"];
+        };
+        MilestonesEnvelope: {
+            data: components["schemas"]["Milestone"][];
+        };
+        TaskEnvelope: {
+            data: components["schemas"]["Task"];
+        };
+        TaskTreeEnvelope: {
+            data: components["schemas"]["TaskTree"];
+        };
+        DependencyEnvelope: {
+            data: components["schemas"]["Dependency"];
+        };
+        TaskHistoriesEnvelope: {
+            data: components["schemas"]["TaskHistory"][];
+        };
+        ProgressEnvelope: {
+            data: components["schemas"]["Progress"];
+        };
+        ProgressSnapshotsEnvelope: {
+            data: components["schemas"]["ProgressSnapshot"][];
+        };
     };
     responses: {
         /** @description 请求体或路径参数非法 */
@@ -765,6 +1466,10 @@ export interface components {
         UserID: string;
         TeamID: string;
         InvitationID: string;
+        ProjectID: string;
+        TaskID: string;
+        MilestoneID: string;
+        DependencyID: string;
     };
     requestBodies: never;
     headers: {
@@ -1489,6 +2194,899 @@ export interface operations {
             };
             401: components["responses"]["Unauthorized"];
             403: components["responses"]["Forbidden"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProjects: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProject: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    editProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditProjectRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    archiveProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["VersionRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    handoffProject: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["HandoffRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listProjectMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    addProjectMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AddProjectMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeProjectMember: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                userID: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProjectMembersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMilestones: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestonesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createMilestone: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateMilestoneRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    editMilestone: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                milestoneID: components["parameters"]["MilestoneID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditMilestoneRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MilestoneEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTaskTree: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskTreeEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    editTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EditTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    moveTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MoveTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    transitionTask: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TransitionTaskRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recordTaskProgress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskProgressRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    changeTaskWeight: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TaskWeightRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createDependency: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDependencyRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DependencyEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    ignoreDependency: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+                dependencyID: components["parameters"]["DependencyID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["IgnoreDependencyRequest"];
+            };
+        };
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DependencyEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getTaskHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskHistoriesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProjectProgress: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getProjectProgressHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 操作成功 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressSnapshotsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
         };
     };
