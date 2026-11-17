@@ -64,6 +64,77 @@ func TestLoadOverrides(t *testing.T) {
 	}
 }
 
+func TestSessionSecurityDefaults(t *testing.T) {
+	cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN}))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.SessionTTL != 12*time.Hour {
+		t.Errorf("session ttl = %s, want 12h", cfg.SessionTTL)
+	}
+	if cfg.LoginMaxFailures != 10 || cfg.LoginWindow != 15*time.Minute {
+		t.Errorf("login limiter defaults = %d/%s, want 10/15m", cfg.LoginMaxFailures, cfg.LoginWindow)
+	}
+	if cfg.CookieSecure() {
+		t.Error("development cookies must not set Secure over plain HTTP")
+	}
+}
+
+func TestSessionSecurityOverrides(t *testing.T) {
+	cfg, err := load(lookupFrom(map[string]string{
+		"NEXORA_DATABASE_URL":       testDSN,
+		"NEXORA_SESSION_TTL":        "1h",
+		"NEXORA_LOGIN_MAX_FAILURES": "3",
+		"NEXORA_LOGIN_WINDOW":       "5m",
+	}))
+	if err != nil {
+		t.Fatalf("load: %v", err)
+	}
+	if cfg.SessionTTL != time.Hour || cfg.LoginMaxFailures != 3 || cfg.LoginWindow != 5*time.Minute {
+		t.Errorf("unexpected session security overrides: %+v", cfg)
+	}
+}
+
+func TestCookieSecureIsEnvironmentDerived(t *testing.T) {
+	for _, tc := range []struct {
+		env  string
+		want bool
+	}{
+		{"development", false},
+		{"test", false},
+		{"production", true},
+	} {
+		cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": tc.env}))
+		if err != nil {
+			t.Fatalf("load %s: %v", tc.env, err)
+		}
+		if cfg.CookieSecure() != tc.want {
+			t.Errorf("%s: CookieSecure = %v, want %v", tc.env, cfg.CookieSecure(), tc.want)
+		}
+	}
+}
+
+func TestLoadRejectsInvalidSessionSecurity(t *testing.T) {
+	for _, tc := range []struct {
+		name   string
+		env    map[string]string
+		errSub string
+	}{
+		{"zero session ttl", map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_SESSION_TTL": "0s"}, "NEXORA_SESSION_TTL"},
+		{"negative session ttl", map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_SESSION_TTL": "-1h"}, "NEXORA_SESSION_TTL"},
+		{"zero failure threshold", map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_LOGIN_MAX_FAILURES": "0"}, "NEXORA_LOGIN_MAX_FAILURES"},
+		{"non numeric threshold", map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_LOGIN_MAX_FAILURES": "many"}, "NEXORA_LOGIN_MAX_FAILURES"},
+		{"zero window", map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_LOGIN_WINDOW": "0s"}, "NEXORA_LOGIN_WINDOW"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			_, err := load(lookupFrom(tc.env))
+			if err == nil || !strings.Contains(err.Error(), tc.errSub) {
+				t.Fatalf("expected error containing %q, got %v", tc.errSub, err)
+			}
+		})
+	}
+}
+
 func TestLoadRejectsInvalidConfiguration(t *testing.T) {
 	tests := []struct {
 		name   string
