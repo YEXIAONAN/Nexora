@@ -121,12 +121,14 @@ func (h *Handler) HandleCreateTeam(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeBody(w, r, h.logger, &req) {
 		return
 	}
-	team, err := h.svc.CreateTeam(r.Context(), identity, req.Name, req.Description)
+	summary, err := h.svc.CreateTeam(r.Context(), identity, req.Name, req.Description)
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return
 	}
-	httpx.Data(w, http.StatusCreated, toTeamJSON(team))
+	item := toTeamJSON(summary.Team)
+	item.MyRole = summary.MyRole
+	httpx.Data(w, http.StatusCreated, item)
 }
 
 func (h *Handler) HandleListMyTeams(w http.ResponseWriter, r *http.Request) {

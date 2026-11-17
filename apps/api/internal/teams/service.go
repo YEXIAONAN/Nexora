@@ -144,7 +144,7 @@ func (s *Service) requireManager(actor reqctx.Identity, teamID uuid.UUID, m Memb
 }
 
 // CreateTeam creates a team and makes the creator its first owner.
-func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, name, description string) (Team, error) {
+func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, name, description string) (TeamSummary, error) {
 	name = strings.TrimSpace(name)
 	fields := make(map[string]string)
 	if n := utf8.RuneCountInString(name); n < 1 || n > maxTeamNameRunes {
@@ -154,11 +154,11 @@ func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, name, d
 		fields["description"] = fmt.Sprintf("must be at most %d characters", maxTeamDescriptionRunes)
 	}
 	if len(fields) > 0 {
-		return Team{}, httpx.ValidationFailed(fields)
+		return TeamSummary{}, httpx.ValidationFailed(fields)
 	}
 	team := Team{ID: uuid.New(), Name: name, Description: description, CreatedBy: actor.UserID}
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
-		if err := s.repo.InsertTeam(ctx, tx, team); err != nil {
+		if err := s.repo.InsertTeam(ctx, tx, &team); err != nil {
 			return httpx.Internal(err)
 		}
 		if err := s.repo.InsertMember(ctx, tx, team.ID, actor.UserID, RoleOwner); err != nil {
@@ -167,9 +167,9 @@ func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, name, d
 		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "team.created", "team", &team.ID, &team.ID, map[string]any{"name": team.Name}))
 	})
 	if err != nil {
-		return Team{}, err
+		return TeamSummary{}, err
 	}
-	return team, nil
+	return TeamSummary{Team: team, MyRole: RoleOwner}, nil
 }
 
 func (s *Service) ListMyTeams(ctx context.Context, actor reqctx.Identity) ([]TeamSummary, error) {

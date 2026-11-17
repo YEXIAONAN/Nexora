@@ -571,7 +571,7 @@ export interface components {
             /** Format: date-time */
             updated_at: string;
             /**
-             * @description 仅“我的团队”视图返回；表示当前用户在该团队中的角色。
+             * @description 当前用户在该团队中的角色；“我的团队”列表与创建团队的响应均返回（创建者恒为 owner）。
              * @enum {string}
              */
             my_role?: "owner" | "admin" | "member";

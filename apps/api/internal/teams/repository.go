@@ -43,11 +43,12 @@ func scanTeam(row pgx.Row) (Team, error) {
 	return t, nil
 }
 
-func (r *Repository) InsertTeam(ctx context.Context, tx pgx.Tx, t Team) error {
-	_, err := tx.Exec(ctx, `
+func (r *Repository) InsertTeam(ctx context.Context, tx pgx.Tx, t *Team) error {
+	err := tx.QueryRow(ctx, `
 		INSERT INTO teams (id, name, description, created_by)
-		VALUES ($1, $2, $3, $4)`,
-		t.ID, t.Name, t.Description, t.CreatedBy)
+		VALUES ($1, $2, $3, $4)
+		RETURNING created_at, updated_at`,
+		t.ID, t.Name, t.Description, t.CreatedBy).Scan(&t.CreatedAt, &t.UpdatedAt)
 	if err != nil {
 		return fmt.Errorf("insert team: %w", err)
 	}

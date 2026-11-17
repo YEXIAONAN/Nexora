@@ -70,11 +70,11 @@ func (f *teamsFixture) account(username string) reqctx.Identity {
 
 func (f *teamsFixture) team(actor reqctx.Identity, name string) Team {
 	f.t.Helper()
-	team, err := f.svc.CreateTeam(f.ctx, actor, name, "")
+	summary, err := f.svc.CreateTeam(f.ctx, actor, name, "")
 	if err != nil {
 		f.t.Fatalf("create team %s: %v", name, err)
 	}
-	return team
+	return summary.Team
 }
 
 func (f *teamsFixture) join(inviter reqctx.Identity, teamID uuid.UUID, invitee reqctx.Identity, role string) Invitation {
@@ -682,6 +682,12 @@ func TestCreateTeamValidation(t *testing.T) {
 	}
 	if got := f.role(team.ID, alice.UserID); got != RoleOwner {
 		t.Errorf("creator role = %s, want owner", got)
+	}
+	if team.MyRole != RoleOwner {
+		t.Errorf("create response my_role = %q, want owner", team.MyRole)
+	}
+	if team.CreatedAt.IsZero() || team.UpdatedAt.IsZero() {
+		t.Errorf("create response must carry real timestamps: %+v", team)
 	}
 }
 
