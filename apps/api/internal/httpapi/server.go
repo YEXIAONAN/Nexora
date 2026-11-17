@@ -63,11 +63,13 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/readyz", s.handleReadiness)
 
 	router.Route("/api/v1", func(r chi.Router) {
+		// CSRF guards every mutating /api/v1 route, including the unauthenticated
+		// login POST: a cross-site form cannot set this custom header.
+		r.Use(auth.CSRF)
 		r.Get("/meta", s.handleMeta)
 		if s.authHandler != nil {
 			s.authHandler.PublicRoutes(r)
 			r.Group(func(r chi.Router) {
-				r.Use(auth.CSRF)
 				r.Use(auth.Middleware(s.authSvc))
 				s.authHandler.AuthenticatedRoutes(r)
 				if s.teamsHandler != nil {

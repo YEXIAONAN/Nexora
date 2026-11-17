@@ -315,6 +315,7 @@ func TestLoginValidationAndBadBodies(t *testing.T) {
 	}
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader("{not-json"))
 	request.Header.Set(auth.CSRFHeader, "1")
+	request.Header.Set("Content-Type", "application/json")
 	recorder := httptest.NewRecorder()
 	f.handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest {
