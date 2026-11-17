@@ -39,7 +39,8 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
   const { signal, timeoutMs = DEFAULT_TIMEOUT_MS, acceptStatuses = [] } = options
   const controller = new AbortController()
   const abortFromCaller = () => controller.abort()
-  signal?.addEventListener('abort', abortFromCaller)
+  if (signal?.aborted) controller.abort()
+  else signal?.addEventListener('abort', abortFromCaller)
   const timer = window.setTimeout(() => controller.abort(), timeoutMs)
 
   try {

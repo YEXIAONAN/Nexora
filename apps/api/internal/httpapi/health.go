@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/version"
 )
@@ -46,7 +47,7 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 	if err := s.system.Ping(ctx); err != nil {
 		ready = false
 		checks["database"] = checkResult{Status: "down", Detail: "connection failed"}
-		s.logger.Warn("readiness: database ping failed", "error", err)
+		s.logger.Warn("readiness: database ping failed", "error", database.SafeError(err))
 	} else {
 		checks["database"] = checkResult{Status: "up"}
 	}
@@ -56,7 +57,7 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 	case err != nil:
 		ready = false
 		checks["schema"] = checkResult{Status: "down", Detail: "not migrated"}
-		s.logger.Warn("readiness: schema check failed", "error", err)
+		s.logger.Warn("readiness: schema check failed", "error", database.SafeError(err))
 	case schemaVersion == 0:
 		ready = false
 		checks["schema"] = checkResult{Status: "down", Detail: "not migrated"}
@@ -102,9 +103,9 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 	case err == nil:
 		payload.InstanceID = &installationID
 	case errors.Is(err, context.DeadlineExceeded), errors.Is(err, context.Canceled):
-		s.logger.Warn("meta: installation id lookup timed out", "error", err)
+		s.logger.Warn("meta: installation id lookup timed out", "error", database.SafeError(err))
 	default:
-		s.logger.Warn("meta: installation id unavailable", "error", err)
+		s.logger.Warn("meta: installation id unavailable", "error", database.SafeError(err))
 	}
 
 	httpx.Data(w, http.StatusOK, payload)

@@ -79,11 +79,7 @@ const checkRows = [
             最近检查：{{ formatRelativeTime(system.lastCheckedAt) }}
           </p>
         </div>
-        <StatusBadge
-          :label="system.readiness?.status ?? '未检查'"
-          :tone="system.isReady ? 'success' : system.readiness ? 'danger' : 'neutral'"
-          dot
-        />
+        <StatusBadge :label="system.statusLabel" :tone="system.statusTone" dot />
       </div>
       <ul class="divide-y divide-line">
         <li
@@ -98,17 +94,23 @@ const checkRows = [
           <div class="flex items-center gap-3">
             <span class="text-xs text-ink-muted">
               {{
-                system.readiness?.checks[row.key]?.detail ??
-                (system.readiness?.checks[row.key]?.status === 'up' ? '检查通过' : '无返回数据')
+                system.loading
+                  ? '检查中'
+                  : (system.readiness?.checks[row.key]?.detail ??
+                    (system.readiness?.checks[row.key]?.status === 'up'
+                      ? '检查通过'
+                      : '无返回数据'))
               }}
             </span>
             <StatusBadge
               :label="
-                system.readiness?.checks[row.key]?.status === 'up'
-                  ? '正常'
-                  : system.readiness
-                    ? '异常'
-                    : '未知'
+                system.loading
+                  ? '检查中'
+                  : system.readiness?.checks[row.key]?.status === 'up'
+                    ? '正常'
+                    : system.readiness
+                      ? '异常'
+                      : '未知'
               "
               :tone="
                 system.readiness?.checks[row.key]?.status === 'up'

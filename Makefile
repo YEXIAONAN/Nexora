@@ -5,7 +5,7 @@ PSQL_ENV = set -a; [ -f .env ] && source .env; set +a;
 
 .PHONY: help env dev-db dev-api dev-web migrate-up migrate-down migrate-status \
 	test test-api test-web lint lint-api lint-web build build-api build-web \
-	compose-up compose-down compose-logs backup verify-backup secret-scan verify
+	compose-up compose-down compose-logs backup verify-backup secret-scan secret-scan-test api-check verify
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -75,7 +75,13 @@ backup: ## Create and verify a database backup
 verify-backup: ## Restore the newest backup into a scratch database
 	infra/scripts/verify-backup.sh
 
-secret-scan: ## Scan tracked files for common secret patterns
+secret-scan-test: ## Check scanner detection, exact exceptions and nonzero failures
+	python3 -B -m unittest discover -s infra/scripts -p 'test_secret_scan.py'
+
+secret-scan: secret-scan-test ## Scan tracked and nonignored new source without printing values
 	infra/scripts/check-secrets.sh
 
-verify: lint test build secret-scan ## Run the full local verification gate
+api-check: ## Check generated API types without writing source files
+	cd apps/web && pnpm api:check
+
+verify: lint test build api-check secret-scan ## Run the full local verification gate

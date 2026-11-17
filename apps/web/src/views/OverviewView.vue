@@ -12,23 +12,44 @@ onMounted(() => {
   if (!system.meta && !system.loading) void system.refresh()
 })
 
-const apiTone = computed(() => (system.error ? 'danger' : system.meta ? 'success' : 'neutral'))
-const apiLabel = computed(() => (system.error ? '不可达' : system.meta ? '正常' : '未知'))
+const apiTone = computed(() =>
+  system.apiState === 'down' ? 'danger' : system.apiState === 'up' ? 'success' : 'neutral',
+)
+const apiLabel = computed(() => {
+  const labels = { loading: '检查中', up: '正常', down: '异常', unknown: '未知' }
+  return labels[system.apiState]
+})
 
-const databaseStatus = computed(() => system.readiness?.checks.database.status ?? 'unknown')
+const databaseStatus = computed(() =>
+  system.loading ? 'loading' : (system.readiness?.checks.database.status ?? 'unknown'),
+)
 const databaseLabel = computed(() =>
-  databaseStatus.value === 'up' ? '正常' : databaseStatus.value === 'down' ? '异常' : '未知',
+  databaseStatus.value === 'loading'
+    ? '检查中'
+    : databaseStatus.value === 'up'
+      ? '正常'
+      : databaseStatus.value === 'down'
+        ? '异常'
+        : '未知',
 )
 
-const schemaStatus = computed(() => system.readiness?.checks.schema.status ?? 'unknown')
+const schemaStatus = computed(() =>
+  system.loading ? 'loading' : (system.readiness?.checks.schema.status ?? 'unknown'),
+)
 
-type CheckState = 'up' | 'down' | 'unknown'
+type CheckState = 'up' | 'down' | 'unknown' | 'loading'
 
 const checks = computed<{ name: string; detail: string; state: CheckState }[]>(() => [
   {
     name: 'API 进程',
-    detail: system.meta ? `已连接 · ${system.meta.name} ${system.meta.version}` : '尚未连接',
-    state: system.meta ? 'up' : system.error ? 'down' : 'unknown',
+    detail: system.meta
+      ? `已连接 · ${system.meta.name} ${system.meta.version}`
+      : system.loading
+        ? '检查中'
+        : system.metaError
+          ? '检查失败'
+          : '尚未连接',
+    state: system.apiState,
   },
   {
     name: 'PostgreSQL 连接',
@@ -37,12 +58,18 @@ const checks = computed<{ name: string; detail: string; state: CheckState }[]>((
         ? '连接池可用'
         : system.readiness
           ? '连接不可用'
-          : '尚未检查',
+          : system.loading
+            ? '检查中'
+            : system.readinessError
+              ? '无法获取当前状态'
+              : '尚未检查',
     state: databaseStatus.value,
   },
   {
     name: 'Schema 迁移',
-    detail: system.readiness?.checks.schema.detail ?? '尚未检查',
+    detail:
+      system.readiness?.checks.schema.detail ??
+      (system.loading ? '检查中' : system.readinessError ? '无法获取当前状态' : '尚未检查'),
     state: schemaStatus.value,
   },
 ])
@@ -54,6 +81,7 @@ function checkTone(state: CheckState): 'success' | 'danger' | 'neutral' {
 }
 
 function checkLabel(state: CheckState): string {
+  if (state === 'loading') return '检查中'
   if (state === 'up') return '通过'
   if (state === 'down') return '失败'
   return '未知'
@@ -138,14 +166,10 @@ function checkLabel(state: CheckState): string {
             <AppIcon name="shield" :size="17" class="text-ink-subtle" />
             整体就绪
           </div>
-          <StatusBadge
-            :label="system.isReady ? '就绪' : '未就绪'"
-            :tone="system.isReady ? 'success' : system.readiness ? 'warning' : 'neutral'"
-            dot
-          />
+          <StatusBadge :label="system.statusLabel" :tone="system.statusTone" dot />
         </div>
         <p class="mt-4 font-mono text-2xl font-semibold tracking-tight text-ink">
-          {{ system.readiness?.status ?? '—' }}
+          {{ system.status }}
         </p>
         <p class="mt-1 text-xs text-ink-muted">
           {{ formatRelativeTime(system.lastCheckedAt) }}检查
@@ -158,7 +182,7 @@ function checkLabel(state: CheckState): string {
         <div class="card-header">
           <div>
             <h3 class="text-sm font-semibold text-ink">运行检查</h3>
-            <p class="mt-0.5 text-xs text-ink-muted">来自 /healthz、/readyz 与 /api/v1/meta</p>
+            <p class="mt-0.5 text-xs text-ink-muted">来自 /readyz 与 /api/v1/meta</p>
           </div>
           <span class="font-mono text-xs text-ink-subtle">
             {{ formatDateTime(system.lastCheckedAt) }}
