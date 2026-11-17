@@ -57,6 +57,7 @@ CREATE TABLE task_submission_versions (
  client_request_id uuid NOT NULL,
  content_hash text NOT NULL CHECK(content_hash ~ '^[0-9a-f]{64}$'),
  based_on_task_version integer NOT NULL CHECK(based_on_task_version>0),
+ creation_xid xid8 NOT NULL DEFAULT pg_current_xact_id(),
  submitted_at timestamptz NOT NULL DEFAULT clock_timestamp(),
  request_id text NOT NULL DEFAULT '',
  UNIQUE(team_id,project_id,task_id,id),
@@ -133,7 +134,7 @@ BEGIN
   IF (to_jsonb(NEW)-ARRAY['status','submission_version_id','removed_at']) IS DISTINCT FROM (to_jsonb(OLD)-ARRAY['status','submission_version_id','removed_at']) THEN RAISE EXCEPTION 'attachment metadata is immutable' USING ERRCODE='23514'; END IF;
   IF OLD.status='expired' AND (NEW.status<>'expired' OR OLD.removed_at IS NOT NULL) THEN RAISE EXCEPTION 'expired attachment cannot be reused' USING ERRCODE='23514'; END IF;
  END IF;
- IF NEW.status='bound' AND NOT EXISTS(SELECT 1 FROM task_submission_versions v WHERE v.team_id=NEW.team_id AND v.project_id=NEW.project_id AND v.task_id=NEW.task_id AND v.id=NEW.submission_version_id AND v.author_id=NEW.uploader_id) THEN RAISE EXCEPTION 'attachment version/author mismatch' USING ERRCODE='23514'; END IF;
+ IF NEW.status='bound' AND NOT EXISTS(SELECT 1 FROM task_submission_versions v WHERE v.team_id=NEW.team_id AND v.project_id=NEW.project_id AND v.task_id=NEW.task_id AND v.id=NEW.submission_version_id AND v.author_id=NEW.uploader_id AND v.creation_xid=pg_current_xact_id()) THEN RAISE EXCEPTION 'attachment must bind to its author version in the creating transaction' USING ERRCODE='23514'; END IF;
  RETURN NEW;
 END; $$ LANGUAGE plpgsql;
 -- +goose StatementEnd
@@ -143,6 +144,7 @@ CREATE TRIGGER submission_attachments_guard BEFORE INSERT OR UPDATE OR DELETE ON
 CREATE FUNCTION phase04_guard_version_insert() RETURNS trigger AS $$
 DECLARE t tasks%ROWTYPE;
 BEGIN
+ IF NEW.creation_xid<>pg_current_xact_id() THEN RAISE EXCEPTION 'submission transaction marker must be current' USING ERRCODE='23514'; END IF;
  SELECT * INTO t FROM tasks WHERE team_id=NEW.team_id AND project_id=NEW.project_id AND id=NEW.task_id FOR UPDATE;
  IF NOT FOUND OR t.status NOT IN ('in_progress','rejected') OR t.version<>NEW.based_on_task_version THEN RAISE EXCEPTION 'submission requires current execution state' USING ERRCODE='23514'; END IF;
  IF EXISTS(SELECT 1 FROM tasks WHERE team_id=t.team_id AND project_id=t.project_id AND parent_id=t.id) THEN RAISE EXCEPTION 'only leaves accept submissions' USING ERRCODE='23514'; END IF;

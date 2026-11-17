@@ -172,3 +172,45 @@ func TestAttachmentQuotaAndVersionTotal(t *testing.T) {
 	_, e = f.sub.Upload(f.ctx, f.a, f.team, f.p.ID, task.ID, uuid.New(), "overquota.txt", strings.NewReader("Over quota"))
 	wantStatus(t, e, 409)
 }
+
+func TestAttachmentCannotBeAddedToCommittedVersion(t *testing.T) {
+	f := setup(t)
+	f.storage()
+	reviewer := f.reviewer("frozenfiles")
+	task := f.start(f.create(nil, 1))
+	first, e := f.sub.Upload(f.ctx, f.a, f.team, f.p.ID, task.ID, uuid.New(), "reviewed.txt", strings.NewReader("Reviewed evidence"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	extra, e := f.sub.Upload(f.ctx, f.a, f.team, f.p.ID, task.ID, uuid.New(), "unreviewed.txt", strings.NewReader("Never part of the committed version"))
+	if e != nil {
+		t.Fatal(e)
+	}
+	version, e := f.sub.Submit(f.ctx, f.a, f.team, f.p.ID, task.ID, SubmitInput{ClientRequestID: uuid.New(), ExpectedVersion: task.Version, AttachmentIDs: []uuid.UUID{first.ID}})
+	if e != nil {
+		t.Fatal(e)
+	}
+	attempt := func() {
+		t.Helper()
+		if _, e = f.pool.Exec(f.ctx, `UPDATE submission_attachments SET status='bound',submission_version_id=$2 WHERE id=$1`, extra.ID, version.ID); e == nil {
+			t.Fatal("late binding changed committed version evidence")
+		}
+	}
+	attempt()
+	now := f.task(task.ID)
+	if _, e = f.sub.Review(f.ctx, reviewer, f.team, f.p.ID, task.ID, version.ID, ReviewInput{now.Version, "approve", "Verified original file only"}); e != nil {
+		t.Fatal(e)
+	}
+	attempt()
+	// INSERT must not provide another way to append evidence to a frozen version.
+	_, e = f.pool.Exec(f.ctx, `INSERT INTO submission_attachments(team_id,project_id,task_id,uploader_id,client_request_id,submission_version_id,storage_key,file_name,media_type,byte_size,sha256,status,expires_at) VALUES($1,$2,$3,$4,$5,$6,$7,'injected.txt','text/plain',1,repeat('a',64),'bound',clock_timestamp()+interval '24 hours')`, f.team, f.p.ID, task.ID, f.a.UserID, uuid.New(), version.ID, f.team.String()+"/"+uuid.NewString()+".blob")
+	if e == nil {
+		t.Fatal("late INSERT appended evidence to approved version")
+	}
+	frozen, e := f.sub.Version(f.ctx, reviewer, f.team, f.p.ID, task.ID, version.ID)
+	if e != nil || len(frozen.Attachments) != 1 || frozen.Attachments[0].ID != first.ID || frozen.Review == nil || frozen.Review.Decision != "approve" {
+		t.Fatal(frozen, e)
+	}
+	_, _, e = f.sub.Download(f.ctx, reviewer, f.team, f.p.ID, task.ID, version.ID, extra.ID)
+	wantStatus(t, e, 404)
+}

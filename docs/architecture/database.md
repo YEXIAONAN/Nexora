@@ -191,7 +191,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 新增迁移 `00006_submissions_reviews.sql`，不修改已发布 00001–00005。
 
 - task_submissions：任务唯一成果根；task_submission_versions：按任务单调版本号、author、summary、JSON 引用、幂等请求 UUID、归一化内容摘要、任务版本与 request_id。
-- task_reviews：版本唯一决定，记录独立审核人、approve/reject、意见、时间、任务版本和 request_id；根、版本、审核全部禁止 UPDATE / DELETE。
+- task_reviews：版本唯一决定，记录独立审核人、approve/reject、意见、时间、任务版本和 request_id；根、版本、审核全部禁止 UPDATE / DELETE。版本的不可变 creation_xid 限定附件只能在版本创建事务绑定，提交后不能追加附件。
 - project_reviewers：明确授权、原因、授予人、授权版本；绑定 project_members.authorization_version，移除/重新加入不复活权限。phase04_can_review 同时检查 Team / Project 的实时资格。
 - submission_attachments：同 Team/Project/Task/上传者暂存；随机私有键、内容 SHA-256、类型/大小、TTL、staged/bound/expired 和物理移除时间。bound 元数据不可变；复合外键绑定相同上下文版本及作者。
 - tasks.current_submission_version_id / accepted_review_id：延迟复合外键；task_acceptance_evidence 仅返回 completed 且当前版本对应 approve 的记录，进度和依赖读取此证据。

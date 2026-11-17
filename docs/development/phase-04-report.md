@@ -14,7 +14,7 @@
 
 版本与审核禁止 UPDATE / DELETE；已绑定附件禁止变更；唯一约束防止版本号或决定重复。Team 首锁与任务锁、expected_version、延迟证据约束共同保护状态和版本。SQL 直接修改 completed、假 review UUID 或缺失批准被真实 PostgreSQL 拒绝。
 
-`TestPhase04FreshUpgradeAndRollback` 验证 v5→v6、空库安装、空业务 down 到 v0 后重建；`TestPhase04RollbackRefusesBusinessEvidence` 验证存在成果时 down 拒绝并保留 v6。已有 Phase 03 v5 专项测试显式固定升级目标 5；未改历史迁移。没有升级正在运行的旧库。
+`TestPhase04FreshUpgradeAndRollback` 验证 v5→v6、空库安装、空业务 down 到 v0 后重建；`TestPhase04UpgradePreservesPhase03History` 在真实 v5 任务、历史、精确快照与审计数据上验证升级/回滚前后内容不变，且升级后的旧任务仍不能无批准完成；`TestPhase04RollbackRefusesBusinessEvidence` 验证存在成果时 down 拒绝并保留 v6。已有 Phase 03 v5 专项测试显式固定升级目标 5；未改历史迁移。没有升级正在运行的旧库。
 
 ## C. 成果版本模型
 
@@ -44,7 +44,9 @@ in_progress/rejected 通过新成果进入 awaiting_review；当前版本 approv
 
 暂存 24h，提交同事务绑定，已绑定永不自动回收。失败写入回滚清理；不确定提交结果先用新连接查证，未知则留给宽限回收。过期文件物理删除成功后才标 removed_at 并释放配额；缺失已绑定文件返回 503，保留证据。没有复用其他项目存储，没有声称病毒扫描或多副本能力。
 
-证据：store 单元测试；三个 attachments 集成测试覆盖真实上传/下载、幂等、跨任务拒绝、不可变元数据、配额、限额、缺失文件、TTL/孤立回收与审计失败清理；HTTP 测试原始文件名穿越、CSRF、私有头和匿名拒绝。数据库/文件备份边界已写入 README 和运维文档。
+证据：store 单元测试；attachments 集成测试覆盖真实上传/下载、幂等、跨任务拒绝、不可变元数据、配额、限额、缺失文件、TTL/孤立回收与审计失败清理；HTTP 测试原始文件名穿越、CSRF、私有头和匿名拒绝。数据库/文件备份边界已写入 README 和运维文档。
+
+Review P2 整改：版本记录不可变 creation_xid，附件只能在该版本创建事务中绑定。`TestAttachmentCannotBeAddedToCommittedVersion` 先复现事后追加成功，再验证提交后待审/已批准两种状态的 SQL UPDATE 与 bound INSERT 全部拒绝，版本附件集合与审核证据保持冻结。
 
 ## G. API 及前端功能
 
