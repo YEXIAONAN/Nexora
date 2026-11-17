@@ -70,6 +70,11 @@ func Conflict(message string) *APIError {
 	return &APIError{Status: http.StatusConflict, Code: "conflict", Message: message}
 }
 
+// TooManyRequests reports that a rate limit has been exceeded.
+func TooManyRequests(message string) *APIError {
+	return &APIError{Status: http.StatusTooManyRequests, Code: "rate_limited", Message: message}
+}
+
 // Unavailable reports a dependency that is currently unavailable.
 func Unavailable(message string) *APIError {
 	return &APIError{Status: http.StatusServiceUnavailable, Code: "service_unavailable", Message: message}

@@ -4,9 +4,10 @@
 
 | 层 | 范围 | 命令 |
 | --- | --- | --- |
-| Go 单元测试 | 配置校验、错误映射、中间件、健康检查 | `make test-api` |
-| Go 集成测试 | 真实 PostgreSQL、迁移幂等、Repository | `go test -tags=integration ./...` |
-| 前端单元/组件测试 | Pinia store、API 失败处理、状态徽章 | `make test-web` |
+| Go 单元测试 | 配置校验、错误映射、中间件、健康检查、权限矩阵推导 | `make test-api` |
+| Go 集成测试 | 真实 PostgreSQL、迁移幂等、Repository、认证与跨团队授权 | `go test -tags=integration ./...` |
+| 前端单元/组件测试 | Pinia store、API 客户端 CSRF/401、登录与团队视图 | `make test-web` |
+| 浏览器 E2E | 真实栈登录、团队创建、邀请、成员管理、会话失效闭环 | `make e2e`（本地） |
 | 类型检查 | `vue-tsc --noEmit` | `pnpm typecheck` |
 | 静态检查 | gofmt、go vet、ESLint、Prettier | `make lint` |
 | 构建 | Go build、Vite production build | `make build` |
@@ -32,9 +33,22 @@ TEST_DATABASE_URL="postgres://test_runner@127.0.0.1:5432/nexora_test?sslmode=dis
 
 测试使用真实 PostgreSQL；每个 fixture 创建随机 `nexora_it_` schema，将连接的 `search_path` 限定到该 schema，在成功或失败后仅清理自己生成的 schema。迁移和 Repository 测试分别建立自己的基线，不依赖另一个测试的执行顺序。没有安全测试库时只能报告集成验证未完成。
 
+## 浏览器 E2E（本地门禁）
+
+`make e2e`（`infra/scripts/e2e.sh`）在完全一次性的栈上运行 Playwright，使用系统 Chrome（`channel: 'chrome'`，无需下载浏览器）：
+
+- 仅连接一次性容器 `nexora-devtest-pg`（loopback `127.0.0.1:5433`），重建专用 `nexora_e2e` 数据库并在退出时删除；psql 通过 `docker exec` 在容器内执行，不依赖宿主机客户端。
+- 不触碰运行中的开发栈（5432/8080/3000）、其他项目容器或任何卷。
+- ROOT 密码每次运行随机生成，仅经环境变量注入测试进程，不落盘、不打印。
+- API 监听 `127.0.0.1:8081`，Vite 监听 `127.0.0.1:5173`（可用 `E2E_WEB_PORT` 覆盖）；脚本退出时 trap 清理进程与数据库。
+
+用例（`apps/web/e2e/phase02.spec.ts`）覆盖真实闭环：未认证重定向、ROOT 登录与创建团队、经真实管理 API 创建账号、邀请→接受→成员角色、普通成员无管理控件、角色晋升、移除后原会话立即失去团队访问（404）、最后 owner 退出保护（409）、多团队顶栏切换、会话失效回到登录页并提示。E2E 为本地门禁，不进入 CI 四个 job；CI 仍以单元/集成测试为准。
+
 ## 密钥扫描与契约门禁
 
 `make secret-scan` 在本地和 CI 均先执行扫描器回归测试，再扫描 Git 跟踪文件和未忽略的新文件。需要 Python 3.9+，仅使用标准库。输出仅包含路径、行号和规则，不打印命中内容；被跟踪的真实环境文件直接拒绝且不读取。
+
+PostgreSQL URL 与 `POSTGRES_PASSWORD` 赋值两条规则一致地把纯 shell 变量展开（如 `${PGPASSWORD}`，可带引号）视为运行时注入而非源码凭据，不予命中；E2E 脚本即用此方式从 gitignored 文件注入口令。任何字面口令、混合字面与变量（如 `pre${VAR}`、`${VAR}post`）或查询参数中的字面 `password`/`sslpassword` 仍判失败。回归测试同时覆盖“纯展开通过”与“字面/混合口令失败”正反例，确保该豁免不削弱对真实凭据的检测。
 
 `infra/scripts/secret-scan-allowlist.json` 只豁免 `.env.example`、开发 Compose 和 CI 中已知虚拟 PostgreSQL 示例值，逐项绑定文件路径、规则及完整命中值的 SHA-256，并注明理由。没有整目录或整文件豁免；示例值改变、复制到其他路径或出现其他高风险凭据仍失败。新增例外必须单独审查，不能自动刷新白名单。
 
@@ -44,13 +58,13 @@ TEST_DATABASE_URL="postgres://test_runner@127.0.0.1:5432/nexora_test?sslmode=dis
 
 优先覆盖高风险业务，而不是追求数字：
 
-- 权限与跨团队 IDOR（Phase 1 起）
-- 状态机非法转换（Phase 2）
-- 进度聚合与权重（Phase 2）
-- 验收版本与重提（Phase 3）
-- 贡献修订留痕（Phase 4）
-- 金额舍入、合计上限、并发确认（Phase 5）
-- 导出权限过滤（Phase 7）
+- 权限与跨团队 IDOR（Phase 02 已覆盖：真实 PostgreSQL 集成测试 + 浏览器 E2E）
+- 状态机非法转换（Phase 03）
+- 进度聚合与权重（Phase 03）
+- 验收版本与重提（Phase 04）
+- 贡献修订留痕（V1.1 / Phase 05）
+- 金额舍入、合计上限、并发确认（V2.0 / Phase 06）
+- 导出权限过滤（V2.0 / Phase 07）
 
 ## CI
 

@@ -34,7 +34,7 @@ func (f *fakeSystemStore) InstallationID(context.Context) (string, error) {
 }
 
 func newTestServer(store SystemStore) *Server {
-	return New(config.Config{Environment: config.EnvironmentTest}, slog.New(slog.NewTextHandler(io.Discard, nil)), store)
+	return New(config.Config{Environment: config.EnvironmentTest}, slog.New(slog.NewTextHandler(io.Discard, nil)), store, nil, nil, nil)
 }
 
 func performRequest(t *testing.T, handler http.Handler, method, path string) *httptest.ResponseRecorder {
@@ -161,7 +161,7 @@ func TestDiagnosticLogsDoNotExposeDatabaseErrorDetails(t *testing.T) {
 	store := &fakeSystemStore{
 		pingErr: errors.New(marker), schemaErr: errors.New(marker), installErr: errors.New(marker),
 	}
-	server := New(config.Config{Environment: config.EnvironmentTest}, slog.New(slog.NewJSONHandler(&logs, nil)), store)
+	server := New(config.Config{Environment: config.EnvironmentTest}, slog.New(slog.NewJSONHandler(&logs, nil)), store, nil, nil, nil)
 	for _, path := range []string{"/readyz", "/api/v1/meta"} {
 		response := performRequest(t, server.Handler(), http.MethodGet, path)
 		if strings.Contains(response.Body.String(), marker) {

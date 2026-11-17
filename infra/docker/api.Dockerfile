@@ -21,14 +21,16 @@ RUN CGO_ENABLED=0 GOOS=linux go build -trimpath \
         -X github.com/YEXIAONAN/Nexora/apps/api/internal/version.BuildTime=${BUILD_TIME}" \
       -o /out/nexora-api ./cmd/server \
  && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" \
-      -o /out/nexora-migrate ./cmd/migrate
+      -o /out/nexora-migrate ./cmd/migrate \
+ && CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" \
+      -o /out/nexora-bootstrap ./cmd/bootstrap
 
 FROM alpine:3.22
 
 RUN addgroup -S nexora && adduser -S -G nexora -h /app nexora \
  && apk add --no-cache ca-certificates wget
 
-COPY --from=build /out/nexora-api /out/nexora-migrate /usr/local/bin/
+COPY --from=build /out/nexora-api /out/nexora-migrate /out/nexora-bootstrap /usr/local/bin/
 
 USER nexora
 WORKDIR /app

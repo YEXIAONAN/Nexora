@@ -1,14 +1,24 @@
 import { createRouter, createWebHistory } from 'vue-router'
 
+import { useAuthStore } from '@/stores/auth'
+
 declare module 'vue-router' {
   interface RouteMeta {
     title?: string
+    requiresAuth?: boolean
+    bare?: boolean
   }
 }
 
 const router = createRouter({
   history: createWebHistory(),
   routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('@/views/LoginView.vue'),
+      meta: { title: '登录', bare: true },
+    },
     {
       path: '/',
       name: 'overview',
@@ -22,6 +32,24 @@ const router = createRouter({
       meta: { title: '运行状态' },
     },
     {
+      path: '/teams',
+      name: 'teams',
+      component: () => import('@/views/TeamsView.vue'),
+      meta: { title: '我的团队', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/members',
+      name: 'team-members',
+      component: () => import('@/views/TeamMembersView.vue'),
+      meta: { title: '团队成员', requiresAuth: true },
+    },
+    {
+      path: '/invitations',
+      name: 'invitations',
+      component: () => import('@/views/InvitationsView.vue'),
+      meta: { title: '邀请收件箱', requiresAuth: true },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('@/views/NotFoundView.vue'),
@@ -29,6 +57,23 @@ const router = createRouter({
     },
   ],
   scrollBehavior: () => ({ top: 0 }),
+})
+
+router.beforeEach(async (to) => {
+  const auth = useAuthStore()
+  if (to.meta.requiresAuth || to.name === 'login') await auth.initialize()
+  if (to.meta.requiresAuth && !auth.isAuthenticated) {
+    return { name: 'login', query: { redirect: to.fullPath } }
+  }
+  if (to.name === 'login' && auth.isAuthenticated) {
+    const redirect = to.query.redirect
+    const target =
+      typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')
+        ? redirect
+        : '/teams'
+    return { path: target }
+  }
+  return true
 })
 
 router.afterEach((to) => {

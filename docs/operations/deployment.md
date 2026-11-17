@@ -34,6 +34,24 @@ curl -fsS http://localhost:8080/api/v1/meta
 curl -fsS http://localhost:3000/ >/dev/null
 ```
 
+## ROOT 初始化（Phase 02）
+
+全新安装完成迁移后，必须显式初始化 ROOT 账号；不存在默认密码，`waiting` 只是默认用户名标识：
+
+```bash
+# 本机开发
+make bootstrap
+
+# 容器环境（交互式终端，无回显读取并确认密码）
+docker compose --profile full exec api nexora-bootstrap -username waiting
+```
+
+- 重复引导会被安全拒绝（数据库部分唯一索引保证全库仅一个 ROOT）。
+- 引导事件写入追加式审计 `root.bootstrap`。
+- 自动化可向命令标准输入提供单行密码；仍须显式提供，命令不生成任何默认凭据。
+- `GET /api/v1/meta` 的 `root_initialized` 字段供前端展示初始化状态。
+- ROOT 恢复流程尚未实现；不得通过更改用户名或普通接口修改 `system_root`。
+
 ## 生产注意事项
 
 1. **认证尚未实现**：身份与权限验收前，API 不得暴露公网。开发 Compose 固定 `NEXORA_ENV=development`，不应直接当作生产配置。

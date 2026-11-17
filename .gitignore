@@ -15,6 +15,10 @@ apps/web/dist/
 apps/web/coverage/
 *.tsbuildinfo
 
+# Playwright (E2E artifacts live under .cache/e2e-results)
+playwright-report/
+test-results/
+
 # Local tool caches (sandboxed runs)
 .cache/
 

@@ -1,18 +1,30 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 
 import AppIcon from '@/components/ui/AppIcon.vue'
 import type { IconName } from '@/components/ui/icons'
+import { useAuthStore } from '@/stores/auth'
 
 defineProps<{ open: boolean }>()
 defineEmits<{ close: [] }>()
 
 const appVersion = __APP_VERSION__
+const auth = useAuthStore()
 
-const navItems: { label: string; to: string; icon: IconName }[] = [
-  { label: '系统总览', to: '/', icon: 'overview' },
-  { label: '运行状态', to: '/status', icon: 'activity' },
-]
+const navItems = computed<{ label: string; to: string; icon: IconName }[]>(() => {
+  const items: { label: string; to: string; icon: IconName }[] = [
+    { label: '系统总览', to: '/', icon: 'overview' },
+    { label: '运行状态', to: '/status', icon: 'activity' },
+  ]
+  if (auth.isAuthenticated) {
+    items.push(
+      { label: '我的团队', to: '/teams', icon: 'users' },
+      { label: '邀请收件箱', to: '/invitations', icon: 'inbox' },
+    )
+  }
+  return items
+})
 </script>
 
 <template>
@@ -79,10 +91,10 @@ const navItems: { label: string; to: string; icon: IconName }[] = [
         <div class="rounded-lg border border-line bg-surface-muted px-3 py-3">
           <p class="flex items-center gap-2 text-xs font-medium text-ink">
             <AppIcon name="shield" :size="14" />
-            Phase 0 · 工程基线
+            Phase 02 · 身份与团队
           </p>
           <p class="mt-1.5 text-xs leading-5 text-ink-subtle">
-            当前仅提供工程基线与真实运行状态，业务模块按阶段交付。
+            认证会话、ROOT 引导与团队权限已交付；项目与任务等业务模块自 Phase 03 起按阶段实现。
           </p>
           <p class="mt-2 font-mono text-[11px] text-ink-subtle">v{{ appVersion }}</p>
         </div>

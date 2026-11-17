@@ -19,11 +19,18 @@ PATTERNS = {
 }
 POSTGRES_URL = re.compile(r"\bpostgres(?:ql)?://[^\s\"'`<>]+", re.IGNORECASE)
 PASSWORD_ASSIGNMENT = re.compile(r"^[ \t]*(?:NEXORA_)?POSTGRES_PASSWORD[ \t]*[:=][ \t]*(\S+)", re.MULTILINE)
+# A pure shell expansion such as ${PGPASSWORD} carries no literal secret; the
+# value is injected at runtime. Both Postgres rules ignore it consistently.
+SHELL_EXPANSION = re.compile(r"[\"']?\$\{[A-Z_][A-Z0-9_]*\}[\"']?")
 RULES = set(PATTERNS) | {"postgres-url-password", "postgres-password-assignment"}
 
 
 def digest(value):
     return hashlib.sha256(value.encode()).hexdigest()
+
+
+def is_real_secret(value):
+    return bool(value) and not SHELL_EXPANSION.fullmatch(value)
 
 
 def load_allowlist(path):
@@ -46,17 +53,21 @@ def candidates(content):
         value = match.group()
         try:
             parsed = urlsplit(value)
-            has_password = bool(parsed.password) or any(
-                key.lower().replace("_", "") in {"password", "sslpassword"} and secret
+            secrets = [parsed.password] if parsed.password else []
+            secrets += [
+                secret
                 for key, secret in parse_qsl(parsed.query, keep_blank_values=True)
-            )
+                if key.lower().replace("_", "") in {"password", "sslpassword"}
+            ]
+            has_password = any(is_real_secret(secret) for secret in secrets)
         except ValueError:
-            has_password = "@" in value and ":" in value.split("@", 1)[0].split("://", 1)[-1]
+            userinfo = value.split("@", 1)[0].split("://", 1)[-1] if "@" in value else ""
+            password = userinfo.split(":", 1)[1] if ":" in userinfo else ""
+            has_password = is_real_secret(password)
         if has_password:
             yield "postgres-url-password", match.start(), value
     for match in PASSWORD_ASSIGNMENT.finditer(content):
-        value = match.group(1)
-        if not re.fullmatch(r"[\"']?\$\{[A-Z_][A-Z0-9_]*\}[\"']?", value):
+        if is_real_secret(match.group(1)):
             yield "postgres-password-assignment", match.start(), match.group().strip()
 
 

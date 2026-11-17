@@ -8,9 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 )
 
 // SystemStore is the slice of platform state the HTTP layer needs. Keeping it
@@ -23,14 +25,19 @@ type SystemStore interface {
 
 // Server holds the dependencies shared by all handlers.
 type Server struct {
-	cfg    config.Config
-	logger *slog.Logger
-	system SystemStore
+	cfg          config.Config
+	logger       *slog.Logger
+	system       SystemStore
+	authSvc      *auth.Service
+	authHandler  *auth.Handler
+	teamsHandler *teams.Handler
 }
 
-// New builds an HTTP server binding.
-func New(cfg config.Config, logger *slog.Logger, system SystemStore) *Server {
-	return &Server{cfg: cfg, logger: logger, system: system}
+// New builds an HTTP server binding. The auth dependencies may be nil in
+// tests that only exercise diagnostics; auth and team routes are then not
+// mounted. The teams handler requires the auth middleware to be active.
+func New(cfg config.Config, logger *slog.Logger, system SystemStore, authSvc *auth.Service, authHandler *auth.Handler, teamsHandler *teams.Handler) *Server {
+	return &Server{cfg: cfg, logger: logger, system: system, authSvc: authSvc, authHandler: authHandler, teamsHandler: teamsHandler}
 }
 
 // Handler returns the fully configured router.
@@ -56,7 +63,20 @@ func (s *Server) Handler() http.Handler {
 	router.Get("/readyz", s.handleReadiness)
 
 	router.Route("/api/v1", func(r chi.Router) {
+		// CSRF guards every mutating /api/v1 route, including the unauthenticated
+		// login POST: a cross-site form cannot set this custom header.
+		r.Use(auth.CSRF)
 		r.Get("/meta", s.handleMeta)
+		if s.authHandler != nil {
+			s.authHandler.PublicRoutes(r)
+			r.Group(func(r chi.Router) {
+				r.Use(auth.Middleware(s.authSvc))
+				s.authHandler.AuthenticatedRoutes(r)
+				if s.teamsHandler != nil {
+					s.teamsHandler.AuthenticatedRoutes(r)
+				}
+			})
+		}
 	})
 
 	return router

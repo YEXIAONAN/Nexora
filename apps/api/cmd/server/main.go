@@ -12,11 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/version"
 )
 
@@ -59,7 +62,18 @@ func run() error {
 	}
 	defer pool.Close()
 
-	server := httpapi.New(cfg, logger, system.NewRepository(pool))
+	auditRepo := audit.NewRepository(pool)
+	authSvc := auth.NewService(
+		auth.NewRepository(pool),
+		auditRepo,
+		auth.NewLoginLimiter(cfg.LoginMaxFailures, cfg.LoginWindow),
+		cfg.SessionTTL,
+		logger,
+	)
+	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
+	teamsSvc := teams.NewService(teams.NewRepository(pool), authSvc, auditRepo, logger)
+	teamsHandler := teams.NewHandler(teamsSvc, logger)
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
