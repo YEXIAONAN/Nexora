@@ -46,7 +46,7 @@ in_progress/rejected 通过新成果进入 awaiting_review；当前版本 approv
 
 证据：store 单元测试；attachments 集成测试覆盖真实上传/下载、幂等、跨任务拒绝、不可变元数据、配额、限额、缺失文件、TTL/孤立回收与审计失败清理；HTTP 测试原始文件名穿越、CSRF、私有头和匿名拒绝。数据库/文件备份边界已写入 README 和运维文档。
 
-Review P2 整改：版本记录不可变 creation_xid，附件只能在该版本创建事务中绑定。`TestAttachmentCannotBeAddedToCommittedVersion` 先复现事后追加成功，再验证提交后待审/已批准两种状态的 SQL UPDATE 与 bound INSERT 全部拒绝，版本附件集合与审核证据保持冻结。
+Review P2 整改：不可变提交基线与强制单调的任务版本共同限定附件只能在该版本创建事务中绑定，备份恢复后仍保持此约束。`TestAttachmentCannotBeAddedToCommittedVersion` 先复现事后追加成功，再验证提交后待审/已批准两种状态的 SQL UPDATE、bound INSERT 与任务版本倒退全部拒绝，版本附件集合与审核证据保持冻结。
 
 ## G. API 及前端功能
 

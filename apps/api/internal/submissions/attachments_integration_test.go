@@ -197,6 +197,9 @@ func TestAttachmentCannotBeAddedToCommittedVersion(t *testing.T) {
 		}
 	}
 	attempt()
+	if _, e = f.pool.Exec(f.ctx, `UPDATE tasks SET version=$2 WHERE id=$1`, task.ID, task.Version); e == nil {
+		t.Fatal("task version rewind reopened a committed evidence binding window")
+	}
 	now := f.task(task.ID)
 	if _, e = f.sub.Review(f.ctx, reviewer, f.team, f.p.ID, task.ID, version.ID, ReviewInput{now.Version, "approve", "Verified original file only"}); e != nil {
 		t.Fatal(e)
