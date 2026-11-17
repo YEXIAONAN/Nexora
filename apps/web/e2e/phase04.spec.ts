@@ -211,14 +211,27 @@ test('independent reviewer approves only V2 and the project reaches 100%', async
   expect(done.current_submission_version_id).toBe(v2)
   expect(done.accepted_review_id).toBeTruthy()
   expect(done.effective_progress_bps).toBe(10000)
-  await page.screenshot({ path: '../../.cache/phase04-completed.png', fullPage: true })
+  await page.screenshot({
+    path: '../../.cache/phase04-completed.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
   await page.emulateMedia({ colorScheme: 'dark' })
   await expect(page.locator('html')).toHaveClass(/dark/)
-  await page.screenshot({ path: '../../.cache/phase04-dark.png', fullPage: true })
+  await page.screenshot({
+    path: '../../.cache/phase04-dark.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
   await page.setViewportSize({ width: 390, height: 844 })
+  await expect(page.getByRole('complementary', { name: '主导航' })).not.toBeInViewport()
   expect(await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth)).toBe(
     false,
   )
   await expect(page.getByTestId('project-progress')).toHaveText('100.00%')
-  await page.screenshot({ path: '../../.cache/phase04-mobile.png', fullPage: true })
+  await page.screenshot({
+    path: '../../.cache/phase04-mobile.png',
+    fullPage: true,
+    animations: 'disabled',
+  })
 })
