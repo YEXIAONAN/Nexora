@@ -1,6 +1,6 @@
 # Phase 02 实施计划（认证、团队与权限）
 
-- 状态：执行中（2026-11-17 启动）
+- 状态：开发完成（M1–M5 已验证），待推送与 PR 评审（M6，不自动合并）
 - 批准依据：产品负责人 2026-11-17 选择方案 B；V1.0 PRD 生效；ADR 0004 Accepted；ADR 0006 Accepted。
 - 分支：`feature/phase02-auth-tenancy`（基于 develop `1cfa22d`），PR → develop，不自动合并。
 
@@ -31,8 +31,8 @@
 | M1 需求与 ADR | V1.0 PRD、ADR 0004 Accepted、ADR 0006、权限矩阵、数据库设计、Roadmap、本计划 | 文档评审口径：已批准/已设计/已实现/已验证严格区分 | 已完成 |
 | M2 身份基础 | 00002 迁移、哈希基准、ROOT 引导、登录/退出/me、会话安全与限流、审计 | 真实数据库集成测试（testdb 护栏） | 已完成 |
 | M3 Team 与 RBAC | 00003 迁移、团队与成员 API、授权链、team 过滤、权限审计 | 两个真实 Team 的越权集成测试 | 已完成 |
-| M4 前端闭环 | 登录/团队/成员/邀请 UI、错误与无权限状态 | Vitest + 最小浏览器 E2E（真实后端） | 未开始 |
-| M5 综合验收 | 全部门禁 | make verify、集成 -race、迁移全新/升级/回滚、E2E、secret scan、compose config | 未开始 |
+| M4 前端闭环 | 登录/团队/成员/邀请 UI、错误与无权限状态 | Vitest 48 用例 + 11 项浏览器 E2E（真实栈，系统 Chrome） | 已完成 |
+| M5 综合验收 | 全部门禁 | make verify、集成 -race 全包、迁移全新/升级/回滚、E2E、secret scan、compose config | 已完成 |
 
 ## 强制安全测试矩阵（19 项，真实 PostgreSQL 集成测试）
 

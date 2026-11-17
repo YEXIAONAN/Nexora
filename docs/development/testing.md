@@ -48,6 +48,8 @@ TEST_DATABASE_URL="postgres://test_runner@127.0.0.1:5432/nexora_test?sslmode=dis
 
 `make secret-scan` 在本地和 CI 均先执行扫描器回归测试，再扫描 Git 跟踪文件和未忽略的新文件。需要 Python 3.9+，仅使用标准库。输出仅包含路径、行号和规则，不打印命中内容；被跟踪的真实环境文件直接拒绝且不读取。
 
+PostgreSQL URL 与 `POSTGRES_PASSWORD` 赋值两条规则一致地把纯 shell 变量展开（如 `${PGPASSWORD}`，可带引号）视为运行时注入而非源码凭据，不予命中；E2E 脚本即用此方式从 gitignored 文件注入口令。任何字面口令、混合字面与变量（如 `pre${VAR}`、`${VAR}post`）或查询参数中的字面 `password`/`sslpassword` 仍判失败。回归测试同时覆盖“纯展开通过”与“字面/混合口令失败”正反例，确保该豁免不削弱对真实凭据的检测。
+
 `infra/scripts/secret-scan-allowlist.json` 只豁免 `.env.example`、开发 Compose 和 CI 中已知虚拟 PostgreSQL 示例值，逐项绑定文件路径、规则及完整命中值的 SHA-256，并注明理由。没有整目录或整文件豁免；示例值改变、复制到其他路径或出现其他高风险凭据仍失败。新增例外必须单独审查，不能自动刷新白名单。
 
 `make api-check` 在内存中重新生成 OpenAPI 类型并与提交文件比较，不写入源码；不一致时退出非零。本地 `make verify` 和 CI 都包含相同检查。
