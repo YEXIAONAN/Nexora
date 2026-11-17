@@ -1,6 +1,6 @@
 # Nexora V1.0 Phase 03 开发与验收报告
 
-日期：2026-11-17（Asia/Shanghai）。状态：功能已开发并验证，PR #3 已创建且首轮必要 CI 全部通过；最终 Review 交付状态见 G。尚未合入 develop，不标注为正式集成完成，更不表示 V1.0 已全部完成。
+日期：2026-11-17（Asia/Shanghai）。状态：功能已开发并验证，PR #3 已创建，功能与评审修复提交的必要 CI 全部通过，自动复审无新增问题；证据见 G。尚未合入 develop，不标注为正式集成完成，更不表示 V1.0 已全部完成。
 
 ## A. 功能完成情况
 
@@ -29,7 +29,7 @@ M1 先冻结设计/权限/状态/算法/OpenAPI，随后按 M2–M5 实现，M6 
 - 历史与快照复用 audit 追加式触发器，拒绝 UPDATE/DELETE。快照精确 numeric 仅允许非负整数字符串，拒绝 NaN/Infinity/小数；业务计算不使用浮点。
 - 索引覆盖项目列表/负责人、项目成员资格、里程碑计划、任务树/负责人/协作者、依赖反向引用、任务历史与项目快照倒序查询。
 
-真实迁移测试 TestPhase03FreshUpgradeAndRollback：空库 up→5；down 两步→3；v3 up→5；完整 down→0；重新 up→5，均通过。另有迁移幂等与随机 schema 隔离验证。一次性容器 nexora-devtest-pg（127.0.0.1:5433，PG17）与显式 nexora_test 库承载集成测试；E2E 使用同一一次性实例的专用 nexora_e2e 库，退出删除。
+真实迁移测试 TestPhase03FreshUpgradeAndRollback：空库 up→5；down 两步→3；v3 up→5；完整 down→0；重新 up→5，均通过。另有迁移幂等与随机 schema 隔离验证。一次性容器 nexora-devtest-pg（127.0.0.1:5433，PG17）与显式 nexora_test 库承载集成测试；E2E 使用同一一次性实例的专用 nexora_e2e 库，退出删除。最终已停止并删除本次创建的该容器及其自有匿名卷，随机口令文件也已清理。
 
 运行开发服务只读 /readyz 观察仍为 version 1，属于旧运行栈；从未在其上迁移、升级或重启。未接触其他项目数据库/卷，未使用 prune、compose down -v 或破坏性 Git 命令。
 
@@ -122,8 +122,10 @@ make e2e 在一次性真实栈运行 **20/20 通过**：Phase 02 原 11 项 + Ph
 - 分支 feature/phase03-projects-tasks，M1–M6 使用普通 Conventional Commits，无历史重写、force push 或 AI 联合署名。
 - [PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)：feature/phase03-projects-tasks → develop，OPEN、非草稿、尚未合并。
 - 功能交付 HEAD `0ba1cbef6255824e80c52b5f33542a1fbdf34800` 的 [PR CI 44108231549](https://github.com/YEXIAONAN/Nexora/actions/runs/44108231549)：Backend (Go)、Frontend (Vue)、Secret scan、Containers 全部 success。
-- 已通过 [显式审查请求](https://github.com/YEXIAONAN/Nexora/pull/3#issuecomment-6951608259) 请求代码审查；首轮两项 P2 均已整改并新增 4 项组件回归和 2 项真实 E2E；处置与复审结果见 PR Review Summary，不代替人工最终批准。
-- 阶段提交：66a7d55（M1 设计/规则）、0da9620（M1 契约生成）、422ec35（M2 项目）、eb846fb（M3 三级任务）、1e14616（M4 依赖/进度）、d36cff9（M5 前端）、0ba1cbe（M6 综合验收）。后续仅追加验收状态或评审修复提交，不重写上述历史。
+- 已通过 [显式审查请求](https://github.com/YEXIAONAN/Nexora/pull/3#issuecomment-6951608259) 请求代码审查；首轮两项 P2 均已在 20ea6ca 整改，新增 4 项组件回归和 2 项真实 E2E；两条线程已回复并 resolved。
+- 修复基准 `20ea6cacdb6cc692e5111a993b5c9cf139010278` 的 [PR CI 44110618572](https://github.com/YEXIAONAN/Nexora/actions/runs/44110618572)：Backend (Go)、Frontend (Vue)、Secret scan、Containers 全部 success。
+- [自动复审结果](https://github.com/YEXIAONAN/Nexora/pull/3#issuecomment-6951998582)：检查 20ea6ca，completed，has_any_findings=false，has_unresolved_findings=false。未取得或冒充人工最终批准；PR 仍 OPEN、未合并。纯验收文档提交的最终 HEAD 检查见 [PR Checks](https://github.com/YEXIAONAN/Nexora/pull/3/checks)。
+- 阶段提交：66a7d55（M1 设计/规则）、0da9620（M1 契约生成）、422ec35（M2 项目）、eb846fb（M3 三级任务）、1e14616（M4 依赖/进度）、d36cff9（M5 前端）、0ba1cbe（M6 综合验收）、20ea6ca（评审整改）。后续仅追加验收状态或评审修复提交，不重写上述历史。
 - main 36bddd6 与 develop c3fb029 不由本次任务修改。禁止自动合并。
 
 ## H. Phase 04 准备与未开发边界
@@ -142,3 +144,24 @@ make e2e 在一次性真实栈运行 **20/20 通过**：Phase 02 原 11 项 + Ph
 首轮 Codex Review 于 0ba1cbe 返回两项 P2：汇总任务的派生 in_progress 被前端误用于过滤父节点；失效协作者 ID 仍在表单但无可操作控件。均按原后端规则修复，没有放宽状态/资格授权：父候选区分 summary 与 leaf，最终结构仍由服务端校验；失效协作者以具名列表和显式移除按钮处理，未静默丢弃分配或历史。
 
 TaskEditing.spec.ts 新增 4 个用例，修复前 4/4 失败，修复后 4/4 通过；全量 Vitest 66/66。真实浏览器新增上述两条流程后 20/20 通过。未修改已发布迁移或 Phase 04 边界。CI 与复审按 PR 当前 HEAD 核验，最终交付答复列出最新结果。
+
+
+## 最终完成标准核对
+
+| # | 标准 | 结果/证据 |
+| --- | --- | --- |
+| 1 | 项目管理真实可用 | 真实 API 与 UI E2E |
+| 2 | 三级结构正确 | 结构/移动/四级拒绝与并发测试 |
+| 3 | Team 隔离有效 | Service 授权、复合 FK、跨 Team/Project 回归 |
+| 4 | 状态不能绕过验收 | 409 转换、100 输入拒绝、数据库未来状态保护 |
+| 5 | 依赖与循环检测 | 依赖/阻塞/忽略与并发成环测试 |
+| 6 | ADR 0005 进度 | 纯函数表驱动、真实权重汇总与 79% 上限 |
+| 7 | 历史可追溯 | 权重前后值/原因/时间、不可覆盖快照 |
+| 8 | 前端真实 API 链路 | 20 项 E2E，无 Mock 伪装 |
+| 9 | 关键变更审计 | 同事务写审计，失败回滚测试 |
+| 10 | 数据库与并发通过 | 独立 PG17 + race，空库/升级/回滚 |
+| 11 | E2E 通过 | 20/20 |
+| 12 | 必要 CI 通过 | 功能与整改提交四 job success；最终文档提交检查见 PR Checks |
+| 13 | PR 已创建且未合并 | PR #3 OPEN，自动复审无新增问题，等待人工最终评审 |
+
+Phase 03 标记为已开发并验证；尚未合入 develop，因此不标记“正式集成完成”。V1.0 的 Phase 04 业务闭环仍待后续开发。
