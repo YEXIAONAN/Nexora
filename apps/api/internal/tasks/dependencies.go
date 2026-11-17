@@ -31,7 +31,7 @@ func (s *Service) Weight(ctx context.Context, a reqctx.Identity, teamID, pid, id
 		if weight < 1 || weight > 1000000 {
 			return httpx.ValidationFailed(map[string]string{"weight": "must be an integer between 1 and 1000000"})
 		}
-		if !g.leaf(id) || t.Status == Cancelled {
+		if !g.leaf(id) || t.Status == Cancelled || t.Status == Completed || t.Status == AwaitingReview {
 			return httpx.Conflict("only active leaves have independently editable weights")
 		}
 		if weight == t.Weight {
@@ -109,7 +109,7 @@ func (s *Service) IgnoreDependency(ctx context.Context, a reqctx.Identity, teamI
 		if e := projects.ValidateReason(reason); e != nil {
 			return e
 		}
-		if t.Status == Cancelled {
+		if t.Status == Cancelled || t.Status == Completed || t.Status == AwaitingReview {
 			return httpx.Conflict("cancelled tasks are read-only")
 		}
 		var d *Dependency

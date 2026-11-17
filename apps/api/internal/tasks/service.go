@@ -16,9 +16,10 @@ import (
 type Service struct {
 	repo     *Repository
 	projects *projects.Service
+	reviews  ReviewAccess
 }
 
-func NewService(r *Repository, p *projects.Service) *Service { return &Service{r, p} }
+func NewService(r *Repository, p *projects.Service) *Service { return &Service{repo: r, projects: p} }
 func (s *Service) within(ctx context.Context, a reqctx.Identity, teamID, pid uuid.UUID, write, lead bool, fn func(pgx.Tx, projects.Scope, *graph) error) error {
 	return s.projects.Within(ctx, a, teamID, pid, write, lead, func(tx pgx.Tx, sc projects.Scope) error {
 		g, e := s.repo.load(ctx, tx, teamID, pid)
@@ -44,7 +45,13 @@ func (s *Service) readable(ctx context.Context, tx pgx.Tx, a reqctx.Identity, sc
 		return true, nil
 	}
 	ok, e := s.projects.Qualified(ctx, tx, t.TeamID, t.ProjectID, a.UserID)
-	return ok && assigned(t, a.UserID), e
+	if e != nil || !ok {
+		return false, e
+	}
+	if assigned(t, a.UserID) {
+		return true, nil
+	}
+	return s.canReview(ctx, tx, t.TeamID, t.ProjectID, a.UserID)
 }
 func (s *Service) execution(ctx context.Context, tx pgx.Tx, a reqctx.Identity, sc projects.Scope, t Task, cancel bool) error {
 	if !sc.Lead {
@@ -128,12 +135,14 @@ func (s *Service) view(ctx context.Context, tx pgx.Tx, a reqctx.Identity, sc pro
 			if child.Status != Cancelled {
 				allCancelled = false
 			}
-			if child.Status == InProgress {
+			if child.Status == InProgress || child.Status == AwaitingReview || child.Status == Rejected || child.Status == Completed {
 				t.Status = InProgress
 			}
 		}
 		if allCancelled {
 			t.Status = Cancelled
+		} else if p.LeafCount > 0 && p.ProgressBPS == 10000 {
+			t.Status = Completed
 		}
 	}
 	allowed, e := s.readable(ctx, tx, a, sc, t)
@@ -144,9 +153,20 @@ func (s *Service) view(ctx context.Context, tx pgx.Tx, a reqctx.Identity, sc pro
 	if e != nil {
 		return Task{}, e
 	}
-	base := allowed && ownerOK && sc.Project.Status == "active" && t.IsLeaf && (t.Status == Pending || t.Status == InProgress)
+	qualified, e := s.projects.Qualified(ctx, tx, t.TeamID, t.ProjectID, a.UserID)
+	if e != nil {
+		return Task{}, e
+	}
+	executor := allowed && (sc.Lead || (qualified && assigned(t, a.UserID)))
+	base := executor && ownerOK && sc.Project.Status == "active" && t.IsLeaf && (t.Status == Pending || t.Status == InProgress || t.Status == Rejected)
 	t.CanExecute = base && !t.Blocked
 	t.CanCancel = base && (sc.Lead || t.OwnerID == a.UserID)
+	t.CanSubmit = qualified && assigned(t, a.UserID) && ownerOK && sc.Project.Status == "active" && t.IsLeaf && !t.Blocked && (t.Status == InProgress || t.Status == Rejected)
+	reviewer, e := s.canReview(ctx, tx, t.TeamID, t.ProjectID, a.UserID)
+	if e != nil {
+		return Task{}, e
+	}
+	t.CanReview = reviewer && t.IsLeaf && sc.Project.Status == "active" && t.Status == AwaitingReview && t.submissionAuthor != nil && *t.submissionAuthor != a.UserID
 	return t, nil
 }
 func (s *Service) Tree(ctx context.Context, a reqctx.Identity, teamID, pid uuid.UUID) (out Tree, err error) {
@@ -259,8 +279,8 @@ func (s *Service) Edit(ctx context.Context, a reqctx.Identity, teamID, pid, id u
 		if e := projects.CheckVersion(in.ExpectedVersion, t.Version); e != nil {
 			return e
 		}
-		if t.Status == Cancelled {
-			return httpx.Conflict("cancelled tasks are read-only")
+		if t.Status == Cancelled || t.Status == Completed || t.Status == AwaitingReview {
+			return httpx.Conflict("cancelled, completed and awaiting-review tasks are read-only")
 		}
 		if e := s.validate(ctx, tx, teamID, pid, &in.TaskFields); e != nil {
 			return e
@@ -291,8 +311,8 @@ func (s *Service) Move(ctx context.Context, a reqctx.Identity, teamID, pid, id u
 		if e := projects.CheckVersion(version, t.Version); e != nil {
 			return e
 		}
-		if t.Status == Cancelled {
-			return httpx.Conflict("cancelled tasks are read-only")
+		if t.Status == Cancelled || t.Status == Completed || t.Status == AwaitingReview {
+			return httpx.Conflict("cancelled, completed and awaiting-review tasks are read-only")
 		}
 		depth := 1
 		if parent != nil {
@@ -325,6 +345,9 @@ func (s *Service) Move(ctx context.Context, a reqctx.Identity, teamID, pid, id u
 			}
 		}
 		for _, child := range ids {
+			if g.tasks[child].Status == Completed || g.tasks[child].Status == AwaitingReview {
+				return httpx.Conflict("a subtree with submitted or completed work cannot be moved")
+			}
 			if g.tasks[child].Depth+delta > 3 {
 				return httpx.Conflict("moving this subtree would exceed three levels")
 			}
@@ -372,11 +395,12 @@ func (s *Service) Transition(ctx context.Context, a reqctx.Identity, teamID, pid
 		if !transitionAllowed(t.Status, to) {
 			return httpx.Conflict("this transition requires Phase 04 business evidence or is not allowed")
 		}
-		if to == Cancelled {
+		if to == Cancelled || t.Status == Rejected {
 			if e := projects.ValidateReason(reason); e != nil {
 				return e
 			}
-		} else if g.blocked(id) {
+		}
+		if to != Cancelled && g.blocked(id) {
 			return httpx.Conflict("task is blocked by an unfulfilled dependency")
 		}
 		before, e := g.progress(nil)
@@ -386,6 +410,9 @@ func (s *Service) Transition(ctx context.Context, a reqctx.Identity, teamID, pid
 		old := *t
 		t.Status = to
 		event := "started"
+		if old.Status == Rejected && to == InProgress {
+			event = "correction_started"
+		}
 		if to == Cancelled {
 			t.CancellationReason = strings.TrimSpace(reason)
 			event = "cancelled"

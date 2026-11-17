@@ -38,24 +38,30 @@ type EditInput struct {
 }
 type Task struct {
 	TaskFields
-	ID                   uuid.UUID  `json:"id"`
-	TeamID               uuid.UUID  `json:"team_id"`
-	ProjectID            uuid.UUID  `json:"project_id"`
-	ParentID             *uuid.UUID `json:"parent_id"`
-	Depth                int        `json:"depth"`
-	Status               string     `json:"status"`
-	ActualProgress       int        `json:"actual_progress"`
-	EffectiveProgressBPS int        `json:"effective_progress_bps"`
-	Weight               int        `json:"weight"`
-	IsLeaf               bool       `json:"is_leaf"`
-	Blocked              bool       `json:"blocked"`
-	CanExecute           bool       `json:"can_execute"`
-	CanCancel            bool       `json:"can_cancel"`
-	CancellationReason   string     `json:"cancellation_reason"`
-	Version              int        `json:"version"`
-	CreatedBy            uuid.UUID  `json:"created_by"`
-	CreatedAt            time.Time  `json:"created_at"`
-	UpdatedAt            time.Time  `json:"updated_at"`
+	ID                         uuid.UUID  `json:"id"`
+	TeamID                     uuid.UUID  `json:"team_id"`
+	ProjectID                  uuid.UUID  `json:"project_id"`
+	ParentID                   *uuid.UUID `json:"parent_id"`
+	Depth                      int        `json:"depth"`
+	Status                     string     `json:"status"`
+	ActualProgress             int        `json:"actual_progress"`
+	EffectiveProgressBPS       int        `json:"effective_progress_bps"`
+	Weight                     int        `json:"weight"`
+	IsLeaf                     bool       `json:"is_leaf"`
+	Blocked                    bool       `json:"blocked"`
+	CanExecute                 bool       `json:"can_execute"`
+	CanCancel                  bool       `json:"can_cancel"`
+	CurrentSubmissionVersionID *uuid.UUID `json:"current_submission_version_id"`
+	AcceptedReviewID           *uuid.UUID `json:"accepted_review_id"`
+	CanSubmit                  bool       `json:"can_submit"`
+	CanReview                  bool       `json:"can_review"`
+	acceptance                 Acceptance
+	submissionAuthor           *uuid.UUID
+	CancellationReason         string    `json:"cancellation_reason"`
+	Version                    int       `json:"version"`
+	CreatedBy                  uuid.UUID `json:"created_by"`
+	CreatedAt                  time.Time `json:"created_at"`
+	UpdatedAt                  time.Time `json:"updated_at"`
 }
 type Dependency struct {
 	ID            uuid.UUID  `json:"id"`
@@ -108,7 +114,7 @@ type Snapshot struct {
 }
 
 // EffectiveBPS deliberately cannot treat a completed string as acceptance.
-// Phase 04 must introduce version-bound evidence before enabling 100%.
+// Only EffectiveWithEvidence may elevate a completed task to 100%.
 func EffectiveBPS(status string, actual int) (int, error) {
 	if actual < 0 || actual > 99 {
 		return 0, fmt.Errorf("actual progress out of range")
@@ -161,6 +167,56 @@ func Aggregate(leaves []WeightedLeaf) (Progress, error) {
 	return p, nil
 }
 
+// Acceptance is read from the scoped database evidence join, never a status flag.
+type Acceptance struct {
+	CurrentVersionID  uuid.UUID
+	ReviewedVersionID uuid.UUID
+	ReviewID          uuid.UUID
+	Decision          string
+}
+
+func (a Acceptance) valid() bool {
+	return a.CurrentVersionID != uuid.Nil && a.CurrentVersionID == a.ReviewedVersionID && a.ReviewID != uuid.Nil && a.Decision == "approve"
+}
+func EffectiveWithEvidence(status string, actual int, proof Acceptance) (int, error) {
+	base, e := EffectiveBPS(status, actual)
+	if e == nil && status == Completed && proof.valid() {
+		return 10000, nil
+	}
+	return base, e
+}
+
+type EvidenceLeaf struct {
+	WeightedLeaf
+	Acceptance Acceptance
+}
+
+func AggregateEvidence(leaves []EvidenceLeaf) (Progress, error) {
+	sum, total := new(big.Int), new(big.Int)
+	count := 0
+	for _, l := range leaves {
+		if l.Weight < 1 || l.Weight > 1000000 {
+			return Progress{}, fmt.Errorf("invalid weight")
+		}
+		effective, e := EffectiveWithEvidence(l.Status, l.ActualProgress, l.Acceptance)
+		if e != nil {
+			return Progress{}, e
+		}
+		if l.Status == Cancelled {
+			continue
+		}
+		count++
+		w := big.NewInt(int64(l.Weight))
+		total.Add(total, w)
+		sum.Add(sum, new(big.Int).Mul(w, big.NewInt(int64(effective))))
+	}
+	p := Progress{WeightedSum: sum.String(), TotalWeight: total.String(), LeafCount: count}
+	if total.Sign() > 0 {
+		p.ProgressBPS = int(new(big.Int).Quo(sum, total).Int64())
+	}
+	return p, nil
+}
+
 type graph struct {
 	nonLeaves map[uuid.UUID]bool
 	tasks     map[uuid.UUID]*Task
@@ -195,7 +251,7 @@ func (g *graph) descendant(id, ancestor uuid.UUID) bool {
 	return false
 }
 func (g *graph) progress(root *uuid.UUID) (Progress, error) {
-	ls := []WeightedLeaf{}
+	ls := []EvidenceLeaf{}
 	for _, t := range g.tasks {
 		if !g.leaf(t.ID) {
 			continue
@@ -203,13 +259,13 @@ func (g *graph) progress(root *uuid.UUID) (Progress, error) {
 		if root != nil && t.ID != *root && !g.descendant(t.ID, *root) {
 			continue
 		}
-		ls = append(ls, WeightedLeaf{t.Weight, t.Status, t.ActualProgress})
+		ls = append(ls, EvidenceLeaf{WeightedLeaf{t.Weight, t.Status, t.ActualProgress}, t.acceptance})
 	}
-	return Aggregate(ls)
+	return AggregateEvidence(ls)
 }
 func (g *graph) blocked(id uuid.UUID) bool {
 	for _, d := range g.deps {
-		if d.TaskID == id && d.IgnoredAt == nil {
+		if d.TaskID == id && d.IgnoredAt == nil && (g.tasks[d.PredecessorID] == nil || g.tasks[d.PredecessorID].Status != Completed || !g.tasks[d.PredecessorID].acceptance.valid()) {
 			return true
 		}
 	}
@@ -248,5 +304,5 @@ func (g *graph) cycle(task, predecessor uuid.UUID) bool {
 	return visit(predecessor)
 }
 func transitionAllowed(from, to string) bool {
-	return (from == Pending && to == InProgress) || ((from == Pending || from == InProgress) && to == Cancelled)
+	return ((from == Pending || from == Rejected) && to == InProgress) || ((from == Pending || from == InProgress || from == Rejected) && to == Cancelled)
 }
