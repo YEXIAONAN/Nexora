@@ -2,7 +2,7 @@
 
 Nexora 是 ZERO_R 等小型研发团队使用的内部工程管理平台。**V1.0 方案 B 已于 2026-11-17 批准**：先建立多 Team 数据与权限边界，首版交付项目、任务、成果与独立验收闭环。正式范围见 [产品需求](docs/product/product-requirements.md)。
 
-Phase 01–03 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)）。Phase 04 是本次功能分支的开发内容，开发和验证记录见 [设计](docs/development/phase-04-design.md) 与 [报告](docs/development/phase-04-report.md)；**PR 合并前不代表 Phase 04 已正式集成或发布**。`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
+Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)），Phase 04 合并提交为 `07f6fa1c`（[PR #4](https://github.com/YEXIAONAN/Nexora/pull/4)）。Phase 04 设计与验证记录见 [设计](docs/development/phase-04-design.md) 与 [报告](docs/development/phase-04-report.md)。V1.0 尚未声明发布；`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
 
 ## 产品版本与功能
 
@@ -17,9 +17,9 @@ Phase 01–03 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3]
 | 工程基线、诊断、CI、备份脚本 | Phase 01 | 已合并 develop |
 | ROOT 初始化、账号、会话、Team、RBAC、审计 | Phase 02 | 已合并 develop |
 | 项目、成员、交接、归档、里程碑、三级任务 | Phase 03 | 已合并 develop |
-| 权重进度、依赖、追加式历史与快照 | Phase 03 / 04 | 基线已合并；验收解除依赖在本次分支 |
-| 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 本次分支，待 PR 合并 |
-| 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 本次分支，待 PR 合并 |
+| 权重进度、依赖、追加式历史与快照 | Phase 03 / 04 | 已合并 develop |
+| 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 已合并 develop（PR #4） |
+| 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 已合并 develop（PR #4） |
 | 贡献核算、奖金、通知和导出 | 后续阶段 | 未交付 |
 
 ## 技术与环境

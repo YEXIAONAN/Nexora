@@ -186,7 +186,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 跨行规则由 Team 行锁 + Service 校验承担；延迟结构触发器验证最终父子 depth 差值，严格递增的深度同时排除环。执行触发器拒绝未接入 Phase 04 的状态，校验 active owner；退出保护触发器要求项目负责人先交接，Team 移除后失效项目成员资格。普通 CHECK 不用于声称保证 active 成员或递归无环。历史时间及新业务更新时间使用 clock_timestamp() 记录锁后操作时刻，业务可见性在事务提交时生效。
 
 
-## Phase 04 Schema v6（本次分支，待合并）
+## Phase 04 Schema v6（已合并 develop）
 
 新增迁移 `00006_submissions_reviews.sql`，不修改已发布 00001–00005。
 
@@ -199,3 +199,5 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 Team 行锁沿用既有写入次序；版本与审核插入亦锁任务。唯一约束与 expected_version 防止并发双版本/矛盾决定。延迟约束强制版本/任务待验收、审核/任务终态同事务；直接 SQL 的 completed 也必须引用当前正式批准。Service 在同一事务追加任务历史、项目快照和审计；提交或审核失败整体回滚。
 
 v5→v6、空库安装、全量空库 down/up 已在独立 PostgreSQL 验证；有成果根或任何附件证据时 v6 down 拒绝，不能通过回滚删除不可变历史。生产恢复需匹配的数据库和文件备份。运行中的旧开发库未升级。
+
+> Phase 05 贡献核算 v7 设计（ER、约束、迁移与回归计划）见 [Phase 05 设计](../development/phase-05-design.md)；尚未创建迁移，未修改 v1–v6。
