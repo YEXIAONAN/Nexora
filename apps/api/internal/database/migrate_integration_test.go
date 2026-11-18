@@ -98,7 +98,7 @@ func TestPhase04FreshUpgradeAndRollback(t *testing.T) {
 	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 5); e != nil {
 		t.Fatal(e)
 	}
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
 	check := func(want int64) {
@@ -113,7 +113,7 @@ func TestPhase04FreshUpgradeAndRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	check(5)
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
 	check(6)
@@ -121,7 +121,7 @@ func TestPhase04FreshUpgradeAndRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	check(0)
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
 	check(6)
@@ -164,7 +164,7 @@ func TestPhase04UpgradePreservesPhase03History(t *testing.T) {
 		return v
 	}
 	before := fingerprint()
-	if e = Up(ctx, f.SQL, logger); e != nil {
+	if e = goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
 	if fingerprint() != before {
@@ -178,5 +178,41 @@ func TestPhase04UpgradePreservesPhase03History(t *testing.T) {
 	}
 	if fingerprint() != before {
 		t.Fatal("empty Phase04 rollback changed legacy history")
+	}
+}
+
+func TestPhase05SchemaInstallRollback(t *testing.T) {
+	f := testdb.New(t, os.Getenv)
+	ctx := context.Background()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if e := configure(logger); e != nil {
+		t.Fatal(e)
+	}
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
+		t.Fatal(e)
+	}
+	if e := Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	v, e := Version(ctx, f.SQL)
+	if e != nil || v != 7 {
+		t.Fatal(v, e)
+	}
+	if e = Down(ctx, f.SQL, 1, logger); e != nil {
+		t.Fatal(e)
+	}
+	v, e = Version(ctx, f.SQL)
+	if e != nil || v != 6 {
+		t.Fatal(v, e)
+	}
+	if e = Down(ctx, f.SQL, 6, logger); e != nil {
+		t.Fatal(e)
+	}
+	if e = Up(ctx, f.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	v, e = Version(ctx, f.SQL)
+	if e != nil || v != 7 {
+		t.Fatal(v, e)
 	}
 }
