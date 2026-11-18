@@ -21,11 +21,20 @@ const requestIDHeader = "X-Request-Id"
 var validRequestID = regexp.MustCompile(`^[A-Za-z0-9._-]{1,64}$`)
 
 // RequestID ensures every request has a correlation identifier. A well-formed
-// inbound X-Request-Id is preserved, anything else is replaced with a new UUID.
+// inbound X-Request-Id is preserved unless it reflects a cookie credential;
+// unsafe values are replaced with a new UUID.
 // The identifier is echoed in the response and in error envelopes.
 func RequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := strings.TrimSpace(r.Header.Get(requestIDHeader))
+		// Correlation values are echoed and audited. Never promote a request's
+		// cookie value into either channel, even when it matches the ID syntax.
+		for _, cookie := range r.Cookies() {
+			if cookie.Value != "" && id == cookie.Value {
+				id = ""
+				break
+			}
+		}
 		if !validRequestID.MatchString(id) {
 			id = uuid.NewString()
 		}

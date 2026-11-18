@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
+
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 )
 
 type Repository struct{ pool *pgxpool.Pool }
@@ -65,7 +67,7 @@ func (r *Repository) caseByID(ctx context.Context, tx pgx.Tx, team, pid, id uuid
 
 const caseJSON = `to_jsonb(c)||jsonb_build_object('undisputed_confirmed',EXISTS(SELECT 1 FROM contribution_effective_shares es WHERE es.team_id=c.team_id AND es.project_id=c.project_id AND es.task_id=c.task_id AND es.case_id=c.id))`
 
-const relatedCase = `(contribution_editor(c.team_id,c.project_id,$3) OR c.created_by=$3 OR EXISTS(SELECT 1 FROM contribution_case_versions v WHERE v.case_id=c.id AND v.proposed_by=$3) OR EXISTS(SELECT 1 FROM contribution_shares s WHERE s.case_id=c.id AND s.user_id=$3) OR EXISTS(SELECT 1 FROM contribution_disputes d WHERE d.case_id=c.id AND (d.raised_by=$3 OR d.on_behalf_of=$3)))`
+const relatedCase = `(contribution_editor(c.team_id,c.project_id,$3) OR c.created_by=$3 OR EXISTS(SELECT 1 FROM contribution_case_versions v WHERE v.case_id=c.id AND v.proposed_by=$3) OR EXISTS(SELECT 1 FROM contribution_shares s WHERE s.case_id=c.id AND s.user_id=$3) OR EXISTS(SELECT 1 FROM contribution_disputes d WHERE d.case_id=c.id AND (d.raised_by=$3 OR d.on_behalf_of=$3)) OR EXISTS(SELECT 1 FROM contribution_confirmations f WHERE f.case_id=c.id AND f.confirmed_by=$3) OR EXISTS(SELECT 1 FROM contribution_dispute_resolutions r WHERE r.case_id=c.id AND r.resolved_by=$3) OR EXISTS(SELECT 1 FROM contribution_conflicts f WHERE f.case_id=c.id AND f.user_id=$3))`
 
 func (r *Repository) visible(ctx context.Context, tx pgx.Tx, c Case, user uuid.UUID) (bool, error) {
 	var ok bool

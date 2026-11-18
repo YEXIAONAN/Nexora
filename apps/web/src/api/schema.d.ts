@@ -2210,6 +2210,7 @@ export interface components {
             /** Format: uuid */
             case_version_id: string;
             summary: string;
+            /** @description An object of at most 32 KiB, containing manually supplied evidence; no automatic percentage calculation. */
             evidence_snapshot: {
                 [key: string]: unknown;
             };
@@ -2321,6 +2322,8 @@ export interface components {
             created_at: string;
             /** Format: date-time */
             updated_at: string;
+            /** @description Derived from the v7 effective-shares view. Excludes unresolved disputes; an uncontested revision retains the prior effective result. */
+            undisputed_confirmed: boolean;
         };
         ContributionShare: {
             /** Format: uuid */
