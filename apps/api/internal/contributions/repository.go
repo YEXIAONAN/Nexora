@@ -56,12 +56,14 @@ func (r *Repository) appraisers(ctx context.Context, tx pgx.Tx, team, pid uuid.U
 	return readList[Appraiser](ctx, tx, `SELECT to_jsonb(a)||jsonb_build_object('qualified',contribution_appraiser(a.team_id,a.project_id,a.user_id)) FROM contribution_appraisers a WHERE a.team_id=$1 AND a.project_id=$2 ORDER BY a.user_id`, team, pid)
 }
 func (r *Repository) caseByID(ctx context.Context, tx pgx.Tx, team, pid, id uuid.UUID, lock bool) (Case, error) {
-	q := `SELECT to_jsonb(c) FROM contribution_cases c WHERE c.team_id=$1 AND c.project_id=$2 AND c.id=$3`
+	q := `SELECT ` + caseJSON + ` FROM contribution_cases c WHERE c.team_id=$1 AND c.project_id=$2 AND c.id=$3`
 	if lock {
 		q += ` FOR UPDATE`
 	}
 	return readJSON[Case](tx.QueryRow(ctx, q, team, pid, id))
 }
+
+const caseJSON = `to_jsonb(c)||jsonb_build_object('undisputed_confirmed',EXISTS(SELECT 1 FROM contribution_effective_shares es WHERE es.team_id=c.team_id AND es.project_id=c.project_id AND es.task_id=c.task_id AND es.case_id=c.id))`
 
 const relatedCase = `(contribution_editor(c.team_id,c.project_id,$3) OR c.created_by=$3 OR EXISTS(SELECT 1 FROM contribution_case_versions v WHERE v.case_id=c.id AND v.proposed_by=$3) OR EXISTS(SELECT 1 FROM contribution_shares s WHERE s.case_id=c.id AND s.user_id=$3) OR EXISTS(SELECT 1 FROM contribution_disputes d WHERE d.case_id=c.id AND (d.raised_by=$3 OR d.on_behalf_of=$3)))`
 
@@ -71,7 +73,7 @@ func (r *Repository) visible(ctx context.Context, tx pgx.Tx, c Case, user uuid.U
 	return ok, e
 }
 func (r *Repository) cases(ctx context.Context, tx pgx.Tx, team, pid, user uuid.UUID, pending bool) ([]Case, error) {
-	q := `SELECT to_jsonb(c) FROM contribution_cases c WHERE c.team_id=$1 AND c.project_id=$2 AND ` + relatedCase
+	q := `SELECT ` + caseJSON + ` FROM contribution_cases c WHERE c.team_id=$1 AND c.project_id=$2 AND ` + relatedCase
 	if pending {
 		q += ` AND EXISTS(SELECT 1 FROM contribution_case_versions v WHERE v.id=c.latest_version_id AND v.status='pending_review' AND contribution_independent(v.id,$3)) AND NOT contribution_open_disputes(c.id) AND EXISTS(SELECT 1 FROM projects p WHERE p.team_id=c.team_id AND p.id=c.project_id AND p.status='active')`
 	}

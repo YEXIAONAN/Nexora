@@ -103,6 +103,7 @@ type Case struct {
 	EffectiveConfirmedVersionID *uuid.UUID `json:"effective_confirmed_version_id"`
 	CaseWorkflowStatus          string     `json:"case_workflow_status"`
 	Revision                    int        `json:"revision"`
+	UndisputedConfirmed         bool       `json:"undisputed_confirmed"`
 	CreatedBy                   uuid.UUID  `json:"created_by"`
 	CreatedAt                   time.Time  `json:"created_at"`
 	UpdatedAt                   time.Time  `json:"updated_at"`
