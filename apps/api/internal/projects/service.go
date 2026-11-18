@@ -99,6 +99,9 @@ func (s *Service) withTeam(ctx context.Context, actor reqctx.Identity, teamID uu
 	if errors.As(err, &pe) && pe.ConstraintName == "project_member_has_tasks" {
 		return httpx.Conflict("reassign active tasks before removing this project member")
 	}
+	if errors.As(err, &pe) && pe.ConstraintName == "contribution_settlement_incomplete" {
+		return httpx.Conflict("settle every accepted result and verify recipient delivery before archiving")
+	}
 	if err != nil && !httpx.IsAPIError(err) {
 		return httpx.Internal(err)
 	}
