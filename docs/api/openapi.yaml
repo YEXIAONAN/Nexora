@@ -19,6 +19,8 @@ servers:
   - url: http://127.0.0.1:8080
     description: 本地开发
 tags:
+  - name: Contributions
+    description: Explicitly authorized contribution governance and verified receipt
   - name: System
     description: 进程、依赖与实例信息
   - name: Auth
@@ -2403,6 +2405,1352 @@ paths:
           $ref: '#/components/responses/InternalError'
         '503':
           $ref: '#/components/responses/StorageUnavailable'
+  /api/v1/teams/{teamID}/projects/{projectID}/contribution-appraisers:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listContributionAppraisers',
+          'summary': 'List explicit contribution appraisers',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionAppraisersEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'grantContributionAppraiser',
+          'summary': 'Grant explicit appraisal authority',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionAppraiserRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contribution-appraisers/{userID}:
+    {
+      'delete':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'revokeContributionAppraiser',
+          'summary': 'Revoke explicit appraisal authority',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'userID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionRevokeRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/eligibility:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'getContributionEligibility',
+          'summary': 'Get current authenticated member qualification',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionEligibilityEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/pending:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listMyAppraisableContributions',
+          'summary': 'List cases independently appraisable by the caller',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ContributionCasesEnvelope' } },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listContributions',
+          'summary': 'List visible project contribution cases',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ContributionCasesEnvelope' } },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'description': 'Project lead and explicit appraisers see the project scope; other active project members see related cases. Platform roles do not grant access.',
+        },
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'createContribution',
+          'summary': 'Create from current real approved review, idempotently',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '201':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionCreateRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'getContribution',
+          'summary': 'Get latest work and effective confirmed version separately',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCaseDetailEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/versions:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listContributionVersions',
+          'summary': 'Read immutable version history',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionVersionsEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/history:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'getContributionHistory',
+          'summary': 'Read events, adjustments, disputes and rulings',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionHistoryEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/evidence:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'getContributionEvidence',
+          'summary': 'Read actual accepted submission and review evidence',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionEvidenceEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/draft:
+    {
+      'patch':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'saveContributionDraft',
+          'summary': 'Save draft explanation and evidence snapshot',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionDraftRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/shares/{userID}:
+    {
+      'put':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'setContributionShare',
+          'summary': 'Manually assign integer basis points in the latest draft',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'userID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionShareRequest' } },
+                },
+            },
+        },
+      'delete':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'removeContributionShare',
+          'summary': 'Remove a draft share with append-only adjustment evidence',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'userID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/submit:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'submitContribution',
+          'summary': 'Submit a complete 10000-bps draft',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/withdraw:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'withdrawContribution',
+          'summary': 'Proposer withdraws an unconfirmed pending version',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/abandon:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'abandonContribution',
+          'summary': 'Abandon draft without bypassing settlement',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/confirm:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'confirmContribution',
+          'summary': 'Independently confirm the specified pending version',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/revisions:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'revisionsContribution',
+          'summary': 'Create a revision without replacing the effective confirmation',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionVersionCommand' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/disputes:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listContributionDisputes',
+          'summary': 'Read disputes and independent resolutions',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionDisputesEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'raiseContributionDispute',
+          'summary': 'Raise an authenticated direct or verified proxy dispute',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '201':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionDisputeRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/disputes/{disputeID}/resolutions:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'resolveContributionDispute',
+          'summary': 'Independently uphold or atomically overturn',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'disputeID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionResolutionRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/conflicts:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'recordContributionConflict',
+          'summary': 'Append a directly disclosed conflict of interest',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '201':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionConflictRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/notices:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listContributionNotices',
+          'summary': 'Read prepared notices and actual receipt status',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionNoticesEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'prepareContributionNotice',
+          'summary': 'Prepare a result notice; this does not prove delivery',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '201':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionNoticeRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/notices/{noticeID}/receipt:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'acknowledgeContributionReceipt',
+          'summary': 'Explicitly acknowledge receipt of a displayed confirmed digest',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+              {
+                'name': 'caseID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              {
+                'name': 'noticeID',
+                'in': 'path',
+                'required': true,
+                'schema': { 'type': 'string', 'format': 'uuid' },
+              },
+              { '$ref': '#/components/parameters/CSRFHeader' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema':
+                            { '$ref': '#/components/schemas/ContributionCommandResultEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'description': 'A separate deliberate POST with received=true is required. The backend reads the authenticated HttpOnly cookie; no token is accepted or returned in JSON. This acknowledges receipt, not agreement with the allocation. Current active project membership is required. A GET never creates proof.',
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionReceiptRequest' } },
+                },
+            },
+        },
+    }
+  /api/v1/teams/{teamID}/projects/{projectID}/contribution-results/mine:
+    {
+      'get':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'listMyContributionResults',
+          'summary': 'Read my results without acknowledging receipt',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters':
+            [
+              { '$ref': '#/components/parameters/TeamID' },
+              { '$ref': '#/components/parameters/ProjectID' },
+            ],
+          'responses':
+            {
+              '200':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        {
+                          'schema': { '$ref': '#/components/schemas/ContributionResultsEnvelope' },
+                        },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+        },
+    }
+  /api/v1/contribution-dispute-requests:
+    {
+      'post':
+        {
+          'tags': ['Contributions'],
+          'operationId': 'receiveContributionDisputeRequest',
+          'summary': 'Receive a signed-in subject request without disclosing team data',
+          'security': [{ 'sessionCookie': [] }],
+          'parameters': [{ '$ref': '#/components/parameters/CSRFHeader' }],
+          'responses':
+            {
+              '202':
+                {
+                  'description': 'Success',
+                  'headers': { 'X-Request-Id': { '$ref': '#/components/headers/RequestId' } },
+                  'content':
+                    {
+                      'application/json':
+                        { 'schema': { '$ref': '#/components/schemas/ContributionIntakeEnvelope' } },
+                    },
+                },
+              '400': { '$ref': '#/components/responses/BadRequest' },
+              '401': { '$ref': '#/components/responses/Unauthorized' },
+              '403': { '$ref': '#/components/responses/Forbidden' },
+              '404': { '$ref': '#/components/responses/NotFound' },
+              '409': { '$ref': '#/components/responses/Conflict' },
+              '422': { '$ref': '#/components/responses/ValidationFailed' },
+              '500': { '$ref': '#/components/responses/InternalError' },
+            },
+          'description': 'Intake returns a uniform 202 receipt of the supplied client request ID, not a claim that verification succeeded. Only exact historical subject membership and matching confirmation can persist a credential. No result or team data is returned, including for departed members. An authorized editor must separately submit a proxy dispute referencing a valid credential.',
+          'requestBody':
+            {
+              'required': true,
+              'content':
+                {
+                  'application/json':
+                    { 'schema': { '$ref': '#/components/schemas/ContributionIdentityRequest' } },
+                },
+            },
+        },
+    }
 components:
   securitySchemes:
     sessionCookie:
@@ -4298,3 +5646,901 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/PendingReview'
+    ContributionCommand:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['expected_version', 'client_request_id', 'reason'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+          },
+      }
+    ContributionVersionCommand:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['expected_version', 'client_request_id', 'reason', 'case_version_id'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+          },
+      }
+    ContributionCreateRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['task_id', 'review_id', 'client_request_id', 'reason'],
+        'properties':
+          {
+            'task_id': { 'type': 'string', 'format': 'uuid' },
+            'review_id': { 'type': 'string', 'format': 'uuid' },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+          },
+      }
+    ContributionAppraiserRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['user_id', 'expected_version', 'client_request_id', 'reason'],
+        'properties':
+          {
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'expected_version': { 'type': 'integer', 'minimum': 0 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 1000 },
+          },
+      }
+    ContributionRevokeRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['expected_version', 'client_request_id', 'reason'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+          },
+      }
+    ContributionEvidenceReference:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['kind', 'source', 'reference'],
+        'properties':
+          {
+            'kind':
+              { 'type': 'string', 'enum': ['objective_fact', 'self_statement', 'third_party'] },
+            'source': { 'type': 'string', 'minLength': 1, 'maxLength': 1000 },
+            'reference': { 'type': 'string', 'minLength': 1, 'maxLength': 2000 },
+          },
+      }
+    ContributionShareRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'expected_version',
+            'client_request_id',
+            'reason',
+            'case_version_id',
+            'share_bps',
+            'basis',
+            'statement',
+            'evidence_refs',
+          ],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'share_bps': { 'type': 'integer', 'minimum': 1, 'maximum': 10000 },
+            'basis': { 'type': 'string', 'maxLength': 4000 },
+            'statement': { 'type': 'string', 'maxLength': 8000 },
+            'evidence_refs':
+              {
+                'type': 'array',
+                'maxItems': 50,
+                'items': { '$ref': '#/components/schemas/ContributionEvidenceReference' },
+              },
+          },
+      }
+    ContributionDraftRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'expected_version',
+            'client_request_id',
+            'reason',
+            'case_version_id',
+            'summary',
+            'evidence_snapshot',
+          ],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'summary': { 'type': 'string', 'maxLength': 8000 },
+            'evidence_snapshot': { 'type': 'object', 'additionalProperties': true },
+          },
+      }
+    ContributionDisputeRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          ['expected_version', 'client_request_id', 'reason', 'case_version_id', 'confirmation_id'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'on_behalf_of':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'identity_request_id':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+          },
+      }
+    ContributionResolutionRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['expected_version', 'client_request_id', 'reason', 'decision'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'decision': { 'type': 'string', 'enum': ['uphold', 'overturn'] },
+          },
+      }
+    ContributionConflictRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          ['expected_version', 'client_request_id', 'reason', 'user_id', 'kind', 'details'],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'kind': { 'type': 'string', 'minLength': 1, 'maxLength': 100 },
+            'details': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+          },
+      }
+    ContributionNoticeRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'expected_version',
+            'client_request_id',
+            'reason',
+            'case_version_id',
+            'confirmation_id',
+            'recipient_id',
+          ],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'recipient_id': { 'type': 'string', 'format': 'uuid' },
+          },
+      }
+    ContributionReceiptRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'expected_version',
+            'client_request_id',
+            'case_version_id',
+            'confirmation_id',
+            'content_digest',
+            'received',
+          ],
+        'properties':
+          {
+            'expected_version': { 'type': 'integer', 'minimum': 1 },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'content_digest': { 'type': 'string', 'pattern': '^[0-9a-f]{64}$' },
+            'received': { 'type': 'boolean', 'const': true },
+          },
+      }
+    ContributionIdentityRequest:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'client_request_id',
+            'team_id',
+            'project_id',
+            'case_id',
+            'case_version_id',
+            'confirmation_id',
+            'reason',
+          ],
+        'properties':
+          {
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+            'team_id': { 'type': 'string', 'format': 'uuid' },
+            'project_id': { 'type': 'string', 'format': 'uuid' },
+            'case_id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string', 'minLength': 1, 'maxLength': 4000 },
+          },
+      }
+    ContributionIntake:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['request_id', 'received'],
+        'properties':
+          {
+            'request_id': { 'type': 'string', 'format': 'uuid' },
+            'received': { 'type': 'boolean' },
+          },
+      }
+    ContributionCommandResult:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['id', 'case_id', 'revision', 'client_request_id'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_id': { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'revision': { 'type': 'integer' },
+            'client_request_id': { 'type': 'string', 'format': 'uuid' },
+          },
+      }
+    ContributionCase:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'team_id',
+            'project_id',
+            'task_id',
+            'submission_version_id',
+            'review_id',
+            'latest_version_id',
+            'effective_confirmed_version_id',
+            'case_workflow_status',
+            'revision',
+            'created_by',
+            'created_at',
+            'updated_at',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'team_id': { 'type': 'string', 'format': 'uuid' },
+            'project_id': { 'type': 'string', 'format': 'uuid' },
+            'task_id': { 'type': 'string', 'format': 'uuid' },
+            'submission_version_id': { 'type': 'string', 'format': 'uuid' },
+            'review_id': { 'type': 'string', 'format': 'uuid' },
+            'latest_version_id': { 'type': 'string', 'format': 'uuid' },
+            'effective_confirmed_version_id':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'case_workflow_status':
+              {
+                'type': 'string',
+                'enum':
+                  ['draft', 'pending_review', 'confirmed', 'disputed', 'revising', 'abandoned'],
+              },
+            'revision': { 'type': 'integer' },
+            'created_by': { 'type': 'string', 'format': 'uuid' },
+            'created_at': { 'type': 'string', 'format': 'date-time' },
+            'updated_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionShare:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          ['user_id', 'share_bps', 'basis', 'statement', 'evidence_refs', 'membership_state'],
+        'properties':
+          {
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'share_bps': { 'type': 'integer' },
+            'basis': { 'type': 'string' },
+            'statement': { 'type': 'string' },
+            'evidence_refs':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/ContributionEvidenceReference' },
+              },
+            'membership_state': { 'type': 'string', 'enum': ['active', 'historical'] },
+          },
+      }
+    ContributionConfirmation:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'case_version_id',
+            'confirmed_by',
+            'rationale',
+            'version_digest',
+            'membership_snapshot',
+            'confirmed_at',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmed_by': { 'type': 'string', 'format': 'uuid' },
+            'rationale': { 'type': 'string' },
+            'version_digest': { 'type': 'string' },
+            'membership_snapshot':
+              {
+                'type': 'object',
+                'additionalProperties': { 'type': 'string', 'enum': ['active', 'historical'] },
+              },
+            'confirmed_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionVersion:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'case_id',
+            'version',
+            'status',
+            'supersedes_version_id',
+            'proposed_by',
+            'summary',
+            'evidence_snapshot',
+            'proposed_at',
+            'submitted_at',
+            'submitted_digest',
+            'shares',
+            'confirmation',
+            'total_bps',
+            'ready_to_submit',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_id': { 'type': 'string', 'format': 'uuid' },
+            'version': { 'type': 'integer' },
+            'status':
+              {
+                'type': 'string',
+                'enum':
+                  ['draft', 'pending_review', 'confirmed', 'superseded', 'overturned', 'abandoned'],
+              },
+            'supersedes_version_id':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'proposed_by': { 'type': 'string', 'format': 'uuid' },
+            'summary': { 'type': 'string' },
+            'evidence_snapshot': { 'type': 'object', 'additionalProperties': true },
+            'proposed_at': { 'type': 'string', 'format': 'date-time' },
+            'submitted_at':
+              { 'anyOf': [{ 'type': 'string', 'format': 'date-time' }, { 'type': 'null' }] },
+            'submitted_digest': { 'anyOf': [{ 'type': 'string' }, { 'type': 'null' }] },
+            'shares':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionShare' } },
+            'confirmation':
+              {
+                'anyOf':
+                  [{ '$ref': '#/components/schemas/ContributionConfirmation' }, { 'type': 'null' }],
+              },
+            'total_bps': { 'type': 'integer' },
+            'ready_to_submit': { 'type': 'boolean' },
+          },
+      }
+    ContributionPermissions:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'can_edit',
+            'can_submit',
+            'can_withdraw',
+            'can_confirm',
+            'can_revise',
+            'can_dispute',
+            'can_notify',
+          ],
+        'properties':
+          {
+            'can_edit': { 'type': 'boolean' },
+            'can_submit': { 'type': 'boolean' },
+            'can_withdraw': { 'type': 'boolean' },
+            'can_confirm': { 'type': 'boolean' },
+            'can_revise': { 'type': 'boolean' },
+            'can_dispute': { 'type': 'boolean' },
+            'can_notify': { 'type': 'boolean' },
+          },
+      }
+    ContributionCaseDetail:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['case', 'latest', 'effective', 'permissions'],
+        'properties':
+          {
+            'case': { '$ref': '#/components/schemas/ContributionCase' },
+            'latest': { '$ref': '#/components/schemas/ContributionVersion' },
+            'effective':
+              {
+                'anyOf':
+                  [{ '$ref': '#/components/schemas/ContributionVersion' }, { 'type': 'null' }],
+              },
+            'permissions': { '$ref': '#/components/schemas/ContributionPermissions' },
+          },
+      }
+    ContributionEligibility:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['explicit_appraiser', 'can_edit_cases', 'authorization_version'],
+        'properties':
+          {
+            'explicit_appraiser': { 'type': 'boolean' },
+            'can_edit_cases': { 'type': 'boolean' },
+            'authorization_version': { 'type': 'integer' },
+          },
+      }
+    ContributionAppraiser:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'user_id',
+            'status',
+            'version',
+            'member_authorization_version',
+            'qualified',
+            'granted_by',
+            'changed_by',
+            'reason',
+            'granted_at',
+          ],
+        'properties':
+          {
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'status': { 'type': 'string', 'enum': ['active', 'revoked'] },
+            'version': { 'type': 'integer' },
+            'member_authorization_version': { 'type': 'integer' },
+            'qualified': { 'type': 'boolean' },
+            'granted_by': { 'type': 'string', 'format': 'uuid' },
+            'changed_by': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string' },
+            'granted_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionDispute:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'case_version_id',
+            'confirmation_id',
+            'raised_by',
+            'on_behalf_of',
+            'identity_request_id',
+            'reason',
+            'created_at',
+            'resolution',
+            'can_resolve',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'raised_by': { 'type': 'string', 'format': 'uuid' },
+            'on_behalf_of':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'identity_request_id':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'reason': { 'type': 'string' },
+            'created_at': { 'type': 'string', 'format': 'date-time' },
+            'resolution':
+              {
+                'anyOf':
+                  [{ '$ref': '#/components/schemas/ContributionResolution' }, { 'type': 'null' }],
+              },
+            'can_resolve': { 'type': 'boolean' },
+          },
+      }
+    ContributionResolution:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['id', 'dispute_id', 'decision', 'resolved_by', 'reason', 'resolved_at'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'dispute_id': { 'type': 'string', 'format': 'uuid' },
+            'decision': { 'type': 'string', 'enum': ['uphold', 'overturn'] },
+            'resolved_by': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string' },
+            'resolved_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionEvent:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'case_version_id',
+            'event_type',
+            'actor_id',
+            'reason',
+            'details',
+            'request_id',
+            'created_at',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id':
+              { 'anyOf': [{ 'type': 'string', 'format': 'uuid' }, { 'type': 'null' }] },
+            'event_type': { 'type': 'string' },
+            'actor_id': { 'type': 'string', 'format': 'uuid' },
+            'reason': { 'type': 'string' },
+            'details': { 'type': 'object', 'additionalProperties': true },
+            'request_id': { 'type': 'string' },
+            'created_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionAdjustment:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'user_id',
+            'case_version_id',
+            'old_bps',
+            'new_bps',
+            'before_value',
+            'after_value',
+            'reason',
+            'actor_id',
+            'request_id',
+            'created_at',
+          ],
+        'properties':
+          {
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'old_bps': { 'anyOf': [{ 'type': 'integer' }, { 'type': 'null' }] },
+            'new_bps': { 'anyOf': [{ 'type': 'integer' }, { 'type': 'null' }] },
+            'before_value':
+              { 'anyOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'after_value':
+              { 'anyOf': [{ 'type': 'object', 'additionalProperties': true }, { 'type': 'null' }] },
+            'reason': { 'type': 'string' },
+            'actor_id': { 'type': 'string', 'format': 'uuid' },
+            'request_id': { 'type': 'string' },
+            'created_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionConflict:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['id', 'user_id', 'kind', 'details', 'recorded_by', 'created_at'],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'user_id': { 'type': 'string', 'format': 'uuid' },
+            'kind': { 'type': 'string' },
+            'details': { 'type': 'string' },
+            'recorded_by': { 'type': 'string', 'format': 'uuid' },
+            'created_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionReceipt:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'notice_id',
+            'case_version_id',
+            'confirmation_id',
+            'subject_id',
+            'content_digest',
+            'verified_at',
+            'sent_at',
+            'acknowledged_at',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'notice_id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'subject_id': { 'type': 'string', 'format': 'uuid' },
+            'content_digest': { 'type': 'string' },
+            'verified_at': { 'type': 'string', 'format': 'date-time' },
+            'sent_at': { 'type': 'string', 'format': 'date-time' },
+            'acknowledged_at': { 'type': 'string', 'format': 'date-time' },
+          },
+      }
+    ContributionNotice:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'id',
+            'case_id',
+            'case_version_id',
+            'confirmation_id',
+            'recipient_id',
+            'created_by',
+            'channel',
+            'prepared_at',
+            'receipt',
+          ],
+        'properties':
+          {
+            'id': { 'type': 'string', 'format': 'uuid' },
+            'case_id': { 'type': 'string', 'format': 'uuid' },
+            'case_version_id': { 'type': 'string', 'format': 'uuid' },
+            'confirmation_id': { 'type': 'string', 'format': 'uuid' },
+            'recipient_id': { 'type': 'string', 'format': 'uuid' },
+            'created_by': { 'type': 'string', 'format': 'uuid' },
+            'channel': { 'type': 'string', 'enum': ['authenticated_ack', 'manual_unverified'] },
+            'prepared_at': { 'type': 'string', 'format': 'date-time' },
+            'receipt':
+              {
+                'anyOf':
+                  [{ '$ref': '#/components/schemas/ContributionReceipt' }, { 'type': 'null' }],
+              },
+          },
+      }
+    ContributionResult:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['notice', 'confirmation', 'summary', 'shares'],
+        'properties':
+          {
+            'notice': { '$ref': '#/components/schemas/ContributionNotice' },
+            'confirmation': { '$ref': '#/components/schemas/ContributionConfirmation' },
+            'summary': { 'type': 'string' },
+            'shares':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionShare' } },
+          },
+      }
+    ContributionEvidence:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required':
+          [
+            'task_id',
+            'task_title',
+            'task_owner_id',
+            'submission_version_id',
+            'author_id',
+            'summary',
+            'evidence_references',
+            'submitted_at',
+            'review_id',
+            'reviewer_id',
+            'decision',
+            'comment',
+            'reviewed_at',
+            'attachments',
+          ],
+        'properties':
+          {
+            'task_id': { 'type': 'string', 'format': 'uuid' },
+            'task_title': { 'type': 'string' },
+            'task_owner_id': { 'type': 'string', 'format': 'uuid' },
+            'submission_version_id': { 'type': 'string', 'format': 'uuid' },
+            'author_id': { 'type': 'string', 'format': 'uuid' },
+            'summary': { 'type': 'string' },
+            'evidence_references':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/EvidenceReference' } },
+            'submitted_at': { 'type': 'string', 'format': 'date-time' },
+            'review_id': { 'type': 'string', 'format': 'uuid' },
+            'reviewer_id': { 'type': 'string', 'format': 'uuid' },
+            'decision': { 'type': 'string', 'const': 'approve' },
+            'comment': { 'type': 'string' },
+            'reviewed_at': { 'type': 'string', 'format': 'date-time' },
+            'attachments':
+              {
+                'type': 'array',
+                'items':
+                  {
+                    'type': 'object',
+                    'additionalProperties': false,
+                    'required': ['id', 'uploader_id', 'file_name', 'byte_size', 'sha256'],
+                    'properties':
+                      {
+                        'id': { 'type': 'string', 'format': 'uuid' },
+                        'uploader_id': { 'type': 'string', 'format': 'uuid' },
+                        'file_name': { 'type': 'string' },
+                        'byte_size': { 'type': 'integer' },
+                        'sha256': { 'type': 'string' },
+                      },
+                  },
+              },
+          },
+      }
+    ContributionHistory:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['versions', 'events', 'adjustments', 'disputes', 'conflicts', 'notices'],
+        'properties':
+          {
+            'versions':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionVersion' } },
+            'events':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionEvent' } },
+            'adjustments':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/ContributionAdjustment' },
+              },
+            'disputes':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionDispute' } },
+            'conflicts':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionConflict' } },
+            'notices':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionNotice' } },
+          },
+      }
+    ContributionCommandResultEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionCommandResult' } },
+      }
+    ContributionCaseDetailEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionCaseDetail' } },
+      }
+    ContributionEligibilityEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionEligibility' } },
+      }
+    ContributionEvidenceEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionEvidence' } },
+      }
+    ContributionHistoryEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionHistory' } },
+      }
+    ContributionIntakeEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties': { 'data': { '$ref': '#/components/schemas/ContributionIntake' } },
+      }
+    ContributionCasesEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionCase' } },
+          },
+      }
+    ContributionVersionsEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionVersion' } },
+          },
+      }
+    ContributionAppraisersEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              {
+                'type': 'array',
+                'items': { '$ref': '#/components/schemas/ContributionAppraiser' },
+              },
+          },
+      }
+    ContributionDisputesEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionDispute' } },
+          },
+      }
+    ContributionNoticesEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionNotice' } },
+          },
+      }
+    ContributionResultsEnvelope:
+      {
+        'type': 'object',
+        'additionalProperties': false,
+        'required': ['data'],
+        'properties':
+          {
+            'data':
+              { 'type': 'array', 'items': { '$ref': '#/components/schemas/ContributionResult' } },
+          },
+      }

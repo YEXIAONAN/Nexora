@@ -1045,6 +1045,411 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contribution-appraisers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List explicit contribution appraisers */
+        get: operations["listContributionAppraisers"];
+        put?: never;
+        /** Grant explicit appraisal authority */
+        post: operations["grantContributionAppraiser"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contribution-appraisers/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /** Revoke explicit appraisal authority */
+        delete: operations["revokeContributionAppraiser"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/eligibility": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get current authenticated member qualification */
+        get: operations["getContributionEligibility"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/pending": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List cases independently appraisable by the caller */
+        get: operations["listMyAppraisableContributions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List visible project contribution cases
+         * @description Project lead and explicit appraisers see the project scope; other active project members see related cases. Platform roles do not grant access.
+         */
+        get: operations["listContributions"];
+        put?: never;
+        /** Create from current real approved review, idempotently */
+        post: operations["createContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Get latest work and effective confirmed version separately */
+        get: operations["getContribution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read immutable version history */
+        get: operations["listContributionVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read events, adjustments, disputes and rulings */
+        get: operations["getContributionHistory"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/evidence": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read actual accepted submission and review evidence */
+        get: operations["getContributionEvidence"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/draft": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /** Save draft explanation and evidence snapshot */
+        patch: operations["saveContributionDraft"];
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/shares/{userID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Manually assign integer basis points in the latest draft */
+        put: operations["setContributionShare"];
+        post?: never;
+        /** Remove a draft share with append-only adjustment evidence */
+        delete: operations["removeContributionShare"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Submit a complete 10000-bps draft */
+        post: operations["submitContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Proposer withdraws an unconfirmed pending version */
+        post: operations["withdrawContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/abandon": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Abandon draft without bypassing settlement */
+        post: operations["abandonContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Independently confirm the specified pending version */
+        post: operations["confirmContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Create a revision without replacing the effective confirmation */
+        post: operations["revisionsContribution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/disputes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read disputes and independent resolutions */
+        get: operations["listContributionDisputes"];
+        put?: never;
+        /** Raise an authenticated direct or verified proxy dispute */
+        post: operations["raiseContributionDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/disputes/{disputeID}/resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Independently uphold or atomically overturn */
+        post: operations["resolveContributionDispute"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/conflicts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Append a directly disclosed conflict of interest */
+        post: operations["recordContributionConflict"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/notices": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read prepared notices and actual receipt status */
+        get: operations["listContributionNotices"];
+        put?: never;
+        /** Prepare a result notice; this does not prove delivery */
+        post: operations["prepareContributionNotice"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/notices/{noticeID}/receipt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicitly acknowledge receipt of a displayed confirmed digest
+         * @description A separate deliberate POST with received=true is required. The backend reads the authenticated HttpOnly cookie; no token is accepted or returned in JSON. This acknowledges receipt, not agreement with the allocation. Current active project membership is required. A GET never creates proof.
+         */
+        post: operations["acknowledgeContributionReceipt"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contribution-results/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Read my results without acknowledging receipt */
+        get: operations["listMyContributionResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/contribution-dispute-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Receive a signed-in subject request without disclosing team data
+         * @description Intake returns a uniform 202 receipt of the supplied client request ID, not a claim that verification succeeded. Only exact historical subject membership and matching confirmation can persist a credential. No result or team data is returned, including for departed members. An authorized editor must separately submit a proxy dispute referencing a valid credential.
+         */
+        post: operations["receiveContributionDisputeRequest"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1741,6 +2146,464 @@ export interface components {
         };
         PendingReviewsEnvelope: {
             data: components["schemas"]["PendingReview"][];
+        };
+        ContributionCommand: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+        };
+        ContributionVersionCommand: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            case_version_id: string;
+        };
+        ContributionCreateRequest: {
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            review_id: string;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+        };
+        ContributionAppraiserRequest: {
+            /** Format: uuid */
+            user_id: string;
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+        };
+        ContributionRevokeRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+        };
+        ContributionEvidenceReference: {
+            /** @enum {string} */
+            kind: "objective_fact" | "self_statement" | "third_party";
+            source: string;
+            reference: string;
+        };
+        ContributionShareRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            case_version_id: string;
+            share_bps: number;
+            basis: string;
+            statement: string;
+            evidence_refs: components["schemas"]["ContributionEvidenceReference"][];
+        };
+        ContributionDraftRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            case_version_id: string;
+            summary: string;
+            evidence_snapshot: {
+                [key: string]: unknown;
+            };
+        };
+        ContributionDisputeRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            on_behalf_of?: string | null;
+            identity_request_id?: string | null;
+        };
+        ContributionResolutionRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** @enum {string} */
+            decision: "uphold" | "overturn";
+        };
+        ContributionConflictRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            user_id: string;
+            kind: string;
+            details: string;
+        };
+        ContributionNoticeRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            reason: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            /** Format: uuid */
+            recipient_id: string;
+        };
+        ContributionReceiptRequest: {
+            expected_version: number;
+            /** Format: uuid */
+            client_request_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            content_digest: string;
+            /** @constant */
+            received: true;
+        };
+        ContributionIdentityRequest: {
+            /** Format: uuid */
+            client_request_id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            case_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            reason: string;
+        };
+        ContributionIntake: {
+            /** Format: uuid */
+            request_id: string;
+            received: boolean;
+        };
+        ContributionCommandResult: {
+            /** Format: uuid */
+            id: string;
+            case_id: string | null;
+            revision: number;
+            /** Format: uuid */
+            client_request_id: string;
+        };
+        ContributionCase: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            submission_version_id: string;
+            /** Format: uuid */
+            review_id: string;
+            /** Format: uuid */
+            latest_version_id: string;
+            effective_confirmed_version_id: string | null;
+            /** @enum {string} */
+            case_workflow_status: "draft" | "pending_review" | "confirmed" | "disputed" | "revising" | "abandoned";
+            revision: number;
+            /** Format: uuid */
+            created_by: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ContributionShare: {
+            /** Format: uuid */
+            user_id: string;
+            share_bps: number;
+            basis: string;
+            statement: string;
+            evidence_refs: components["schemas"]["ContributionEvidenceReference"][];
+            /** @enum {string} */
+            membership_state: "active" | "historical";
+        };
+        ContributionConfirmation: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmed_by: string;
+            rationale: string;
+            version_digest: string;
+            membership_snapshot: {
+                [key: string]: "active" | "historical";
+            };
+            /** Format: date-time */
+            confirmed_at: string;
+        };
+        ContributionVersion: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            case_id: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "pending_review" | "confirmed" | "superseded" | "overturned" | "abandoned";
+            supersedes_version_id: string | null;
+            /** Format: uuid */
+            proposed_by: string;
+            summary: string;
+            evidence_snapshot: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            proposed_at: string;
+            submitted_at: string | null;
+            submitted_digest: string | null;
+            shares: components["schemas"]["ContributionShare"][];
+            confirmation: components["schemas"]["ContributionConfirmation"] | null;
+            total_bps: number;
+            ready_to_submit: boolean;
+        };
+        ContributionPermissions: {
+            can_edit: boolean;
+            can_submit: boolean;
+            can_withdraw: boolean;
+            can_confirm: boolean;
+            can_revise: boolean;
+            can_dispute: boolean;
+            can_notify: boolean;
+        };
+        ContributionCaseDetail: {
+            case: components["schemas"]["ContributionCase"];
+            latest: components["schemas"]["ContributionVersion"];
+            effective: components["schemas"]["ContributionVersion"] | null;
+            permissions: components["schemas"]["ContributionPermissions"];
+        };
+        ContributionEligibility: {
+            explicit_appraiser: boolean;
+            can_edit_cases: boolean;
+            authorization_version: number;
+        };
+        ContributionAppraiser: {
+            /** Format: uuid */
+            user_id: string;
+            /** @enum {string} */
+            status: "active" | "revoked";
+            version: number;
+            member_authorization_version: number;
+            qualified: boolean;
+            /** Format: uuid */
+            granted_by: string;
+            /** Format: uuid */
+            changed_by: string;
+            reason: string;
+            /** Format: date-time */
+            granted_at: string;
+        };
+        ContributionDispute: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            /** Format: uuid */
+            raised_by: string;
+            on_behalf_of: string | null;
+            identity_request_id: string | null;
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            resolution: components["schemas"]["ContributionResolution"] | null;
+            can_resolve: boolean;
+        };
+        ContributionResolution: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            dispute_id: string;
+            /** @enum {string} */
+            decision: "uphold" | "overturn";
+            /** Format: uuid */
+            resolved_by: string;
+            reason: string;
+            /** Format: date-time */
+            resolved_at: string;
+        };
+        ContributionEvent: {
+            /** Format: uuid */
+            id: string;
+            case_version_id: string | null;
+            event_type: string;
+            /** Format: uuid */
+            actor_id: string;
+            reason: string;
+            details: {
+                [key: string]: unknown;
+            };
+            request_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ContributionAdjustment: {
+            /** Format: uuid */
+            user_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            old_bps: number | null;
+            new_bps: number | null;
+            before_value: {
+                [key: string]: unknown;
+            } | null;
+            after_value: {
+                [key: string]: unknown;
+            } | null;
+            reason: string;
+            /** Format: uuid */
+            actor_id: string;
+            request_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ContributionConflict: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            user_id: string;
+            kind: string;
+            details: string;
+            /** Format: uuid */
+            recorded_by: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        ContributionReceipt: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            notice_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            /** Format: uuid */
+            subject_id: string;
+            content_digest: string;
+            /** Format: date-time */
+            verified_at: string;
+            /** Format: date-time */
+            sent_at: string;
+            /** Format: date-time */
+            acknowledged_at: string;
+        };
+        ContributionNotice: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            case_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            /** Format: uuid */
+            recipient_id: string;
+            /** Format: uuid */
+            created_by: string;
+            /** @enum {string} */
+            channel: "authenticated_ack" | "manual_unverified";
+            /** Format: date-time */
+            prepared_at: string;
+            receipt: components["schemas"]["ContributionReceipt"] | null;
+        };
+        ContributionResult: {
+            notice: components["schemas"]["ContributionNotice"];
+            confirmation: components["schemas"]["ContributionConfirmation"];
+            summary: string;
+            shares: components["schemas"]["ContributionShare"][];
+        };
+        ContributionEvidence: {
+            /** Format: uuid */
+            task_id: string;
+            task_title: string;
+            /** Format: uuid */
+            task_owner_id: string;
+            /** Format: uuid */
+            submission_version_id: string;
+            /** Format: uuid */
+            author_id: string;
+            summary: string;
+            evidence_references: components["schemas"]["EvidenceReference"][];
+            /** Format: date-time */
+            submitted_at: string;
+            /** Format: uuid */
+            review_id: string;
+            /** Format: uuid */
+            reviewer_id: string;
+            /** @constant */
+            decision: "approve";
+            comment: string;
+            /** Format: date-time */
+            reviewed_at: string;
+            attachments: {
+                /** Format: uuid */
+                id: string;
+                /** Format: uuid */
+                uploader_id: string;
+                file_name: string;
+                byte_size: number;
+                sha256: string;
+            }[];
+        };
+        ContributionHistory: {
+            versions: components["schemas"]["ContributionVersion"][];
+            events: components["schemas"]["ContributionEvent"][];
+            adjustments: components["schemas"]["ContributionAdjustment"][];
+            disputes: components["schemas"]["ContributionDispute"][];
+            conflicts: components["schemas"]["ContributionConflict"][];
+            notices: components["schemas"]["ContributionNotice"][];
+        };
+        ContributionCommandResultEnvelope: {
+            data: components["schemas"]["ContributionCommandResult"];
+        };
+        ContributionCaseDetailEnvelope: {
+            data: components["schemas"]["ContributionCaseDetail"];
+        };
+        ContributionEligibilityEnvelope: {
+            data: components["schemas"]["ContributionEligibility"];
+        };
+        ContributionEvidenceEnvelope: {
+            data: components["schemas"]["ContributionEvidence"];
+        };
+        ContributionHistoryEnvelope: {
+            data: components["schemas"]["ContributionHistory"];
+        };
+        ContributionIntakeEnvelope: {
+            data: components["schemas"]["ContributionIntake"];
+        };
+        ContributionCasesEnvelope: {
+            data: components["schemas"]["ContributionCase"][];
+        };
+        ContributionVersionsEnvelope: {
+            data: components["schemas"]["ContributionVersion"][];
+        };
+        ContributionAppraisersEnvelope: {
+            data: components["schemas"]["ContributionAppraiser"][];
+        };
+        ContributionDisputesEnvelope: {
+            data: components["schemas"]["ContributionDispute"][];
+        };
+        ContributionNoticesEnvelope: {
+            data: components["schemas"]["ContributionNotice"][];
+        };
+        ContributionResultsEnvelope: {
+            data: components["schemas"]["ContributionResult"][];
         };
     };
     responses: {
@@ -3906,6 +4769,1014 @@ export interface operations {
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
             503: components["responses"]["StorageUnavailable"];
+        };
+    };
+    listContributionAppraisers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionAppraisersEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    grantContributionAppraiser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionAppraiserRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revokeContributionAppraiser: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionRevokeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getContributionEligibility: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionEligibilityEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMyAppraisableContributions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCasesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listContributions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCasesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionCreateRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getContribution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCaseDetailEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listContributionVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionVersionsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getContributionHistory: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionHistoryEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getContributionEvidence: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionEvidenceEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    saveContributionDraft: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionDraftRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    setContributionShare: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionShareRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    removeContributionShare: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+                userID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    submitContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    withdrawContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    abandonContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    confirmContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    revisionsContribution: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionVersionCommand"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listContributionDisputes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionDisputesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    raiseContributionDispute: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionDisputeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    resolveContributionDispute: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+                disputeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionResolutionRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    recordContributionConflict: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionConflictRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listContributionNotices: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionNoticesEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    prepareContributionNotice: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionNoticeRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            201: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    acknowledgeContributionReceipt: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+                noticeID: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionReceiptRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionCommandResultEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listMyContributionResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionResultsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    receiveContributionDisputeRequest: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ContributionIdentityRequest"];
+            };
+        };
+        responses: {
+            /** @description Success */
+            202: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionIntakeEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
         };
     };
 }
