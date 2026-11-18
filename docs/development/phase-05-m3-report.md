@@ -10,13 +10,15 @@
 
 | 里程碑 | 提交 |
 | --- | --- |
-| M3.1 契约、读取/权限矩阵与风险 | `9f98c49` |
-| M3.2 DTO、作用域 Repository 与 v7 调用 | `4c23ca0` |
-| M3.3 身份、权限、原子命令与幂等 | `70ee6ea` |
-| M3.4 HTTP、真实 Cookie 收件、生产连接防线 | `fe5d4f9` |
-| M3.5 综合测试、凭据证据查询、能力一致性、报告与文档 | 本报告所在提交；完整提交 SHA 随交付及 PR 记录 |
+| M3.1 契约、读取/权限矩阵与风险 | `9f98c4932b2884b7c9452e817a677d1be3395f8f` |
+| M3.2 DTO、作用域 Repository 与 v7 调用 | `4c23ca0f5e0a5e8c56a0da35e3255b2c4726d93f` |
+| M3.3 身份、权限、原子命令与幂等 | `70ee6ea0d564bbad404e31fe85204df9f36e442e` |
+| M3.4 HTTP、真实 Cookie 收件、生产连接防线 | `fe5d4f965ea5bc4312500b03a16640c7b6fc38b3` |
+| M3.5 综合测试、凭据证据查询、能力一致性、报告与文档 | `8653ac454604eb1af886ff455603c47d03fb503f` |
 
-PR 与远端 CI 的真实链接、当前 head SHA 在创建后记录；本地验证结果见下文，不将本地运行冒充远端 CI。
+评审 PR：[\#6](https://github.com/YEXIAONAN/Nexora/pull/6)，目标 develop；已核实 open、非 draft、未合并。代码提交 `8653ac454604eb1af886ff455603c47d03fb503f` 的 [push CI 44288031845](https://github.com/YEXIAONAN/Nexora/actions/runs/44288031845) 与 [PR CI 44289841751](https://github.com/YEXIAONAN/Nexora/actions/runs/44289841751) 均 Success，逐项核对 Backend (Go)、Frontend (Vue)、Secret scan、Containers 四项成功。后端 CI 实际执行 `go test -race -count=1 -tags=integration ./...`。
+
+本次评审证据补记只更新文档，不改变以上已验证代码。报告维护提交的完整 SHA 及其最新 CI 由交付回复和 [PR 当前 Checks](https://github.com/YEXIAONAN/Nexora/pull/6/checks) 记录；不以旧 head 的 CI 冒充新 head。
 
 ## 2. 模块结构与边界
 
