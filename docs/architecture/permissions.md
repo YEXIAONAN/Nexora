@@ -1,6 +1,6 @@
 # 权限矩阵
 
-> Phase 01–04 已合并 develop（Phase 03 PR #3 / c360327；Phase 04 PR #4 / 07f6fa1c）。Phase 05 贡献核定权限与利益冲突矩阵见 [Phase 05 设计](../development/phase-05-design.md)，尚未批准生效；以本文末尾的当前规则和阶段测试报告为准。
+> Phase 01–04 已合并 develop（Phase 03 PR #3 / c360327；Phase 04 PR #4 / 07f6fa1c）。Phase 05 M1 的 18 项规则已于 2026-11-18 批准，见 [ADR 0007](adr/0007-contribution-governance.md)。M2 已实现数据库资格与利益冲突防线，仍在功能分支；贡献 Service/API 尚待 M3，不能把数据库参数中的 actor_id 当作会话认证。矩阵见 [Phase 05 设计](../development/phase-05-design.md)，验证见 [M2 报告](../development/phase-05-m2-report.md)。
 
 ## 平台角色
 

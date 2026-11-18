@@ -118,7 +118,7 @@ Phase 02 起按业务模块增加 `internal/<module>`，每个模块内部再按
 | projects | 项目、成员、里程碑、归档 | Phase 03 已实现并验证（PR #3 已合并） |
 | tasks | 三级任务、状态机、依赖、进度 | Phase 03 已实现并验证（PR #3 已合并） |
 | reviews | 成果版本、验收记录 | Phase 04 已合并并验证 |
-| contributions | 贡献记录、核定、修订 | V1.1（M1 设计冻结待批准） |
+| contributions | 贡献记录、核定、修订 | V1.1（M1 已批准，M2 Schema v7 功能分支；无贡献 API/前端） |
 | bonuses | 方案、资格、计算、调整、确认 | V2.0 |
 | notifications | 站内通知、浏览器通知 | V2.0 |
 | exports | Excel/PDF/ZIP 导出 | V2.0 |

@@ -137,7 +137,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 
 ## 领域总览与后续规划
 
-身份、审计与团队为已合并基线；项目/任务 Schema 已通过 PR #3 合入 develop。成果验收见下方 Phase 04；贡献与奖金仍为后续设计，此处保留领域总览。
+身份、审计与团队为已合并基线；项目/任务 Schema 已通过 PR #3 合入 develop。成果验收见下方 Phase 04；贡献数据库在 Phase 05 M2 功能分支实现，奖金仍为后续设计。
 
 | 领域 | 表 | 关键约束 |
 | --- | --- | --- |
@@ -147,7 +147,7 @@ ROOT 不经此表（`system_root` 唯一真值）；禁止向 ROOT 用户授予�
 | 项目 | `projects`、`project_members`、`project_milestones` | `team_id` 外键；负责人必须是团队成员 |
 | 任务 | `tasks`、`task_collaborators`、`task_dependencies` | `depth <= 3`；父子同项目；依赖唯一且无自环 |
 | 成果 | `task_submissions`、`task_submission_versions`、`task_reviews` | 版本不可变；验收引用具体版本 |
-| 贡献 | `contributions`、`contribution_revisions` | 已确认记录不覆盖；修订保留前后值 |
+| 贡献 | `contribution_cases`、`contribution_case_versions`、`contribution_shares` 等 12 表 | v7 四层模型、不可变核定、追加式争议与可核查送达；见 M2 报告 |
 | 奖金 | `bonus_plans`、`bonus_allocations`、`bonus_adjustments`、`bonus_confirmations` | 金额合计校验；方案版本与状态机 |
 
 ### 关键约束思路
@@ -200,4 +200,10 @@ Team 行锁沿用既有写入次序；版本与审核插入亦锁任务。唯一
 
 v5→v6、空库安装、全量空库 down/up 已在独立 PostgreSQL 验证；有成果根或任何附件证据时 v6 down 拒绝，不能通过回滚删除不可变历史。生产恢复需匹配的数据库和文件备份。运行中的旧开发库未升级。
 
-> Phase 05 贡献核算 v7 设计（ER、约束、迁移与回归计划）见 [Phase 05 设计](../development/phase-05-design.md)；尚未创建迁移，未修改 v1–v6。
+## Phase 05 Schema v7（M2 功能分支待验收）
+
+M1 的 18 项贡献治理规则已由产品负责人于 2026-11-18 批准，见 [ADR 0007](adr/0007-contribution-governance.md)。唯一新增迁移为 `00007_contributions.sql`；00001–00006 保持原样。12 张表、10 个显式索引、4 个读取视图和事务辅助函数的清单与测试证据见 [M2 报告](../development/phase-05-m2-report.md)。
+
+基础表复合外键绑定正式验收及 Team/Project/Task/Version；提交/核定重新检查 10000 整数基点与证据。案例的 latest/effective 指针及工作流由触发器派生，延迟约束在事务结束核对历史、份额与指针。正式统计读取 effective 确认，未决争议排除，修订草案不覆盖旧确认。
+
+写操作使用 READ COMMITTED，先锁 Team，再锁 Case 并检查 expected_version；成员资格变化使用相同 Team 锁。归档扫描全部正式验收任务，逐案要求有效核定、无未完成修订/争议和真实收件人确认。原始会话令牌只作瞬时证明，不落库；自由文本通知不满足归档。历史归档项目不回填、不重开。SQL 函数不能替代 M3 的会话认证、业务授权与查询范围控制。
