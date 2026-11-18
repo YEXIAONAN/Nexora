@@ -2,14 +2,14 @@
 
 Nexora 是 ZERO_R 等小型研发团队使用的内部工程管理平台。**V1.0 方案 B 已于 2026-11-17 批准**：先建立多 Team 数据与权限边界，首版交付项目、任务、成果与独立验收闭环。正式范围见 [产品需求](docs/product/product-requirements.md)。
 
-Phase 01–03 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)）。Phase 04 是本次功能分支的开发内容，开发和验证记录见 [设计](docs/development/phase-04-design.md) 与 [报告](docs/development/phase-04-report.md)；**PR 合并前不代表 Phase 04 已正式集成或发布**。`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
+Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)），Phase 04 合并提交为 `07f6fa1c`（[PR #4](https://github.com/YEXIAONAN/Nexora/pull/4)）。Phase 04 设计与验证记录见 [设计](docs/development/phase-04-design.md) 与 [报告](docs/development/phase-04-report.md)。V1.0 尚未声明发布；`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
 
 ## 产品版本与功能
 
 | 产品版本 | 范围 | 状态 |
 | --- | --- | --- |
 | V1.0 | 方案 B：多 Team、项目、三级任务、成果版本和正式验收 | 已批准，按阶段开发；尚未声明发布 |
-| V1.1 | 验收后的贡献记录、建议与人工核定 | 后续开发，Phase 05 |
+| V1.1 | 验收后的贡献记录、建议与人工核定 | Phase 05 M1 已批准；M2 数据库已实现，功能分支待验收 |
 | V2.0 | 奖金方案、精确分配与更完整的协作工具 | 长期规划，未作为当前交付 |
 
 | 能力 | 阶段 | 当前交付位置 |
@@ -17,10 +17,11 @@ Phase 01–03 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3]
 | 工程基线、诊断、CI、备份脚本 | Phase 01 | 已合并 develop |
 | ROOT 初始化、账号、会话、Team、RBAC、审计 | Phase 02 | 已合并 develop |
 | 项目、成员、交接、归档、里程碑、三级任务 | Phase 03 | 已合并 develop |
-| 权重进度、依赖、追加式历史与快照 | Phase 03 / 04 | 基线已合并；验收解除依赖在本次分支 |
-| 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 本次分支，待 PR 合并 |
-| 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 本次分支，待 PR 合并 |
-| 贡献核算、奖金、通知和导出 | 后续阶段 | 未交付 |
+| 权重进度、依赖、追加式历史与快照 | Phase 03 / 04 | 已合并 develop |
+| 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 已合并 develop（PR #4） |
+| 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 已合并 develop（PR #4） |
+| 贡献 Schema v7、状态机、争议与归档完整性 | Phase 05 M2 | 功能分支，见 [M2 报告](docs/development/phase-05-m2-report.md)；无贡献 API/前端 |
+| 奖金、完整通知和导出 | 后续阶段 | 未交付 |
 
 ## 技术与环境
 
@@ -35,7 +36,7 @@ docs/             产品、架构、API、开发及运维文档
 
 ## 安装与本地启动
 
-以下命令用于**新建本地开发环境**。已有环境先确认 `.env` 的目标库并备份，再显式迁移。运行中的旧开发栈不一定应用了最新迁移；本次开发不会替它升级或重启。Phase 04 API 要求 schema v6，版本不符会拒绝启动。
+以下命令用于**新建本地开发环境**。已有环境先确认 `.env` 的目标库并备份，再显式迁移。运行中的旧开发栈不一定应用了最新迁移；本次开发不会替它升级或重启。现有 API 兼容 schema v6/v7，其他版本会拒绝启动；v7 不增加贡献 API。
 
 ```bash
 corepack enable
@@ -96,7 +97,7 @@ bash infra/scripts/test-db.sh stop
 
 不提供病毒扫描或多副本文件同步保证。生产要使用 HTTPS、独立数据库账号与强密码，保护 Cookie 与私有目录；不要暴露 PostgreSQL。Docker Compose 默认值仅适合本地开发，API 使用独立 `attachment_data` 卷；本次没有复用历史 SeaweedFS。多实例部署须先引入经过评估的私有对象存储与一致性设计。
 
-数据库备份命令仍是 `make backup` / `make verify-backup`，**它们只覆盖数据库**。Phase 04 必须在暂停业务写入的窗口同时备份数据库和私有附件目录并记录相同恢复点；具体恢复步骤见 [备份与恢复](docs/operations/backup-restore.md)。v6 在存在成果或附件证据时拒绝 down，避免删除历史；回退应用需使用验证过的匹配备份。
+数据库备份命令仍是 `make backup` / `make verify-backup`，**它们只覆盖数据库**。Phase 04 必须在暂停业务写入的窗口同时备份数据库和私有附件目录并记录相同恢复点；具体恢复步骤见 [备份与恢复](docs/operations/backup-restore.md)。v6 在存在成果或附件证据时拒绝 down；v7 存在贡献案例或授权时也拒绝破坏性 down。回退应用需使用验证过的匹配备份。
 
 ## 文档与 API
 

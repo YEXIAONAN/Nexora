@@ -445,7 +445,7 @@ func TestPhase04RollbackRefusesBusinessEvidence(t *testing.T) {
 	f := setup(t)
 	f.submit(f.start(f.create(nil, 1)))
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if e := database.Down(f.ctx, f.sql, 1, logger); e == nil {
+	if e := database.Down(f.ctx, f.sql, 2, logger); e == nil {
 		t.Fatal("rollback deleted immutable evidence")
 	}
 	v, e := database.Version(f.ctx, f.sql)

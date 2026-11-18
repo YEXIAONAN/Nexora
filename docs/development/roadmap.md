@@ -70,7 +70,7 @@ Phase 02 实施计划见 [phase-02-plan.md](phase-02-plan.md)。阶段代号不�
 
 验收：状态机与进度计算单元测试、数据库约束测试、并发转换测试。
 
-## Phase 3：成果验收（工程代号 Phase 04，本次分支开发，待合并）
+## Phase 3：成果验收（工程代号 Phase 04，已合并 develop 07f6fa1c）
 
 - 成果版本、附件/链接/PR 证明。
 - 提交、验收通过、驳回、重新提交。
@@ -120,4 +120,4 @@ Phase 02 实施计划见 [phase-02-plan.md](phase-02-plan.md)。阶段代号不�
 
 ## 当前交付跟踪（2026-11-18）
 
-Phase 01–03 已合并 develop；Phase 03 PR #3 合并提交 c360327，合并 CI 44118052169 全绿。历史设计和验收记录保留。Phase 04 当前在 feature/phase04-submissions-reviews 实现不可变成果、独立验收和私有附件；功能、验证、PR 与 CI 的真实状态见 [Phase 04 报告](phase-04-report.md)。PR 未合并前不能称其已集成或 V1.0 已发布。Phase 05 仅承接已批准当前版本的不可变证据，不在本阶段生成贡献或奖金。
+Phase 01–04 已合并 develop；Phase 03 PR #3 合并提交 c360327，Phase 04 PR #4 合并提交 07f6fa1c（合并 CI 44202649641 四项成功）。历史设计和验收记录保留；功能、验证与 CI 状态见 [Phase 04 报告](phase-04-report.md)。V1.0 尚未声明发布。Phase 05 M1 的 18 项规则于 2026-11-18 获产品负责人批准；M2 Schema v7、数据库状态机及真实 PostgreSQL 测试已在功能分支实现，见 [M2 报告](phase-05-m2-report.md)。未推进 M3，不包含贡献 API、Vue 或奖金，未合并。

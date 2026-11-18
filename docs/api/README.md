@@ -100,7 +100,7 @@ pnpm api:types
 仅 pending→in_progress 与 pending/in_progress→cancelled；取消必须原因。awaiting_review/completed/rejected 保留枚举但不开放转换，没有提交/审核路由。没有物理删除项目/任务或依赖的接口；归档、取消、显式忽略保留业务证据。
 
 
-## Phase 04 成果与审核（本次分支）
+## Phase 04 成果与审核（已合并 develop）
 
 新增 12 个 operation（总计 61），路径以 OpenAPI 为准：任务 submissions 的列表/创建/版本详情、版本 reviews 创建、任务 reviews 历史、attachments 上传/暂存删除/版本下载、项目 reviewers 列表/授予/撤销、Team reviews/pending。
 

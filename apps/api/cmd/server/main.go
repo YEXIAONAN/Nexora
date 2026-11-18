@@ -66,8 +66,8 @@ func run() error {
 	defer pool.Close()
 
 	var schemaVersion int
-	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion != 6 {
-		return fmt.Errorf("Phase 04 API requires schema v6; apply reviewed migrations explicitly before startup")
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion < 6 || schemaVersion > 7 {
+		return fmt.Errorf("existing API requires schema v6 or v7; apply reviewed migrations explicitly before startup")
 	}
 	store, err := submissions.OpenStore(cfg.AttachmentDir)
 	if err != nil {
