@@ -4,10 +4,12 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
-	"github.com/google/uuid"
 	"strings"
 	"unicode/utf8"
+
+	"github.com/google/uuid"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 )
 
 func invalid(field, message string) error {

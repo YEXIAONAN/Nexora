@@ -152,7 +152,7 @@ func (r *Repository) evidence(ctx context.Context, tx pgx.Tx, c Case) (Acceptanc
 	return out, e
 }
 func (r *Repository) disputes(ctx context.Context, tx pgx.Tx, c Case) ([]Dispute, error) {
-	return readList[Dispute](ctx, tx, `SELECT to_jsonb(d)||jsonb_build_object('resolution',(SELECT to_jsonb(r) FROM contribution_dispute_resolutions r WHERE r.dispute_id=d.id)) FROM contribution_disputes d WHERE d.team_id=$1 AND d.project_id=$2 AND d.task_id=$3 AND d.case_id=$4 ORDER BY d.created_at,d.id`, c.TeamID, c.ProjectID, c.TaskID, c.ID)
+	return readList[Dispute](ctx, tx, `SELECT to_jsonb(d)||jsonb_build_object('resolution',(SELECT to_jsonb(r) FROM contribution_dispute_resolutions r WHERE r.dispute_id=d.id),'identity_request_evidence',(SELECT `+identityEvidenceJSON+` FROM contribution_attestations a WHERE a.id=d.identity_request_id AND a.purpose='dispute_request')) FROM contribution_disputes d WHERE d.team_id=$1 AND d.project_id=$2 AND d.task_id=$3 AND d.case_id=$4 ORDER BY d.created_at,d.id`, c.TeamID, c.ProjectID, c.TaskID, c.ID)
 }
 func (r *Repository) notices(ctx context.Context, tx pgx.Tx, team, pid uuid.UUID, caseID, user *uuid.UUID) ([]Notice, error) {
 	// Explicit projection: never select receipt session or transient proof fields.
@@ -255,4 +255,10 @@ func (r *Repository) receipt(ctx context.Context, tx pgx.Tx, c Case, notice, act
 	var id uuid.UUID
 	e := tx.QueryRow(ctx, `INSERT INTO contribution_attestations(team_id,project_id,task_id,case_id,case_version_id,confirmation_id,purpose,notice_id,subject_id,actor_id,content_digest,proof_token,request_id) VALUES($1,$2,$3,$4,$5,$6,'delivery',$7,$8,$8,$9,$10,$11) RETURNING id`, c.TeamID, c.ProjectID, c.TaskID, c.ID, in.CaseVersionID, in.ConfirmationID, notice, actor, in.ContentDigest, token, request).Scan(&id)
 	return id, e
+}
+
+const identityEvidenceJSON = `jsonb_build_object('id',a.id,'subject_id',a.subject_id,'case_version_id',a.case_version_id,'confirmation_id',a.confirmation_id,'statement',a.statement,'content_digest',a.content_digest,'verified_at',a.verified_at)`
+
+func (r *Repository) identityEvidence(ctx context.Context, tx pgx.Tx, c Case, id uuid.UUID) (IdentityRequestEvidence, error) {
+	return readJSON[IdentityRequestEvidence](tx.QueryRow(ctx, `SELECT `+identityEvidenceJSON+` FROM contribution_attestations a WHERE a.team_id=$1 AND a.project_id=$2 AND a.task_id=$3 AND a.case_id=$4 AND a.id=$5 AND a.purpose='dispute_request'`, c.TeamID, c.ProjectID, c.TaskID, c.ID, id))
 }

@@ -58,3 +58,8 @@ OpenAPI 3.1 为请求/响应清单的唯一契约。路径分为项目贡献核�
 使用既有 testdb 与 PostgreSQL 17 临时隔离 schema，禁止开发库迁移。Service 测试覆盖授权、原子性、并发和幂等；HTTP 测试通过真实登录 Cookie+CSRF 证明身份绑定、IDOR、COI、失效 session 和显式收件，不以伪造 Identity 替代。持续运行 M2 18 组、Phase 02–04 集成、全量 -race、make verify、既有 E2E；25 项旧 E2E 只证明回归，不代表新贡献 UI 验收。
 
 迁移/DDL 连接与普通应用连接应分离。应用角色不应是 superuser、schema/table/function owner、CREATEROLE/CREATEDB/BYPASSRLS，不能 CREATE、ALTER、TRUNCATE、禁用触发器或改审计；v7 函数为 invoker，执行需明确的业务 DML/SELECT 和函数 EXECUTE。不会自动修改当前运行库的角色或凭据；部署权限检查与受限角色验证记录于最终报告。
+
+
+实施补充：本人相关案例包含真实份额/提案/核定/裁定/直接利益/争议当事历史；普通请求 intake 不构成案例读取授权。授权人员可通过 scoped 的 dispute-requests/{identityRequestID} GET 核对实际声明与服务端核验时间，不返回会话信息。Case.undisputed_confirmed 从 v7 正式视图读取，便于把争议与旧有效确认分离。statement 是整理的未核验文本，不等同本人认证提交；真实收件和本人请求具有单独的会话凭据路径。
+
+贡献模块使用 Within 获取实时会话与成员作用域后，再于写动作中按案例可见性、动作授权、项目 active 状态、重放和 expected_version 的顺序检查，避免基类的归档错误先于 404/403。操作能力仅作提示并与 v7 的争议/归档不变量保持一致，数据库仍决定合法转换。

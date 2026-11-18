@@ -9,7 +9,7 @@ Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3]
 | 产品版本 | 范围 | 状态 |
 | --- | --- | --- |
 | V1.0 | 方案 B：多 Team、项目、三级任务、成果版本和正式验收 | 已批准，按阶段开发；尚未声明发布 |
-| V1.1 | 验收后的贡献记录、建议与人工核定 | Phase 05 M1 已批准；M2 数据库已实现，功能分支待验收 |
+| V1.1 | 验收后的贡献记录、建议与人工核定 | Phase 05 M2 已合并；M3 Service/API 功能分支待评审，暂无 Vue 页面 |
 | V2.0 | 奖金方案、精确分配与更完整的协作工具 | 长期规划，未作为当前交付 |
 
 | 能力 | 阶段 | 当前交付位置 |
@@ -20,7 +20,8 @@ Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3]
 | 权重进度、依赖、追加式历史与快照 | Phase 03 / 04 | 已合并 develop |
 | 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 已合并 develop（PR #4） |
 | 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 已合并 develop（PR #4） |
-| 贡献 Schema v7、状态机、争议与归档完整性 | Phase 05 M2 | 功能分支，见 [M2 报告](docs/development/phase-05-m2-report.md)；无贡献 API/前端 |
+| 贡献 Schema v7、状态机、争议与归档完整性 | Phase 05 M2 | 已合并 develop（PR #5 / b336bed）；见 [M2 报告](docs/development/phase-05-m2-report.md) |
+| 认证贡献服务、核定/争议 API、本人显式收件 | Phase 05 M3 | 功能分支待评审；见 [M3 报告](docs/development/phase-05-m3-report.md)，无 Vue/奖金 |
 | 奖金、完整通知和导出 | 后续阶段 | 未交付 |
 
 ## 技术与环境
@@ -36,7 +37,7 @@ docs/             产品、架构、API、开发及运维文档
 
 ## 安装与本地启动
 
-以下命令用于**新建本地开发环境**。已有环境先确认 `.env` 的目标库并备份，再显式迁移。运行中的旧开发栈不一定应用了最新迁移；本次开发不会替它升级或重启。现有 API 兼容 schema v6/v7，其他版本会拒绝启动；v7 不增加贡献 API。
+以下命令用于**新建本地开发环境**。已有环境先确认 `.env` 的目标库并备份，再显式迁移。运行中的旧开发栈不一定应用了最新迁移；本次开发不会替它升级或重启。M3 API 要求 schema v7，其他版本拒绝启动；不会自动升级旧库。生产 API 还要求通过[普通应用角色检查](docs/operations/application-database-role.md)，不得使用迁移 owner 凭据。
 
 ```bash
 corepack enable

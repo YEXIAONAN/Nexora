@@ -26,7 +26,7 @@ func (h *Handler) AuthenticatedRoutes(r chi.Router) {
 		{"GET", "/contributions/{caseID}", "get"}, {"GET", "/contributions/{caseID}/versions", "versions"}, {"GET", "/contributions/{caseID}/history", "history"}, {"GET", "/contributions/{caseID}/evidence", "evidence"},
 		{"PATCH", "/contributions/{caseID}/draft", "draft"}, {"PUT", "/contributions/{caseID}/shares/{userID}", "share"}, {"DELETE", "/contributions/{caseID}/shares/{userID}", "remove"},
 		{"POST", "/contributions/{caseID}/submit", "submit"}, {"POST", "/contributions/{caseID}/withdraw", "withdraw"}, {"POST", "/contributions/{caseID}/abandon", "abandon"}, {"POST", "/contributions/{caseID}/confirm", "confirm"}, {"POST", "/contributions/{caseID}/revisions", "revisions"},
-		{"GET", "/contributions/{caseID}/disputes", "disputes"}, {"POST", "/contributions/{caseID}/disputes", "dispute"}, {"POST", "/contributions/{caseID}/disputes/{disputeID}/resolutions", "resolve"},
+		{"GET", "/contributions/{caseID}/dispute-requests/{identityRequestID}", "identity_evidence"}, {"GET", "/contributions/{caseID}/disputes", "disputes"}, {"POST", "/contributions/{caseID}/disputes", "dispute"}, {"POST", "/contributions/{caseID}/disputes/{disputeID}/resolutions", "resolve"},
 		{"POST", "/contributions/{caseID}/conflicts", "conflict"}, {"GET", "/contributions/{caseID}/notices", "notices"}, {"POST", "/contributions/{caseID}/notices", "notice"}, {"POST", "/contributions/{caseID}/notices/{noticeID}/receipt", "receipt"},
 		{"GET", "/contribution-results/mine", "mine"},
 	} {
@@ -42,7 +42,7 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			return
 		}
 		ids := map[string]uuid.UUID{}
-		for _, key := range []string{"teamID", "projectID", "caseID", "userID", "disputeID", "noticeID"} {
+		for _, key := range []string{"teamID", "projectID", "caseID", "userID", "disputeID", "noticeID", "identityRequestID"} {
 			if chi.URLParam(r, key) != "" {
 				id, valid := httpx.ParseUUIDParam(w, r, h.logger, key)
 				if !valid {
@@ -70,6 +70,8 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 			out, err = h.svc.History(r.Context(), a, team, pid, cid)
 		case "evidence":
 			out, err = h.svc.Evidence(r.Context(), a, team, pid, cid)
+		case "identity_evidence":
+			out, err = h.svc.IdentityRequestEvidence(r.Context(), a, team, pid, cid, ids["identityRequestID"])
 		case "disputes":
 			out, err = h.svc.Disputes(r.Context(), a, team, pid, cid)
 		case "notices":

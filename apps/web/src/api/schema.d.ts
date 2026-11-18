@@ -1450,6 +1450,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/dispute-requests/{identityRequestID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Authorized editor reads the verified subject statement and version binding
+         * @description Requires current project edit authority. Exposes no session identifier, token or hash. Departed subjects retain no normal Team read access.
+         */
+        get: operations["getVerifiedContributionDisputeRequest"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2329,7 +2349,9 @@ export interface components {
             /** Format: uuid */
             user_id: string;
             share_bps: number;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             basis: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             statement: string;
             evidence_refs: components["schemas"]["ContributionEvidenceReference"][];
             /** @enum {string} */
@@ -2342,7 +2364,9 @@ export interface components {
             case_version_id: string;
             /** Format: uuid */
             confirmed_by: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             rationale: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             version_digest: string;
             membership_snapshot: {
                 [key: string]: "active" | "historical";
@@ -2361,6 +2385,7 @@ export interface components {
             supersedes_version_id: string | null;
             /** Format: uuid */
             proposed_by: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             summary: string;
             evidence_snapshot: {
                 [key: string]: unknown;
@@ -2406,6 +2431,7 @@ export interface components {
             granted_by: string;
             /** Format: uuid */
             changed_by: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             reason: string;
             /** Format: date-time */
             granted_at: string;
@@ -2421,11 +2447,19 @@ export interface components {
             raised_by: string;
             on_behalf_of: string | null;
             identity_request_id: string | null;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             reason: string;
             /** Format: date-time */
             created_at: string;
             resolution: components["schemas"]["ContributionResolution"] | null;
             can_resolve: boolean;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
+            verification_method: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
+            verification_evidence_ref: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
+            verification_note: string;
+            identity_request_evidence: components["schemas"]["ContributionIdentityEvidence"] | null;
         };
         ContributionResolution: {
             /** Format: uuid */
@@ -2436,6 +2470,7 @@ export interface components {
             decision: "uphold" | "overturn";
             /** Format: uuid */
             resolved_by: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             reason: string;
             /** Format: date-time */
             resolved_at: string;
@@ -2444,13 +2479,16 @@ export interface components {
             /** Format: uuid */
             id: string;
             case_version_id: string | null;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             event_type: string;
             /** Format: uuid */
             actor_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             reason: string;
             details: {
                 [key: string]: unknown;
             };
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             request_id: string;
             /** Format: date-time */
             created_at: string;
@@ -2468,9 +2506,11 @@ export interface components {
             after_value: {
                 [key: string]: unknown;
             } | null;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             reason: string;
             /** Format: uuid */
             actor_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             request_id: string;
             /** Format: date-time */
             created_at: string;
@@ -2480,7 +2520,9 @@ export interface components {
             id: string;
             /** Format: uuid */
             user_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             kind: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             details: string;
             /** Format: uuid */
             recorded_by: string;
@@ -2498,6 +2540,7 @@ export interface components {
             confirmation_id: string;
             /** Format: uuid */
             subject_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             content_digest: string;
             /** Format: date-time */
             verified_at: string;
@@ -2528,12 +2571,14 @@ export interface components {
         ContributionResult: {
             notice: components["schemas"]["ContributionNotice"];
             confirmation: components["schemas"]["ContributionConfirmation"];
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             summary: string;
             shares: components["schemas"]["ContributionShare"][];
         };
         ContributionEvidence: {
             /** Format: uuid */
             task_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             task_title: string;
             /** Format: uuid */
             task_owner_id: string;
@@ -2541,6 +2586,7 @@ export interface components {
             submission_version_id: string;
             /** Format: uuid */
             author_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             summary: string;
             evidence_references: components["schemas"]["EvidenceReference"][];
             /** Format: date-time */
@@ -2551,6 +2597,7 @@ export interface components {
             reviewer_id: string;
             /** @constant */
             decision: "approve";
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
             comment: string;
             /** Format: date-time */
             reviewed_at: string;
@@ -2559,8 +2606,10 @@ export interface components {
                 id: string;
                 /** Format: uuid */
                 uploader_id: string;
+                /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
                 file_name: string;
                 byte_size: number;
+                /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
                 sha256: string;
             }[];
         };
@@ -2607,6 +2656,25 @@ export interface components {
         };
         ContributionResultsEnvelope: {
             data: components["schemas"]["ContributionResult"][];
+        };
+        ContributionIdentityEvidence: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            subject_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            /** Format: uuid */
+            confirmation_id: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
+            statement: string;
+            /** @description An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement. */
+            content_digest: string;
+            /** Format: date-time */
+            verified_at: string;
+        };
+        ContributionIdentityEvidenceEnvelope: {
+            data: components["schemas"]["ContributionIdentityEvidence"];
         };
     };
     responses: {
@@ -5771,6 +5839,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ContributionIntakeEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getVerifiedContributionDisputeRequest: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                caseID: string;
+                identityRequestID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Success */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ContributionIdentityEvidenceEnvelope"];
                 };
             };
             400: components["responses"]["BadRequest"];

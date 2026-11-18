@@ -6,12 +6,13 @@ import (
 	"errors"
 	"strings"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 )
 
 type Service struct {
@@ -26,11 +27,11 @@ func authenticated(a reqctx.Identity) error {
 	}
 	return nil
 }
-func (s *Service) within(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID, write bool, fn func(pgx.Tx, projects.Scope, Eligibility) error) error {
+func (s *Service) within(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID, fn func(pgx.Tx, projects.Scope, Eligibility) error) error {
 	if e := authenticated(a); e != nil {
 		return e
 	}
-	e := s.projects.Within(ctx, a, team, pid, write, false, func(tx pgx.Tx, sc projects.Scope) error {
+	e := s.projects.Within(ctx, a, team, pid, false, false, func(tx pgx.Tx, sc projects.Scope) error {
 		ok, e := s.repo.session(ctx, tx, a)
 		if e != nil {
 			return e
@@ -130,7 +131,7 @@ func (s *Service) caseCommand(ctx context.Context, a reqctx.Identity, team, pid,
 	if e != nil {
 		return out, invalid("request", "cannot be encoded")
 	}
-	err = s.within(ctx, a, team, pid, true, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
 		c, e := s.repo.caseByID(ctx, tx, team, pid, cid, true)
 		if e != nil {
 			return e
@@ -141,6 +142,9 @@ func (s *Service) caseCommand(ctx context.Context, a reqctx.Identity, team, pid,
 			}
 		}
 		if e = authorize(tx, c, el); e != nil {
+			return e
+		}
+		if e = requireActive(sc); e != nil {
 			return e
 		}
 		var replay bool
@@ -164,7 +168,7 @@ func (s *Service) caseCommand(ctx context.Context, a reqctx.Identity, team, pid,
 	return
 }
 func (s *Service) Appraisers(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID) (out []Appraiser, err error) {
-	err = s.within(ctx, a, team, pid, false, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
 		var e error
 		out, e = s.repo.appraisers(ctx, tx, team, pid)
 		return e
@@ -172,7 +176,11 @@ func (s *Service) Appraisers(ctx context.Context, a reqctx.Identity, team, pid u
 	return
 }
 func (s *Service) Eligibility(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID) (out Eligibility, err error) {
-	err = s.within(ctx, a, team, pid, false, func(_ pgx.Tx, _ projects.Scope, el Eligibility) error { out = el; return nil })
+	err = s.within(ctx, a, team, pid, func(_ pgx.Tx, sc projects.Scope, el Eligibility) error {
+		out = el
+		out.CanEditCases = out.CanEditCases && sc.Project.Status == "active"
+		return nil
+	})
 	return
 }
 func (s *Service) SetAppraiser(ctx context.Context, a reqctx.Identity, team, pid, user uuid.UUID, in Command, revoke bool) (out CommandResult, err error) {
@@ -191,10 +199,13 @@ func (s *Service) SetAppraiser(ctx context.Context, a reqctx.Identity, team, pid
 		Revoke bool
 		Input  Command
 	}{user, revoke, in})
-	err = s.within(ctx, a, team, pid, true, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
 		allowed := sc.Lead || (user == sc.Project.LeadID && (sc.Member.Role == teams.RoleOwner || sc.Member.Role == teams.RoleAdmin || el.ExplicitAppraiser)) || (revoke && user == a.UserID)
 		if !allowed || (!revoke && user == a.UserID) {
 			return projects.Forbidden()
+		}
+		if e := requireActive(sc); e != nil {
+			return e
 		}
 		var replay bool
 		var e error
@@ -235,9 +246,12 @@ func (s *Service) Create(ctx context.Context, a reqctx.Identity, team, pid uuid.
 		Kind  string
 		Input CreateInput
 	}{"create", in})
-	err = s.within(ctx, a, team, pid, true, func(tx pgx.Tx, _ projects.Scope, el Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
 		if !el.CanEditCases {
 			return projects.Forbidden()
+		}
+		if e := requireActive(sc); e != nil {
+			return e
 		}
 		var replay bool
 		var e error
@@ -265,7 +279,7 @@ func (s *Service) Create(ctx context.Context, a reqctx.Identity, team, pid uuid.
 	return
 }
 func (s *Service) List(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID, pending bool) (out []Case, err error) {
-	err = s.within(ctx, a, team, pid, false, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
 		var e error
 		out, e = s.repo.cases(ctx, tx, team, pid, a.UserID, pending)
 		return e
@@ -273,7 +287,7 @@ func (s *Service) List(ctx context.Context, a reqctx.Identity, team, pid uuid.UU
 	return
 }
 func (s *Service) readCase(ctx context.Context, a reqctx.Identity, team, pid, cid uuid.UUID, fn func(pgx.Tx, Case, projects.Scope, Eligibility) error) error {
-	return s.within(ctx, a, team, pid, false, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
+	return s.within(ctx, a, team, pid, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
 		c, e := s.repo.caseByID(ctx, tx, team, pid, cid, false)
 		if e != nil {
 			return e
@@ -297,7 +311,7 @@ func (s *Service) permissions(ctx context.Context, tx pgx.Tx, c Case, v Version,
 		return p, e
 	}
 	p.CanEdit = el.CanEditCases && !b && v.Status == "draft"
-	p.CanSubmit = p.CanEdit && v.ReadyToSubmit
+	p.CanSubmit = p.CanEdit && v.ReadyToSubmit && c.CaseWorkflowStatus != "disputed"
 	p.CanWithdraw = el.CanEditCases && !b && v.Status == "pending_review" && v.ProposedBy == a.UserID
 	p.CanConfirm = ind && v.Status == "pending_review" && c.CaseWorkflowStatus != "disputed"
 	p.CanRevise = el.CanEditCases && !b && v.Status != "draft" && v.Status != "pending_review" && c.CaseWorkflowStatus != "disputed"
@@ -592,4 +606,13 @@ func (s *Service) RecordConflict(ctx context.Context, a reqctx.Identity, team, p
 		}
 		return s.repo.conflict(ctx, tx, c, a.UserID, in, request)
 	})
+}
+
+// Visibility and operation authorization precede archive state errors. Native
+// v7 guards independently enforce read-only projects at every mutation too.
+func requireActive(sc projects.Scope) error {
+	if sc.Project.Status != "active" {
+		return httpx.Conflict("archived projects are read-only")
+	}
+	return nil
 }

@@ -3,9 +3,11 @@ package contributions
 import (
 	"errors"
 	"fmt"
-	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
+
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
+
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 )
 
 // Keep only the SQLSTATE for retry classification and deadlock assertions.

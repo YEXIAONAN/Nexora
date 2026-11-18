@@ -107,3 +107,10 @@ pnpm api:types
 提交需要 client_request_id UUID 和 expected_version；相同 key/作者/归一化内容返回原版本，key 被用于不同内容返回 409。审核显式指定 submissionVersionID 和最新任务 expected_version，必须当前 awaiting_review 版本、实时审核权限且非提交者本人。意见不能为空。
 
 上传为 multipart/form-data 单一 file 字段，X-Nexora-Upload-Id UUID 重试键和现有 X-Nexora-CSRF 必需，文件 ID 由服务端生成。下载限定完整 Team/Project/Task/Version/Attachment，上下文不符或无读取权返回 404；存储内容缺失或校验失败返回 503 并保留业务证据。所有读取和上传均使用真实 API。
+
+
+## Phase 05 M3 贡献 API（功能分支待评审）
+
+OpenAPI 新增 29 个认证操作：核定授权/资格、真实验收建案、案例/版本/证据/历史、手工草案/份额、提交/撤回/核定/修订、争议/裁定、COI、告知准备、本人结果、独立收件及本人争议请求核验。输入不接受 actor UUID，Cookie 只由后端读取，所有写操作有 CSRF、client_request_id 和明确版本/原因。
+
+读取同样执行 Team/Project 与本人关联授权；平台角色不自动可见。收件 POST 需要 received=true 和展示摘要，不表示同意。本人请求 intake 的 202 只是表单接收，只有授权人员可在正确案例中核对实际凭据；不向离队者回传 Team 数据。核定/裁定完整性仍由 v7 控制，Schema 未变。详见 [M3 设计](../development/phase-05-m3-design.md) 和 [M3 验收报告](../development/phase-05-m3-report.md)。

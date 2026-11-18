@@ -3,12 +3,14 @@ package contributions
 import (
 	"context"
 	"errors"
+	"strings"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
+
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpx"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
-	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
-	"strings"
 )
 
 func (s *Service) Notices(ctx context.Context, a reqctx.Identity, team, pid, cid uuid.UUID) (out []Notice, err error) {
@@ -54,7 +56,7 @@ func (s *Service) PrepareNotice(ctx context.Context, a reqctx.Identity, team, pi
 }
 func (s *Service) MyResults(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID) (out []Result, err error) {
 	out = []Result{}
-	err = s.within(ctx, a, team, pid, false, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, _ projects.Scope, _ Eligibility) error {
 		ns, e := s.repo.notices(ctx, tx, team, pid, nil, &a.UserID)
 		if e != nil {
 			return e
@@ -191,4 +193,16 @@ func (s *Service) ReceiveIdentityRequest(ctx context.Context, a reqctx.Identity,
 		}
 	}
 	return out, safeError(tx.Commit(ctx))
+}
+
+func (s *Service) IdentityRequestEvidence(ctx context.Context, a reqctx.Identity, team, pid, cid, id uuid.UUID) (out IdentityRequestEvidence, err error) {
+	err = s.readCase(ctx, a, team, pid, cid, func(tx pgx.Tx, c Case, _ projects.Scope, el Eligibility) error {
+		if !el.CanEditCases {
+			return projects.Forbidden()
+		}
+		var e error
+		out, e = s.repo.identityEvidence(ctx, tx, c, id)
+		return e
+	})
+	return
 }

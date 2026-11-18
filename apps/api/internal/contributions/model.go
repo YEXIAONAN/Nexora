@@ -4,8 +4,9 @@ package contributions
 
 import (
 	"encoding/json"
-	"github.com/google/uuid"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Command struct {
@@ -182,16 +183,31 @@ type Resolution struct {
 	ResolvedAt time.Time `json:"resolved_at"`
 }
 type Dispute struct {
-	ID                uuid.UUID   `json:"id"`
-	CaseVersionID     uuid.UUID   `json:"case_version_id"`
-	ConfirmationID    uuid.UUID   `json:"confirmation_id"`
-	RaisedBy          uuid.UUID   `json:"raised_by"`
-	OnBehalfOf        *uuid.UUID  `json:"on_behalf_of"`
-	IdentityRequestID *uuid.UUID  `json:"identity_request_id"`
-	Reason            string      `json:"reason"`
-	CreatedAt         time.Time   `json:"created_at"`
-	Resolution        *Resolution `json:"resolution"`
-	CanResolve        bool        `json:"can_resolve"`
+	ID                      uuid.UUID                `json:"id"`
+	CaseVersionID           uuid.UUID                `json:"case_version_id"`
+	ConfirmationID          uuid.UUID                `json:"confirmation_id"`
+	RaisedBy                uuid.UUID                `json:"raised_by"`
+	OnBehalfOf              *uuid.UUID               `json:"on_behalf_of"`
+	IdentityRequestID       *uuid.UUID               `json:"identity_request_id"`
+	VerificationMethod      string                   `json:"verification_method"`
+	VerificationEvidenceRef string                   `json:"verification_evidence_ref"`
+	VerificationNote        string                   `json:"verification_note"`
+	IdentityRequestEvidence *IdentityRequestEvidence `json:"identity_request_evidence"`
+	Reason                  string                   `json:"reason"`
+	CreatedAt               time.Time                `json:"created_at"`
+	Resolution              *Resolution              `json:"resolution"`
+	CanResolve              bool                     `json:"can_resolve"`
+}
+
+// IdentityRequestEvidence exposes the verified statement, never its session.
+type IdentityRequestEvidence struct {
+	ID             uuid.UUID `json:"id"`
+	SubjectID      uuid.UUID `json:"subject_id"`
+	CaseVersionID  uuid.UUID `json:"case_version_id"`
+	ConfirmationID uuid.UUID `json:"confirmation_id"`
+	Statement      string    `json:"statement"`
+	ContentDigest  string    `json:"content_digest"`
+	VerifiedAt     time.Time `json:"verified_at"`
 }
 type Event struct {
 	ID            uuid.UUID      `json:"id"`

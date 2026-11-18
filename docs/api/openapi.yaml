@@ -3768,6 +3768,59 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/ContributionIdentityRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/contributions/{caseID}/dispute-requests/{identityRequestID}":
+    "get":
+      "tags":
+        - "Contributions"
+      "operationId": "getVerifiedContributionDisputeRequest"
+      "summary": "Authorized editor reads the verified subject statement and version binding"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "name": "caseID"
+          "in": "path"
+          "required": true
+          "schema":
+            "type": "string"
+            "format": "uuid"
+        -
+          "name": "identityRequestID"
+          "in": "path"
+          "required": true
+          "schema":
+            "type": "string"
+            "format": "uuid"
+      "responses":
+        "200":
+          "description": "Success"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ContributionIdentityEvidenceEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "description": "Requires current project edit authority. Exposes no session identifier, token or hash. Departed subjects retain no normal Team read access."
 components:
   securitySchemes:
     sessionCookie:
@@ -6172,8 +6225,10 @@ components:
           "type": "integer"
         "basis":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "statement":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "evidence_refs":
           "type": "array"
           "items":
@@ -6206,8 +6261,10 @@ components:
           "format": "uuid"
         "rationale":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "version_digest":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "membership_snapshot":
           "type": "object"
           "additionalProperties":
@@ -6267,6 +6324,7 @@ components:
           "format": "uuid"
         "summary":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "evidence_snapshot":
           "type": "object"
           "additionalProperties": true
@@ -6284,6 +6342,7 @@ components:
           "anyOf":
             -
               "type": "string"
+              "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
             -
               "type": "null"
         "shares":
@@ -6397,6 +6456,7 @@ components:
           "format": "uuid"
         "reason":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "granted_at":
           "type": "string"
           "format": "date-time"
@@ -6414,6 +6474,10 @@ components:
         - "created_at"
         - "resolution"
         - "can_resolve"
+        - "verification_method"
+        - "verification_evidence_ref"
+        - "verification_note"
+        - "identity_request_evidence"
       "properties":
         "id":
           "type": "string"
@@ -6443,6 +6507,7 @@ components:
               "type": "null"
         "reason":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "created_at":
           "type": "string"
           "format": "date-time"
@@ -6454,6 +6519,21 @@ components:
               "type": "null"
         "can_resolve":
           "type": "boolean"
+        "verification_method":
+          "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
+        "verification_evidence_ref":
+          "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
+        "verification_note":
+          "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
+        "identity_request_evidence":
+          "anyOf":
+            -
+              "$ref": "#/components/schemas/ContributionIdentityEvidence"
+            -
+              "type": "null"
     "ContributionResolution":
       "type": "object"
       "additionalProperties": false
@@ -6481,6 +6561,7 @@ components:
           "format": "uuid"
         "reason":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "resolved_at":
           "type": "string"
           "format": "date-time"
@@ -6509,16 +6590,19 @@ components:
               "type": "null"
         "event_type":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "actor_id":
           "type": "string"
           "format": "uuid"
         "reason":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "details":
           "type": "object"
           "additionalProperties": true
         "request_id":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "created_at":
           "type": "string"
           "format": "date-time"
@@ -6571,11 +6655,13 @@ components:
               "type": "null"
         "reason":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "actor_id":
           "type": "string"
           "format": "uuid"
         "request_id":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "created_at":
           "type": "string"
           "format": "date-time"
@@ -6598,8 +6684,10 @@ components:
           "format": "uuid"
         "kind":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "details":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "recorded_by":
           "type": "string"
           "format": "uuid"
@@ -6637,6 +6725,7 @@ components:
           "format": "uuid"
         "content_digest":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "verified_at":
           "type": "string"
           "format": "date-time"
@@ -6707,6 +6796,7 @@ components:
           "$ref": "#/components/schemas/ContributionConfirmation"
         "summary":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "shares":
           "type": "array"
           "items":
@@ -6735,6 +6825,7 @@ components:
           "format": "uuid"
         "task_title":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "task_owner_id":
           "type": "string"
           "format": "uuid"
@@ -6746,6 +6837,7 @@ components:
           "format": "uuid"
         "summary":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "evidence_references":
           "type": "array"
           "items":
@@ -6764,6 +6856,7 @@ components:
           "const": "approve"
         "comment":
           "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
         "reviewed_at":
           "type": "string"
           "format": "date-time"
@@ -6787,10 +6880,12 @@ components:
                 "format": "uuid"
               "file_name":
                 "type": "string"
+                "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
               "byte_size":
                 "type": "integer"
               "sha256":
                 "type": "string"
+                "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
     "ContributionHistory":
       "type": "object"
       "additionalProperties": false
@@ -6934,3 +7029,44 @@ components:
           "type": "array"
           "items":
             "$ref": "#/components/schemas/ContributionResult"
+    "ContributionIdentityEvidence":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "subject_id"
+        - "case_version_id"
+        - "confirmation_id"
+        - "statement"
+        - "content_digest"
+        - "verified_at"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "subject_id":
+          "type": "string"
+          "format": "uuid"
+        "case_version_id":
+          "type": "string"
+          "format": "uuid"
+        "confirmation_id":
+          "type": "string"
+          "format": "uuid"
+        "statement":
+          "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
+        "content_digest":
+          "type": "string"
+          "description": "An editor-recorded unverified account; this field is not proof of the holder submitting or signing the statement."
+        "verified_at":
+          "type": "string"
+          "format": "date-time"
+    "ContributionIdentityEvidenceEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/ContributionIdentityEvidence"
