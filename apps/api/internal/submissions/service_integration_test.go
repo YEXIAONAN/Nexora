@@ -445,7 +445,13 @@ func TestPhase04RollbackRefusesBusinessEvidence(t *testing.T) {
 	f := setup(t)
 	f.submit(f.start(f.create(nil, 1)))
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if e := database.Down(f.ctx, f.sql, 2, logger); e == nil {
+	current, e := database.Version(f.ctx, f.sql)
+	if e != nil || current < 6 {
+		t.Fatalf("could not read current migration version: %d, %v", current, e)
+	}
+	// Always try to cross the Phase04 v6->v5 boundary, regardless of
+	// later empty migrations (v7, v8, ...) already installed.
+	if e := database.Down(f.ctx, f.sql, int(current-5), logger); e == nil {
 		t.Fatal("rollback deleted immutable evidence")
 	}
 	v, e := database.Version(f.ctx, f.sql)
