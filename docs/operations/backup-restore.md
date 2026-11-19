@@ -90,3 +90,25 @@ crontab 示例（每天 03:15 UTC）：
 恢复时保持 API 停止，恢复匹配数据库和私有目录，检查 bound 元数据的每个 storage_key、byte_size 与 SHA-256；通过下载授权测试和缺失文件检查后再启动 API。缺失/损坏文件应告警并从匹配备份恢复，不能删除审核、版本或改为假链接。启动后回收只处理暂存、过期和超出 24 小时宽限的无元数据文件，不删除 bound 历史。
 
 v6 down 仅适用于无成果根且无附件记录的空业务升级验证；存在证据时会拒绝，不可禁用触发器绕过。旧应用回退必须恢复事先验证的匹配备份，不能直接删除 Phase 04 证据表。
+
+## Phase 05 M6 数据库与附件联合恢复演练
+
+`infra/scripts/m6-split-restore.sh` 是可复现的一次性演练，不是生产备份工具。它只使用带 `nexora.purpose=phase04-disposable` 标签的 `nexora-devtest-pg`（loopback 5433）和 `nexora_m6_*` 数据库，拒绝开发库与其他容器。
+
+```bash
+bash infra/scripts/test-db.sh start
+bash infra/scripts/m6-split-restore.sh
+```
+
+流程：
+
+1. 在 `nexora_m6_source` 上执行真实迁移、ROOT 引导，通过真实 HTTP 登录/Team/项目/任务/附件上传/成果提交/独立审核/贡献建案/核定/告知/收件建立证据。
+2. 停止 source API，暂停业务写入。
+3. 对 source 数据库执行 `pg_dump`，并复制同一时间点的私有附件目录；生成数据库 SHA-256、附件清单、文件数量与总字节数。
+4. 恢复到 `nexora_m6_restore` 和第二个私有附件目录，核对 schema 版本、业务表行数、审核/贡献/审计记录。
+5. 逐条核对每个 `bound` 附件的 `storage_key`、大小和 SHA-256，并检查目录 0700/文件 0600。
+6. 启动恢复 API，用真实会话验证本人结果、收件、附件下载，以及跨 Team、匿名访问拒绝。
+7. 删除/篡改恢复目录中的附件，验证下载返回 503 而不是静默成功；恢复文件后重新验证 200。
+8. 输出 `summary.json`、负载延迟和代表性查询计划，记录实际恢复时间；退出时只删除本次数据库并保留 `.cache/m6-split/<stamp>/` 证据。
+
+数据库备份成功本身不等于联合恢复成功；只有数据库行、附件字节、权限和业务读取全部通过，才能把该恢复点视为有效。

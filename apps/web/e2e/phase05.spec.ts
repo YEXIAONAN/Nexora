@@ -552,6 +552,7 @@ test('manual revisions preserve the effective version until fresh independent co
   await page.screenshot({ path: '../../.cache/phase05-m4-contribution-mobile.png', fullPage: true })
   await logout(page)
   await login(page)
+  await page.goto(caseURL())
   const projectBeforeNewReceipt = await data<S['Project']>(await page.request.get(base()))
   expect(
     (
@@ -561,6 +562,54 @@ test('manual revisions preserve the effective version until fresh independent co
       })
     ).status(),
   ).toBe(409)
+  // Complete the final delivery loop for V3, then archive the project.
+  await page.getByLabel('操作原因', { exact: true }).fill('第三版正式结果告知真实收件')
+  await page
+    .getByTestId(`prepare-notice-${people[0]!.id}`)
+    .getByRole('button', { name: '准备收件告知', exact: true })
+    .click()
+  await expect
+    .poll(async () => {
+      const notices = await data<S['ContributionNotice'][]>(
+        await page.request.get(`${casePath()}/notices`),
+      )
+      return notices.some((notice) => notice.confirmation_id === third.effective!.confirmation!.id)
+    })
+    .toBe(true)
+  const finalNotices = await data<S['ContributionNotice'][]>(
+    await page.request.get(`${casePath()}/notices`),
+  )
+  const finalNotice = finalNotices.find(
+    (notice) => notice.confirmation_id === third.effective!.confirmation!.id,
+  )!
+  await logout(page)
+  await login(page, people[0]!.username)
+  await page.goto(`/teams/${team}/contribution-results`)
+  const finalCase = await current(page)
+  await data<S['ContributionCommandResult']>(
+    await page.request.post(`${casePath()}/notices/${finalNotice.id}/receipt`, {
+      headers,
+      data: {
+        expected_version: finalCase.case.revision,
+        case_version_id: third.effective!.id,
+        confirmation_id: third.effective!.confirmation!.id,
+        content_digest: third.effective!.confirmation!.version_digest,
+        client_request_id: randomUUID(),
+        received: true,
+      },
+    }),
+    200,
+  )
+  await logout(page)
+  await login(page)
+  const projectReady = await data<S['Project']>(await page.request.get(base()))
+  await data<S['Project']>(
+    await page.request.post(`${base()}/archive`, {
+      headers,
+      data: { expected_version: projectReady.version },
+    }),
+    200,
+  )
 })
 
 test('departed members receive intake acknowledgment without ordinary Team data access', async ({
