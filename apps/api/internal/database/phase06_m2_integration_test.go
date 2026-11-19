@@ -119,6 +119,11 @@ func TestPhase06M2ArchivedCNYRoundsFailClosed(t *testing.T) {
 	m2Reject(t, ctx, f.SQL, "UPDATE bonus_round_versions SET status='pending_review' WHERE id=$1", version)
 	m2Reject(t, ctx, f.SQL, "DELETE FROM bonus_rounds WHERE id=$1", round)
 
+	// The internal member epoch is mandatory even for proposed grants.
+	// PostgreSQL CHECK accepts NULL unless explicitly guarded (SQL three-valued logic).
+	reviewer := uuid.New()
+	m2Exec(t, ctx, f.SQL, "INSERT INTO users(id,username,password_hash) VALUES($1,'m2_reviewer','not-a-login-hash')", reviewer)
+	m2Reject(t, ctx, f.SQL, "INSERT INTO bonus_role_grants(team_id,project_id,round_id,subject_id,role_code,grant_mode,status,member_authorization_version,granted_by,reason,request_id) VALUES($1,$2,$3,$4,'confirmer','internal','proposed',NULL,$5,'epoch required','grant-null-epoch')", team, project, round, reviewer, user)
 	m2Reject(t, ctx, f.SQL, "INSERT INTO bonus_role_grants(team_id,project_id,round_id,subject_id,role_code,grant_mode,status,member_authorization_version,granted_by,reason,request_id) VALUES($1,$2,$3,$4,'confirmer','internal','active',1,$5,'not approved','grant-1')", team, project, round, uuid.New(), user)
 	m2Reject(t, ctx, f.SQL, "INSERT INTO bonus_confirmations(team_id,project_id,round_id,version_id,grant_id,confirmed_by,version_digest,reason,request_id) VALUES($1,$2,$3,$4,$5,$6,repeat('a',64),'not approved','confirm-1')", team, project, round, version, uuid.New(), user)
 	m2Reject(t, ctx, f.SQL, "INSERT INTO bonus_round_sources(team_id,project_id,round_id,version_id,task_id,case_id,case_version_id,confirmation_id,confirmation_digest,coverage_decision,reason) VALUES($1,$2,$3,$4,$5,$6,$7,$8,repeat('a',64),'included','fake evidence')", team, project, round, version, uuid.New(), uuid.New(), uuid.New(), uuid.New())
