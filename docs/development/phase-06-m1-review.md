@@ -5,6 +5,7 @@
 - 基线：`develop` af3802b19749daccafff0589c1d7286782944aab（Phase 05 M6 PR #9 已合并）；Schema v7；`main` 未改动
 - PR：[#10](https://github.com/YEXIAONAN/Nexora/pull/10)，base `develop`，评审前 Head `82e9364320f92ba421e29e1a62104a4f66d93230`，draft
 - 范围：仅设计评审与文档修订；**没有新增表、迁移、Go 代码、API 或 Vue 页面**
+- 产品签署入口：[M1 D1–D10 / A1–A5 签署稿 v1.0](phase-06-m1-product-decisions.md)，当前 Proposed / 0/15 已批准；仅供产品负责人审阅，未批准 M2。
 - 结论：原稿 5 项 P1 与 5 项 P2 缺口已修订；**补充复审**另发现 2 项 P1 与 2 项 P2 设计缺口（逐来源账本、无独立核定人、状态双轴、资格舍入顺序），已继续修订 [phase-06-m1-design.md](phase-06-m1-design.md)。**D1–D10 与 A1–A5 全部保持 Proposed，未获任何产品批准，禁止进入 M2。**
 
 ## 1. 评审结论摘要
