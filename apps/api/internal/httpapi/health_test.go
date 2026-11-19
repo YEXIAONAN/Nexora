@@ -73,8 +73,8 @@ func TestReadinessReady(t *testing.T) {
 
 func TestReadinessRequiresCompatibleSchemaVersion(t *testing.T) {
 	for _, tc := range []struct {
-		version int64
-		wantStatus int
+		version          int64
+		wantStatus       int
 		wantSchemaStatus string
 	}{
 		{0, http.StatusServiceUnavailable, "down"},
