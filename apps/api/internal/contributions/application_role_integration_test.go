@@ -6,6 +6,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"os"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +24,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/projects"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/system"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/tasks"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/teams"
 )
 
@@ -52,7 +54,19 @@ func TestContributionApplicationRoleCannotBypassHistory(t *testing.T) {
 			t.Error("disposable role cleanup failed")
 		}
 	})
-	_, e = f.db.Pool.Exec(f.ctx, `GRANT USAGE ON SCHEMA `+qs+` TO `+qr+`; GRANT SELECT ON ALL TABLES IN SCHEMA `+qs+` TO `+qr+`; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA `+qs+` TO `+qr+`; GRANT INSERT ON `+qs+`.sessions,`+qs+`.audit_events,`+qs+`.contribution_appraisers,`+qs+`.contribution_cases,`+qs+`.contribution_case_versions,`+qs+`.contribution_shares,`+qs+`.contribution_share_adjustments,`+qs+`.contribution_confirmations,`+qs+`.contribution_conflicts,`+qs+`.contribution_disputes,`+qs+`.contribution_dispute_resolutions,`+qs+`.contribution_case_events,`+qs+`.contribution_notifications,`+qs+`.contribution_attestations TO `+qr+`; GRANT UPDATE ON `+qs+`.teams,`+qs+`.sessions,`+qs+`.contribution_appraisers,`+qs+`.contribution_cases,`+qs+`.contribution_case_versions,`+qs+`.contribution_shares TO `+qr+`; GRANT DELETE ON `+qs+`.contribution_shares TO `+qr)
+	_, e = f.db.Pool.Exec(f.ctx, `GRANT USAGE ON SCHEMA `+qs+` TO `+qr+`; GRANT SELECT ON ALL TABLES IN SCHEMA `+qs+` TO `+qr+`; GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA `+qs+` TO `+qr+`; GRANT INSERT ON `+qs+`.sessions,`+qs+`.audit_events,`+qs+`.contribution_appraisers,`+qs+`.contribution_cases,`+qs+`.contribution_case_versions,`+qs+`.contribution_shares,`+qs+`.contribution_share_adjustments,`+qs+`.contribution_confirmations,`+qs+`.contribution_conflicts,`+qs+`.contribution_disputes,`+qs+`.contribution_dispute_resolutions,`+qs+`.contribution_case_events,`+qs+`.contribution_notifications,`+qs+`.contribution_attestations TO `+qr+`; GRANT UPDATE ON `+qs+`.teams,`+qs+`.sessions,`+qs+`.tasks,`+qs+`.contribution_appraisers,`+qs+`.contribution_cases,`+qs+`.contribution_case_versions,`+qs+`.contribution_shares TO `+qr+`; GRANT DELETE ON `+qs+`.contribution_shares TO `+qr)
+	must(t, e)
+	// Apply the reviewed column-level GRANT from the production deployment guide
+	// itself, so documentation drift breaks this real restricted-LOGIN test.
+	doc, docErr := os.ReadFile("../../../../docs/operations/application-database-role.md")
+	must(t, docErr)
+	const documentedDependencyUpdate = `GRANT UPDATE (ignored_by,ignored_at,ignore_reason) ON task_dependencies TO :"app_role";`
+	if !strings.Contains(string(doc), documentedDependencyUpdate) {
+		t.Fatal("production application-role grants omit the Phase 03 dependency-ignore UPDATE")
+	}
+	grantSQL := strings.ReplaceAll(documentedDependencyUpdate, "task_dependencies", qs+".task_dependencies")
+	grantSQL = strings.ReplaceAll(grantSQL, `:"app_role"`, qr)
+	_, e = f.db.Pool.Exec(f.ctx, grantSQL)
 	must(t, e)
 	pc := f.db.Pool.Config().Copy()
 	pc.ConnConfig.User = role
@@ -65,6 +79,20 @@ func TestContributionApplicationRoleCannotBypassHistory(t *testing.T) {
 		t.Fatal("test did not use a separate unprivileged login")
 	}
 	must(t, database.ValidateApplicationRole(f.ctx, pool))
+	var ignoreUpdateAllowed bool
+	must(t, pool.QueryRow(f.ctx, `SELECT has_column_privilege(current_user,$1::text,'ignore_reason','UPDATE')`, pgx.Identifier{schema, "task_dependencies"}.Sanitize()).Scan(&ignoreUpdateAllowed))
+	if !ignoreUpdateAllowed {
+		t.Fatal("restricted app role cannot update ignored dependency fields")
+	}
+	// Preserve least privilege: changing a dependency's identity is still denied.
+	if _, denied := pool.Exec(f.ctx, `UPDATE `+qs+`.task_dependencies SET predecessor_id=predecessor_id WHERE FALSE`); denied == nil {
+		t.Fatal("restricted role unexpectedly gained full dependency UPDATE privileges")
+	} else {
+		var pe *pgconn.PgError
+		if !errors.As(denied, &pe) || pe.Code != "42501" {
+			t.Fatalf("unexpected dependency identity UPDATE failure: %v", denied)
+		}
+	}
 	// Effective privileges, not role flags alone, must be checked.
 	for _, grant := range []struct{ grant, revoke string }{
 		{`GRANT UPDATE ON ` + qs + `.audit_events TO ` + qr, `REVOKE UPDATE ON ` + qs + `.audit_events FROM ` + qr},
@@ -89,17 +117,41 @@ func TestContributionApplicationRoleCannotBypassHistory(t *testing.T) {
 			t.Fatal("ordinary application role retained unnecessary mutation or DDL privileges")
 		}
 	}
+	// Seed a genuine Phase 03 dependency using the isolated fixture's owner
+	// connection, then exercise its ignore endpoint via the restricted app role.
+	predecessor, prepErr := f.tasks.Create(f.ctx, f.actors["lead"], f.team, f.project.ID, tasks.CreateInput{
+		TaskFields: tasks.TaskFields{Title: "Restricted-role predecessor", OwnerID: f.actors["worker"].UserID}, Weight: 1,
+	})
+	must(t, prepErr)
+	dependent, prepErr := f.tasks.Create(f.ctx, f.actors["lead"], f.team, f.project.ID, tasks.CreateInput{
+		TaskFields: tasks.TaskFields{Title: "Restricted-role dependent", OwnerID: f.actors["worker"].UserID}, Weight: 1,
+	})
+	must(t, prepErr)
+	dependency, prepErr := f.tasks.AddDependency(f.ctx, f.actors["lead"], f.team, f.project.ID, dependent.ID, predecessor.ID, dependent.Version)
+	must(t, prepErr)
+	dependent, prepErr = f.tasks.Get(f.ctx, f.actors["lead"], f.team, f.project.ID, dependent.ID)
+	must(t, prepErr)
+
 	logger := slog.New(slog.NewTextHandler(&f.logs, nil))
 	ar := audit.NewRepository(pool)
 	as := auth.NewService(auth.NewRepository(pool), ar, auth.NewLoginLimiter(100, time.Minute), time.Hour, logger)
 	ps := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), ar, logger)
 	svc := contributions.NewService(contributions.NewRepository(pool), ps)
-	f.handler = httpapi.New(config.Config{Environment: config.EnvironmentTest}, logger, system.NewRepository(pool), as, auth.NewHandler(as, false, time.Hour, logger), nil, contributions.NewHandler(svc, logger)).Handler()
+	taskSvc := tasks.NewService(tasks.NewRepository(), ps)
+	f.handler = httpapi.New(config.Config{Environment: config.EnvironmentTest}, logger, system.NewRepository(pool), as, auth.NewHandler(as, false, time.Hour, logger), nil, tasks.NewHandler(taskSvc, logger), contributions.NewHandler(svc, logger)).Handler()
 	// Use the same real HTTP login flow on the restricted connection, not SET ROLE
 	// inside an owner session and not a fabricated middleware identity.
 	f.login("lead")
 	f.login("appraiser")
 	f.login("worker")
+	ignorePath := f.base() + "/tasks/" + dependent.ID.String() + "/dependencies/" + dependency.ID.String() + "/ignore"
+	ignored := data[tasks.Dependency](t, f.do("POST", ignorePath, map[string]any{
+		"reason": "Ignore dependency with production-style restricted app credentials",
+		"expected_version": dependent.Version,
+	}, f.cookies["lead"], true), 200)
+	if ignored.ID != dependency.ID || ignored.IgnoredAt == nil || ignored.IgnoredBy == nil || *ignored.IgnoredBy != f.actors["lead"].UserID {
+		t.Fatal("restricted-role dependency-ignore HTTP endpoint did not persist its result")
+	}
 	f.grant("appraiser")
 	c := f.create()
 	f.prepare(c)
