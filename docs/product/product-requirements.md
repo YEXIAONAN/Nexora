@@ -201,7 +201,7 @@ ROOT 初始身份标识为 `waiting`，但该名称不可作为授权依据。�
 
 ## 实现状态
 
-> 本表为状态跟踪，更新于 2026-11-19（Phase 05 M2–M5 已合并，M6 综合验收功能分支评审中）。状态用语见文件开头约定；工程阶段代号与 V2.0 原文 Phase 编号的映射见“工程阶段与产品版本映射”。
+> 本表为状态跟踪，更新于 2026-11-19（Phase 05 M6 已合并；Phase 06 M1 设计评审完成，待产品批准）。状态用语见文件开头约定；工程阶段代号与 V2.0 原文 Phase 编号的映射见“工程阶段与产品版本映射”。
 
 | 模块 | 状态 |
 | --- | --- |
@@ -210,7 +210,7 @@ ROOT 初始身份标识为 `waiting`，但该名称不可作为授权依据。�
 | 项目、三级任务、状态机、进度 | 已实现并验证：PR #3 已合并 develop（c360327）；证据见 [Phase 03 报告](../development/phase-03-report.md)，不包含成果验收 |
 | 成果提交与验收 | 已实现并验证：PR #4 已合并 develop（07f6fa1c），合并 CI 44202649641 四项成功；证据见 [Phase 04 报告](../development/phase-04-report.md) |
 | 贡献核算 | Phase 05 M1–M6 已实现并验证并合并 develop（PR #9 / af3802b，合并后 CI 44522533362 成功）；[M6 报告](../development/phase-05-m6-report.md)。尚未正式发布 main；不包含奖金金额 |
-| 奖金分配 | V2.0 原文已有规划；Phase 06 M1 [候选设计](../development/phase-06-m1-design.md) 已提交讨论，ADR 0005 金额仍 Proposed；无 Schema/API/页面实现 |
+| 奖金分配 | V2.0 原文已有规划；Phase 06 M1 [候选设计](../development/phase-06-m1-design.md) 与 [独立评审](../development/phase-06-m1-review.md) 已完成，D1–D10 / A1–A5 仍为 Proposed，待产品批准；ADR 0005 金额仍 Proposed；无 Schema/API/页面实现 |
 | 工作台与视图 | 部分已设计，未实现（V2.0 / Phase 07） |
 | 通知、导出、归档 | 已设计（V2.0 原文），未实现（V2.0 / Phase 07） |
 | 系统级验收与发布 | 未开始（Phase 08） |
@@ -226,4 +226,4 @@ Phase 01–04 已合并 develop；Phase 04 成果与验收经 PR #4 合并（07f
 
 ### 当前跟踪增补（2026-11-19，Phase 06 M1）
 
-Phase 05 M6 的 PR #9 已合并至 develop，合并 CI 44522533362 四项成功；以 [M6 报告](../development/phase-05-m6-report.md) 及最新 Roadmap 为准。现推进 V2.0 / Phase 06 M1 [奖金分配候选设计](../development/phase-06-m1-design.md)，**不代表金额政策获批准**，ADR 0005 金额仍 Proposed。不改变历史快照、已批准 V1.0/V1.1 范围、Phase 05 份额不可自动推断规则，也不包含奖金数据库、API、付款或正式发布。
+Phase 05 M6 的 PR #9 已合并至 develop，合并 CI 44522533362 四项成功；以 [M6 报告](../development/phase-05-m6-report.md) 及最新 Roadmap 为准。V2.0 / Phase 06 M1 已完成 [奖金分配候选设计](../development/phase-06-m1-design.md) 与 [独立设计评审](../development/phase-06-m1-review.md)；D1–D10 与 A1–A5 全部仍为 Proposed，**不代表金额政策获批准**，ADR 0005 金额仍 Proposed。不改变历史快照、已批准 V1.0/V1.1 范围、Phase 05 份额不可自动推断规则，也不包含奖金数据库、API、付款或正式发布；未获批准前不得进入 M2。

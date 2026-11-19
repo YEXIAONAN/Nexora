@@ -118,11 +118,11 @@ Phase 02 实施计划见 [phase-02-plan.md](phase-02-plan.md)。阶段代号不�
 - 备份恢复演练、部署验证、文档复核。
 - 仅报告真实执行结果。
 
-## 当前交付跟踪（2026-11-19，Phase 06 M1 启动）
+## 当前交付跟踪（2026-11-19，Phase 06 M1 设计评审完成）
 
 Phase 01–05 工程代码与验收已合并至 `develop`；Phase 05 M6 [PR #9](https://github.com/YEXIAONAN/Nexora/pull/9) Merge Commit 为 `af3802b19749daccafff0589c1d7286782944aab`，合并后 [CI 44522533362](https://github.com/YEXIAONAN/Nexora/actions/runs/44522533362) 四项 Success，具体证据见 [M6 报告](phase-05-m6-report.md)。V1.0/V1.1 尚未正式发布至 `main`，生产部署未验收。
 
-**下一阶段：Phase 06 M1 设计评审（V2.0）。** [M1 奖金治理设计](phase-06-m1-design.md) 当前仅 Proposed；ADR 0005 **金额部分仍 Proposed，未获批准**。M1 分别提出显式案例预算、金额/币种精度、资格、独立核定、整数余数分配及历史追溯的候选方案，不能直接认定为已实施或已批准。
+**当前：Phase 06 M1 设计评审已完成。** [M1 奖金治理设计](phase-06-m1-design.md) 已修订，独立评审报告见 [phase-06-m1-review.md](phase-06-m1-review.md)。D1–D10 与补充项 A1–A5 **全部保持 Proposed**；ADR 0005 **金额部分仍 Proposed，未获批准**。PR #10 仍为 draft，未合并；未创建 Schema v8、金额 API 或页面。下一门禁是产品负责人逐项批准，批准前不得进入 M2。
 
 上述“Phase 4 贡献核算”旧路线图文字中的“自动建议”属于早期概括，不能覆盖 Phase 05 M1/ADR 0007 已接受的**不自动推断精确贡献份额**规则；跨案例奖金指数与金额分配另须产品决策。MVP/Alpha 运行由产品负责人自行管理，不属于 Phase 06 的工作项目。
 
