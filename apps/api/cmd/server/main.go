@@ -103,7 +103,6 @@ func run() error {
 	submissionsSvc := submissions.NewService(submissions.NewRepository(pool), projectsSvc, tasksSvc)
 	submissionsSvc.SetStore(store)
 	contributionsSvc := contributions.NewService(contributions.NewRepository(pool), projectsSvc)
-	bonusResultsSvc := bonusresults.NewService(bonusresults.NewRepository(pool))
 	recoveryCtx, recoveryCancel := context.WithCancel(rootCtx)
 	recoveryDone := make(chan struct{})
 	defer func() { recoveryCancel(); <-recoveryDone }()
@@ -125,7 +124,19 @@ func run() error {
 			}
 		}
 	}()
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger), bonusresults.NewHandler(bonusResultsSvc, logger))
+	modules := []httpapi.RouteModule{
+		projectsHandler,
+		tasksHandler,
+		submissions.NewHandler(submissionsSvc, logger),
+		contributions.NewHandler(contributionsSvc, logger),
+	}
+	// The Phase06 result relations only exist in v8. Keep the existing v7 MVP
+	// operational without exposing a route that would query absent tables.
+	if schemaVersion >= 8 {
+		bonusResultsSvc := bonusresults.NewService(bonusresults.NewRepository(pool))
+		modules = append(modules, bonusresults.NewHandler(bonusResultsSvc, logger))
+	}
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, modules...)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
