@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -121,8 +122,11 @@ func (s *Store) create(team uuid.UUID, data []byte) (key string, err error) {
 	if err == nil {
 		err = closeErr
 	}
-	// Persist the directory entry before the metadata may commit.
-	if err == nil {
+	// Persist the directory entry before the metadata may commit. Windows
+	// cannot fsync a directory handle (FlushFileBuffers fails with
+	// ERROR_ACCESS_DENIED), so there the file Sync above stays the
+	// persistence boundary.
+	if err == nil && runtime.GOOS != "windows" {
 		var d *os.File
 		d, err = s.root.Open(team.String())
 		if err == nil {
