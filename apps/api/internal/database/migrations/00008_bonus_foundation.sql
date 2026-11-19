@@ -179,7 +179,7 @@ CREATE TABLE bonus_role_grants (
  UNIQUE(team_id,project_id,round_id,id),
  FOREIGN KEY(team_id,project_id,round_id) REFERENCES bonus_rounds(team_id,project_id,id) ON DELETE RESTRICT,
  CHECK(subject_id<>granted_by),
- CHECK((grant_mode='internal' AND member_authorization_version>0 AND expires_at IS NULL)
+ CHECK((grant_mode='internal' AND member_authorization_version IS NOT NULL AND member_authorization_version>0 AND expires_at IS NULL)
    OR (grant_mode='external' AND member_authorization_version IS NULL AND expires_at IS NOT NULL AND length(btrim(identity_evidence_ref))>0))
 );
 CREATE INDEX bonus_role_grants_subject_idx ON bonus_role_grants(team_id,project_id,round_id,subject_id,role_code);
