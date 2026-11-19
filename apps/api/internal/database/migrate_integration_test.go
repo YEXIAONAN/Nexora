@@ -191,7 +191,8 @@ func TestPhase05SchemaInstallRollback(t *testing.T) {
 	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	// Pin this historical test at v7 even when newer migrations exist.
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 7); e != nil {
 		t.Fatal(e)
 	}
 	v, e := Version(ctx, f.SQL)
@@ -208,7 +209,7 @@ func TestPhase05SchemaInstallRollback(t *testing.T) {
 	if e = Down(ctx, f.SQL, 6, logger); e != nil {
 		t.Fatal(e)
 	}
-	if e = Up(ctx, f.SQL, logger); e != nil {
+	if e = goose.UpToContext(ctx, f.SQL, migrationsDir, 7); e != nil {
 		t.Fatal(e)
 	}
 	v, e = Version(ctx, f.SQL)
