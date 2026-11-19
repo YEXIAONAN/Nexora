@@ -29,6 +29,9 @@ GRANT UPDATE ON sessions,teams,team_members,team_invitations,projects,project_me
  project_milestones,project_reviewers,tasks,submission_attachments,
  contribution_appraisers,contribution_cases,contribution_case_versions,contribution_shares
  TO :"app_role";
+-- Phase 03's dependency-ignore operation updates only these three fields.
+-- Column-scoped UPDATE avoids unnecessary permission to rewrite dependency identity.
+GRANT UPDATE (ignored_by,ignored_at,ignore_reason) ON task_dependencies TO :"app_role";
 GRANT DELETE ON platform_roles,task_collaborators,task_dependencies,contribution_shares
  TO :"app_role";
 ```
