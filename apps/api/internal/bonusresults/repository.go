@@ -28,6 +28,10 @@ func (r *Repository) MyResults(ctx context.Context, teamID, userID, sessionID uu
 		JOIN team_members tm ON tm.user_id=s.user_id AND tm.team_id=$1 AND tm.status='active'
 		WHERE s.id=$3 AND s.user_id=$2
 		  AND s.revoked_at IS NULL AND s.expires_at>clock_timestamp()
+		  AND EXISTS(
+			SELECT 1 FROM project_members pm
+			WHERE pm.team_id=$1 AND pm.user_id=$2 AND pm.status='active'
+		  )
 	) AS allowed
 ),
 results AS (
@@ -37,7 +41,9 @@ results AS (
 		br.funding_label,
 		bv.currency_code,
 		bv.currency_minor_unit,
-		totals.total_minor AS amount_minor,
+		totals.total_minor::bigint AS amount_minor,
+		'confirmed'::text AS status,
+		'not_recorded'::text AS payment_status,
 		bc.confirmed_at
 	FROM access a
 	JOIN bonus_rounds br ON a.allowed AND br.team_id=$1

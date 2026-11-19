@@ -11,8 +11,17 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
 )
 
+// Confirmed is the only amount state exposed by this phase. Payment is not
+// executed or recorded by Nexora, so a result can never claim it was paid.
+const (
+	StatusConfirmed          = "confirmed"
+	PaymentStatusNotRecorded = "not_recorded"
+)
+
 // Result contains only the authenticated subject's currently effective,
 // independently confirmed allocation. No other member or pool totals appear.
+// Status and PaymentStatus are deliberately separate: an internally confirmed
+// amount is not evidence of an actual payment.
 type Result struct {
 	RoundID           uuid.UUID `json:"round_id"`
 	ProjectID         uuid.UUID `json:"project_id"`
@@ -20,6 +29,8 @@ type Result struct {
 	CurrencyCode      string    `json:"currency_code"`
 	CurrencyMinorUnit int16     `json:"currency_minor_unit"`
 	AmountMinor       int64     `json:"amount_minor"`
+	Status            string    `json:"status"`
+	PaymentStatus     string    `json:"payment_status"`
 	ConfirmedAt       time.Time `json:"confirmed_at"`
 }
 

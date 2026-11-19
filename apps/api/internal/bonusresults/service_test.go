@@ -2,6 +2,7 @@ package bonusresults
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"testing"
@@ -79,6 +80,30 @@ func TestMineFailsClosedOnMissingSessionOrMembership(t *testing.T) {
 	f.err = errors.New("private database connection error")
 	_, err = svc.Mine(context.Background(), reqctx.Identity{UserID: user, SessionID: uuid.New()}, team)
 	requireCode(t, err, http.StatusInternalServerError)
+}
+
+func TestResultContractSeparatesConfirmationFromPayment(t *testing.T) {
+	raw, err := json.Marshal(Result{
+		RoundID: uuid.New(), ProjectID: uuid.New(), FundingLabel: "School prize",
+		CurrencyCode: "CNY", CurrencyMinorUnit: 2, AmountMinor: 1,
+		Status: StatusConfirmed, PaymentStatus: PaymentStatusNotRecorded, ConfirmedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		t.Fatal(err)
+	}
+	for key, want := range map[string]string{
+		"status":         `"confirmed"`,
+		"payment_status": `"not_recorded"`,
+		"amount_minor":   `1`,
+	} {
+		if string(fields[key]) != want {
+			t.Fatalf("%s = %s, want %s", key, fields[key], want)
+		}
+	}
 }
 
 func TestMineReturnsStableEmptyCollection(t *testing.T) {
