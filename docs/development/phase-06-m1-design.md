@@ -2,7 +2,7 @@
 
 - 日期：2026-11-19
 - 状态：**Proposed / 待产品负责人逐项批准**。本文件是设计评审产物，不是算法、授权、迁移或金额政策批准。
-- 基线：\`develop\` af3802b19749daccafff0589c1d7286782944aab；Phase 05 M6 PR #9 已合并，合并后 CI 44522533362 四项 Success。
+- 基线：`develop` af3802b19749daccafff0589c1d7286782944aab；Phase 05 M6 PR #9 已合并，合并后 CI 44522533362 四项 Success。
 - 对应版本：V2.0 / 工程 Phase 06。
 - 依据：[产品需求](../product/product-requirements.md)、[ADR 0005](../architecture/adr/0005-money-and-progress.md)（**金额 Proposed**）、[ADR 0007](../architecture/adr/0007-contribution-governance.md)（贡献规则 Accepted）、[Phase 05 设计](phase-05-design.md)及 [M6 报告](phase-05-m6-report.md)。
 - 边界：仅管理 **奖金分配计划、建议、人工调整、核定与历史**，**不执行付款、不生成转账指令、不宣称财务结算或税务合规**。当前阶段只产出设计，**不新增表、API 或 Vue 页面**。
@@ -108,7 +108,7 @@ Phase 05 的 10000 bps 是**单个已验收贡献案例内部**的人工份额�
 - **M5**：舍入、权限、并发、幂等、争议与性能加固。
 - **M6**：真实多角色 E2E、恢复与安全验收及发布候选评估。
 
-所有工作走 feature → PR → develop；历史迁移不可改，\`main\` 不因阶段通过而自动发布。Alpha/MVP 运行配置由产品负责人另行管理，不在本设计交付范围。
+所有工作走 feature → PR → develop；历史迁移不可改，`main` 不因阶段通过而自动发布。Alpha/MVP 运行配置由产品负责人另行管理，不在本设计交付范围。
 
 ## 9. 当前交付结论
 
