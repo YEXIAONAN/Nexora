@@ -56,6 +56,36 @@ const router = createRouter({
       meta: { title: '项目工作区', requiresAuth: true },
     },
     {
+      path: '/teams/:teamId/contribution-results',
+      name: 'my-contribution-results',
+      component: () => import('@/views/MyContributionResultsView.vue'),
+      meta: { title: '我的贡献结果', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/projects/:projectId/contributions',
+      name: 'project-contributions',
+      component: () => import('@/views/ProjectContributionsView.vue'),
+      meta: { title: '贡献核算', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/projects/:projectId/contributions/:caseId',
+      name: 'contribution-case',
+      component: () => import('@/views/ContributionCaseView.vue'),
+      meta: { title: '贡献案例', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/projects/:projectId/contribution-appraisal',
+      name: 'contribution-appraisal',
+      component: () => import('@/views/ContributionAppraisalView.vue'),
+      meta: { title: '独立核定工作台', requiresAuth: true },
+    },
+    {
+      path: '/contribution-dispute-requests',
+      name: 'contribution-dispute-intake',
+      component: () => import('@/views/ContributionDisputeIntakeView.vue'),
+      meta: { title: '本人异议请求受理', requiresAuth: true },
+    },
+    {
       path: '/invitations',
       name: 'invitations',
       component: () => import('@/views/InvitationsView.vue'),

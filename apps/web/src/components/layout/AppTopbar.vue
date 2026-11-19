@@ -55,10 +55,19 @@ async function onTeamChange(event: Event): Promise<void> {
   const teamId = (event.target as HTMLSelectElement).value
   teams.selectTeam(teamId)
   if (
-    (route.name === 'projects' || route.name === 'project-detail') &&
+    [
+      'projects',
+      'project-detail',
+      'project-contributions',
+      'contribution-case',
+      'contribution-appraisal',
+    ].includes(String(route.name)) &&
     teamId !== route.params.teamId
   ) {
     await router.push({ name: 'projects', params: { teamId } })
+  }
+  if (route.name === 'my-contribution-results' && teamId !== route.params.teamId) {
+    await router.push({ name: 'my-contribution-results', params: { teamId } })
   }
   if (route.name === 'team-members' && teamId !== route.params.teamId) {
     await router.push({ name: 'team-members', params: { teamId } })
