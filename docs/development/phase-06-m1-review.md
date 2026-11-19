@@ -444,5 +444,12 @@ erDiagram
 
 - 修改文档：`docs/development/phase-06-m1-design.md`（修订）、`docs/development/phase-06-m1-review.md`（新增）、`docs/development/roadmap.md`、`docs/product/product-requirements.md`（仅当前状态）。
 - 未修改：`main`、`develop`、任何历史迁移、任何业务代码、任何运行中的数据库。
-- 提交与 CI：见本轮 push 后的 PR #10 检查结果；提交 SHA 与 run ID 会在推送后补充到 PR 描述/评审回复，不在此文档中伪造。
+- 提交与 CI：本次修订的提交 SHA 与 CI run ID 记录在 §13.1；后续仅追加文档证据，不改业务代码。
 - **最终结论**：M1 独立设计评审**完成**，可以提交产品负责人逐项决策；D1–D10 与 A1–A5 全部保持 **Proposed**。在获得明确批准前，**不得开始 Schema v8、不得开发金额业务 API、不得把任何草案金额视为正式结果**。
+
+### 13.1 评审修订与 CI 证据
+
+- 修订提交：`14032e3`（`docs(phase06): complete M1 independent design review`）
+- Push CI：[44526507074](https://github.com/YEXIAONAN/Nexora/actions/runs/44526507074)，Backend (Go)、Frontend (Vue)、Secret scan、Containers 四项 pass
+- PR CI：[44526516108](https://github.com/YEXIAONAN/Nexora/actions/runs/44526516108)，四项 pass
+- PR HEAD 更新为 `14032e3`；PR #10 仍为 draft，未合并，未自动进入 M2。
