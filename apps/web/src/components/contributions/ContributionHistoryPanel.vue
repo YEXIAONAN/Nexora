@@ -6,17 +6,21 @@ import { formatDateTime } from '@/utils/format'
 defineProps<{ history: ContributionHistory; members: ProjectMember[] }>()
 const eventLabels: Record<string, string> = {
   case_created: '建立案例',
-  draft_updated: '更新草案',
-  share_changed: '调整份额',
-  submitted: '提交待核定',
-  withdrawn: '撤回草案',
-  confirmed: '正式核定',
-  revision_created: '创建修订',
-  dispute_raised: '发起争议',
-  dispute_resolved: '独立裁定',
-  abandoned: '放弃草案',
-  notice_prepared: '准备告知',
-  receipt_acknowledged: '本人确认收到',
+  version_created: '创建工作版本',
+  version_draft: '草案内容或状态变更',
+  version_pending_review: '版本提交待核定',
+  version_confirmed: '版本已确认',
+  version_superseded: '版本已被替代',
+  version_overturned: '版本已被推翻',
+  version_abandoned: '草案已放弃',
+  share_adjusted: '人工调整贡献份额',
+  confirmed: '正式独立核定',
+  disputed: '发起争议',
+  resolution_uphold: '独立裁定：维持原核定',
+  resolution_overturn: '独立裁定：推翻原核定',
+  contribution_notifications: '准备结果告知（不代表送达）',
+  contribution_attestations: '记录核验凭据',
+  contribution_conflicts: '登记直接利益冲突',
 }
 </script>
 <template>
@@ -58,7 +62,9 @@ const eventLabels: Record<string, string> = {
             {{ eventLabels[event.event_type] || event.event_type }} ·
             {{ formatDateTime(event.created_at) }} · {{ event.actor_id }}
           </p>
-          <p class="mt-1 whitespace-pre-wrap">{{ event.reason }}</p>
+          <p class="mt-1 whitespace-pre-wrap">
+            {{ event.reason === 'contribution evidence recorded' ? '记录贡献证据' : event.reason }}
+          </p>
           <p class="mt-1 break-all">
             版本 {{ event.case_version_id || '案例级事件' }} · 请求 {{ event.request_id }}
           </p>

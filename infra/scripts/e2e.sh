@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Disposable browser E2E stack for the Phase 02/03/04 real API frontend workflows.
+# Disposable browser E2E stack for the Phase 02–05 real API frontend workflows.
+# Optional arguments are forwarded to Playwright for focused development runs;
+# no arguments runs the complete regression suite.
 #
 # Safety boundary: this script only ever talks to the disposable devtest
 # PostgreSQL container (nexora-devtest-pg, loopback 127.0.0.1:5433) and only
@@ -108,6 +110,6 @@ curl -fsS "http://127.0.0.1:$WEB_PORT/" >/dev/null 2>&1 ||
 echo "e2e: running Playwright against the real stack"
 (
   cd apps/web
-  E2E_BASE_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test
+  E2E_BASE_URL="http://127.0.0.1:$WEB_PORT" pnpm exec playwright test "$@"
 )
 echo "e2e: passed"

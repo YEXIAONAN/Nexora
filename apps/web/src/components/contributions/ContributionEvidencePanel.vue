@@ -35,6 +35,12 @@ function safeURL(value: string) {
           · {{ ref.kind }}
         </li>
       </ul>
+      <p
+        v-if="evidence.attachments.length"
+        class="rounded-lg bg-surface-muted p-3 text-xs leading-5 text-ink-muted"
+      >
+        附件下载沿用原任务读取权限；核定授权不会自动增加附件权限。若无法读取，请先由负责人通过现有审核人授权明确提供读取权限，核对证据后再核定。
+      </p>
       <ul class="space-y-2">
         <li v-for="file in evidence.attachments" :key="file.id">
           <a
@@ -47,6 +53,8 @@ function safeURL(value: string) {
                 file.id,
               )
             "
+            target="_blank"
+            rel="noopener noreferrer"
             class="text-accent-strong"
             >下载 {{ file.file_name }}</a
           >

@@ -60,9 +60,17 @@ watch(
   },
   { flush: 'sync' },
 )
+function inspect() {
+  if (props.busy || loading.value) return
+  const requested = input.value.trim()
+  if (!requested) return
+  acknowledged.value = false
+  if (lookup.value === requested) void resource.reload()
+  else lookup.value = requested
+}
 function submit() {
   const evidence = data.value
-  if (props.busy || !matches.value || !acknowledged.value || !evidence) return
+  if (props.busy || loading.value || !matches.value || !acknowledged.value || !evidence) return
   emit('submit', {
     expected_version: props.detail.case.revision,
     client_request_id: crypto.randomUUID(),
@@ -81,7 +89,7 @@ function submit() {
       <p class="text-xs leading-5 text-ink-muted">
         仅能引用已存在、经服务端核验且绑定此有效核定的本人声明。受理回执本身不代表核验通过；代提不等于结果送达，也不会开放离队者项目数据。
       </p>
-      <form class="flex flex-wrap items-end gap-2" @submit.prevent="lookup = input.trim()">
+      <form class="flex flex-wrap items-end gap-2" @submit.prevent="inspect">
         <label class="form-label grow"
           >本人请求标识<input v-model="input" required class="form-input" /></label
         ><button type="submit" class="btn" :disabled="busy || loading || !input.trim()">
