@@ -82,7 +82,7 @@ def contribution_command(case, reason):
 
 def seed(args):
     root = Api(args.base_url)
-    login(root, "root", args.password)
+    root_identity = login(root, "root", args.password)
     team = root.json(
         "POST",
         "/api/v1/teams",
@@ -93,7 +93,6 @@ def seed(args):
         ("m6_worker", "M6 成果作者"),
         ("m6_reviewer", "M6 独立验收人"),
         ("m6_appraiser", "M6 独立核定人"),
-        ("m6_outsider", "M6 其他团队成员"),
     ]:
         user = root.json(
             "POST",
@@ -110,8 +109,20 @@ def seed(args):
         client.json("POST", f"/api/v1/invitations/{invitation['id']}/accept")
         people[username] = {"id": user["id"], "api": client}
 
-    # A second Team proves that the restored attachment is still denied to a
-    # valid session outside the owning Team.
+    # m6_outsider is deliberately NOT a member of the owning Team. The account
+    # only joins a second Team, so the restored 404s prove real cross-Team
+    # isolation instead of the weaker "Team member but not project member" case.
+    outsider_user = root.json(
+        "POST",
+        "/api/v1/admin/users",
+        {
+            "username": "m6_outsider",
+            "display_name": "M6 其他团队成员",
+            "password": args.password,
+        },
+    )
+    outsider_api = Api(args.base_url)
+    login(outsider_api, "m6_outsider", args.password)
     other_team = root.json(
         "POST",
         "/api/v1/teams",
@@ -122,14 +133,29 @@ def seed(args):
         f"/api/v1/teams/{other_team['id']}/invitations",
         {"username": "m6_outsider", "role": "member"},
     )
-    people["m6_outsider"]["api"].json(
-        "POST", f"/api/v1/invitations/{outsider_invitation['id']}/accept"
-    )
+    outsider_api.json("POST", f"/api/v1/invitations/{outsider_invitation['id']}/accept")
+    people["m6_outsider"] = {"id": outsider_user["id"], "api": outsider_api}
+
+    owning_members = {
+        member["user_id"]
+        for member in root.json("GET", f"/api/v1/teams/{team['id']}/members")
+    }
+    other_members = {
+        member["user_id"]
+        for member in root.json("GET", f"/api/v1/teams/{other_team['id']}/members")
+    }
+    if outsider_user["id"] in owning_members:
+        raise RuntimeError("m6_outsider unexpectedly belongs to the owning Team")
+    if outsider_user["id"] not in other_members:
+        raise RuntimeError("m6_outsider did not join the second Team")
+    for username in ("m6_worker", "m6_reviewer", "m6_appraiser"):
+        if people[username]["id"] not in owning_members:
+            raise RuntimeError(f"{username} is missing from the owning Team")
 
     project = root.json(
         "POST",
         f"/api/v1/teams/{team['id']}/projects",
-        {"name": "M6 联合恢复项目", "lead_id": login(root, "root", args.password)["id"]},
+        {"name": "M6 联合恢复项目", "lead_id": root_identity["id"]},
     )
     for username in ("m6_worker", "m6_reviewer", "m6_appraiser"):
         root.json(
@@ -302,7 +328,21 @@ def seed(args):
     if status != 200 or downloaded != content:
         raise RuntimeError(f"seed attachment download failed: {status}")
     if people["m6_outsider"]["api"].request("GET", attachment_path)[0] != 404:
-        raise RuntimeError("cross-team attachment was not denied")
+        raise RuntimeError("source cross-team attachment was not denied")
+    if (
+        people["m6_outsider"]["api"].request(
+            "GET", case_path(team["id"], project["id"], case["id"])
+        )[0]
+        != 404
+    ):
+        raise RuntimeError("source cross-team case was not denied")
+    if (
+        people["m6_outsider"]["api"].request(
+            "GET", f"{project_path(team['id'], project['id'])}/contribution-results/mine"
+        )[0]
+        != 404
+    ):
+        raise RuntimeError("source cross-team results were not denied")
     state = {
         "team_id": team["id"],
         "other_team_id": other_team["id"],
@@ -322,6 +362,7 @@ def seed(args):
         "worker": "m6_worker",
         "worker_id": people["m6_worker"]["id"],
         "outsider": "m6_outsider",
+        "outsider_id": people["m6_outsider"]["id"],
     }
     with open(args.state_file, "w", encoding="utf-8") as handle:
         json.dump(state, handle, indent=2, sort_keys=True)
@@ -354,6 +395,28 @@ def verify(args):
         raise RuntimeError("restored history lost notice receipt evidence")
     outsider = Api(args.base_url)
     login(outsider, state["outsider"], args.password)
+    # Membership is re-read from the restored database, not inferred from the
+    # earlier 404s: the outsider must belong only to the second Team.
+    root = Api(args.base_url)
+    login(root, "root", args.password)
+    owning_members = {
+        member["user_id"]
+        for member in root.json("GET", f"/api/v1/teams/{state['team_id']}/members")
+    }
+    other_members = {
+        member["user_id"]
+        for member in root.json("GET", f"/api/v1/teams/{state['other_team_id']}/members")
+    }
+    if state["outsider_id"] in owning_members:
+        raise RuntimeError("restored outsider belongs to the owning Team")
+    if state["outsider_id"] not in other_members:
+        raise RuntimeError("restored outsider lost the second-Team membership")
+    if state["worker_id"] not in owning_members:
+        raise RuntimeError("restored worker lost the owning Team membership")
+    if outsider.request("GET", f"/api/v1/teams/{state['other_team_id']}/members")[0] != 200:
+        raise RuntimeError("restored outsider cannot read its own Team members")
+    if outsider.request("GET", f"/api/v1/teams/{state['team_id']}/members")[0] != 404:
+        raise RuntimeError("restored outsider can read the owning Team members")
     if outsider.request("GET", state["attachment_path"])[0] != 404:
         raise RuntimeError("restored cross-team attachment was not denied")
     if outsider.request("GET", case_path(state["team_id"], state["project_id"], state["case_id"]))[0] != 404:

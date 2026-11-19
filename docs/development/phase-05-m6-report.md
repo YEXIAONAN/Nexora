@@ -11,7 +11,7 @@
 | 生产部署实际验收 | **Not Tested**：本轮只在隔离开发环境执行 |
 | main 正式发布 | **未发生**：未修改 main、未自动合并、未发布 |
 
-未发现需要修改生产代码的 P0/P1 缺陷。M6 新增的是综合验收测试、联合恢复演练脚本和文档；生产 Go/Vue/OpenAPI 代码与 v7 迁移未改动。
+未发现需要修改生产代码的 P0/P1 缺陷。M6 新增的是综合验收测试、联合恢复演练脚本和文档；生产 Go/Vue/OpenAPI 代码与 v7 迁移未改动。PR #9 评审提出的三项整改（恢复脚本安全门禁、跨平台附件校验、真实跨 Team 夹具）已按下文 §12 修复并重新验证。
 
 ## 2. 完整业务闭环 E2E
 
@@ -39,7 +39,7 @@
 
 | 场景 | 结果 | 自动化证据 |
 | --- | --- | --- |
-| 跨 Team/Project IDOR | PASS | `TestHTTPContributionRejectedReviewAndCrossTeamIDOR`、`TestURLTeamIDTamperingIsNotFound`、M6 恢复后 outsider 404 |
+| 跨 Team/Project IDOR | PASS | `TestHTTPContributionRejectedReviewAndCrossTeamIDOR`、`TestURLTeamIDTamperingIsNotFound`；M6 `m6_outsider` 只加入第二个 Team，源/恢复环境 attachment/case/results 均 404 |
 | 无效/撤销/过期 Session | PASS | `TestHTTPContributionSessionFailures`、`TestProtectedEndpointRequiresSession` |
 | CSRF 缺失 | PASS | `TestTeamRoutesRequireSessionAndCSRF`、`TestLoginRequiresCSRFHeader` |
 | 自我核定、受益人/提案人/来源审核人回避 | PASS | `TestContributionBeneficiaryProposerAndDeclaredConflict`、`TestServiceContributionIndependentProposerAndConflicts` |
@@ -78,17 +78,19 @@ M5 业务键保持：`team + project + task + case + case_version + confirmation
 
 演练脚本：[infra/scripts/m6-split-restore.sh](file:///Users/waiting/Desktop/Project/Nexora/infra/scripts/m6-split-restore.sh)；真实 HTTP 夹具：[m6_flow.py](file:///Users/waiting/Desktop/Project/Nexora/infra/scripts/m6_flow.py)。仅使用一次性 `nexora-devtest-pg`（loopback 5433）和 `nexora_m6_*` 数据库。
 
-环境：macOS 主机，Docker 24.0.6，PostgreSQL 17.11（`postgres:17-alpine`），源/恢复 API 分别监听 18081/18082，私有附件目录在 `.cache/m6-split/<stamp>/`。
+环境：macOS 主机，Docker 24.0.6，PostgreSQL 17.11（`postgres:17-alpine`），源/恢复 API 分别监听 18081/18082，私有附件目录在 `.cache/m6-split/<stamp>/`。脚本已移除 macOS 专属 `stat -f`/`shasum` 调用，附件大小、SHA-256 与 0700/0600 权限统一由 Python 3 读取；本轮在 macOS 实测，Linux 实际执行未测试（**Not Tested**），无平台专属命令残留。
 
-演练数据与结果：
+演练数据与结果（最终整改后重跑，`20261119T115115Z`）：
 
-- 真实 HTTP 创建 5 用户、2 Team、1 项目、1 任务、1 成果版本、1 审核、1 附件（108 字节）、1 贡献案例/版本/确认/告知/收件、59 条审计事件、6 个会话。
-- 暂停 source API 后 `pg_dump`（269,844 字节，SHA-256 `394b4c81…c261`），复制匹配附件目录；清单 1 个文件、108 字节、SHA-256 `0d7dc95c…a125`。
+- 真实 HTTP 创建 5 用户、2 Team、1 项目、1 任务、1 成果版本、1 审核、1 附件（108 字节）、1 贡献案例/版本/确认/告知/收件、57 条审计事件、5 个会话；`team_members=6`（test Team 4 + 第二 Team 2）。
+- `m6_outsider` 只接受第二个 Team 的邀请，明确不在被测资源所属 Team；源环境与恢复环境均通过真实成员列表核对，并验证附件、案例、本人结果 404，第二 Team 成员列表 200、被测 Team 成员列表 404。
+- 暂停 source API 后 `pg_dump`（269,610 字节，SHA-256 `25774dbe…a9e8`），复制匹配附件目录；清单 1 个文件、108 字节、SHA-256 `0d7dc95c…a125`。
 - 恢复到 `nexora_m6_restore` 和第二个附件目录；schema v7、16 张业务表行数逐表一致。
 - 每个 bound 附件的 `storage_key`、大小、SHA-256 与数据库一致；目录 0700、文件 0600。
 - 恢复 API 用真实 worker 会话读取本人结果、确认收件、下载附件成功；其他 Team 用户 case/results/attachment 404；匿名附件 401。
 - 删除附件后下载 503；写入同大小错误字节后下载 503；恢复原文件后 200。
-- 联合恢复总耗时（恢复 + 全量校验 + 200 请求负载 + 缺失/损坏检查）**13.5 秒**。
+- 联合恢复总耗时（恢复 + 全量校验 + 200 请求负载 + 缺失/损坏检查）**11.92 秒**。
+- 破坏性操作安全门禁：错误容器标签、错误端口、停止容器、缺失凭据四种场景先于任何数据库操作退出，回归测试证明 `DROP DATABASE` 调用次数为 0（见 §12）。
 
 该结果证明当前单文件规模下的恢复流程；未验证大附件量/大数据库/生产存储，不把它冒充生产 RTO。
 
@@ -98,29 +100,30 @@ M5 业务键保持：`team + project + task + case + case_version + confirmation
 
 | 指标 | 结果 |
 | --- | --- |
-| P50 / P95 / max | **132.24 ms / 193.62 ms / 229.35 ms** |
+| P50 / P95 / max | **98.55 ms / 123.15 ms / 132.54 ms**（mean 101.72 ms） |
 | 状态 | 200/200 成功，无 401/409/500 |
 | 连接池配置 | 默认 `NEXORA_DB_MAX_CONNS=10`、min=0、max lifetime=1h（配置源码核对，未做饱和压测） |
 | 我的贡献结果请求数 | 1 项目/1 案例 = 6 个前端请求（listProjects、mine、members、detail、evidence、versions 各 1）；多案例按唯一 case 复用，M6 单测断言调用次数 |
-| 代表性查询计划 | 单行夹具下 `contribution_notifications` 与 `submission_attachments` 均 Seq Scan（0.17 ms / 0.05 ms），符合小表规划；索引存在但大规模计划未测试 |
+| 代表性查询计划 | 单行夹具下 `contribution_notifications` 与 `submission_attachments` 均 Seq Scan（0.283 ms / 0.085 ms），符合小表规划；索引存在但大规模计划未测试 |
 | 高并发核定/告知锁等待 | PASS：`TestServiceConcurrentNoticeIntentIsSingle` 等真实 PG 锁等待测试；无 40P01 死锁、无超时 |
 | 日志泄露 | PASS：安全测试覆盖数据库错误详情、Session、Cookie 不收据化输出 |
 | 大量项目分页/批量性能 | **Not Tested** |
 | 生产规模 P50/P95、RTO/RPO | **Not Tested** |
 
-P50 132 ms 是当前本机/夹具观测值，不代表生产 SLO；本轮不据此声明性能达标。
+P50 约 99 ms 是当前本机/夹具观测值，不代表生产 SLO；本轮不据此声明性能达标。
 
 ## 7. 测试清单
 
 | 检查 | 结果 |
 | --- | --- |
-| `make verify` | PASS（Vitest 25 文件/209 项、lint、format、typecheck、build、OpenAPI、secret scan） |
-| Go 全量 `-race -count=1 -tags=integration ./...` | PASS（PG17.11；contributions 232.902s、database 183.002s、httpapi 139.480s） |
+| `make verify` | PASS（Vitest 25 文件/209 项、lint、format、typecheck、build、OpenAPI、secret scan、恢复脚本安全回归 4 项） |
+| Go 全量 `-race -count=1 -tags=integration ./...` | PASS（PG17.11；contributions 146.377s、database 110.517s、httpapi 79.298s） |
 | Vitest 全量 | PASS 209/209（M5 基线 209，未删减） |
 | Playwright 全量真实栈 | PASS 31/31（M5 基线 31，未删减） |
 | Secret scan | PASS（含扫描器 8 项自测） |
+| 恢复脚本安全回归 | PASS 4/4（错误标签、错误端口、停止容器、缺失凭据，`DROP DATABASE` 均为 0） |
 | 容器构建 | 由 PR CI Containers job 执行；本地未重复构建 |
-| 数据库 + 附件联合恢复 | PASS（13.5s，见 §5） |
+| 数据库 + 附件联合恢复 | PASS（11.92s，见 §5） |
 | 并发/权限专项 | PASS（见 §3–§6） |
 | Push CI [44510358000](https://github.com/YEXIAONAN/Nexora/actions/runs/44510358000) | PASS，head `97b6d17` |
 | PR CI [44510388076](https://github.com/YEXIAONAN/Nexora/actions/runs/44510388076) | PASS，head `97b6d17` |
@@ -134,6 +137,13 @@ M6 综合验收未发现需要修改生产代码的阻断缺陷。新增：
 - 真实数据库/附件联合恢复脚本与 HTTP 夹具。
 - 文档状态、权限矩阵、发布清单、部署/恢复说明更新。
 
+PR #9 评审整改（详见 §12）：
+
+- `m6-split-restore.sh` 的退出清理改为安全校验通过后才注册，并只在确实创建隔离库后删除。
+- 新增 4 项无破坏性回归测试，证明四类非法环境均不产生任何数据库删除。
+- 移除 macOS 专属 `stat -f`/`shasum`，统一使用 Python 3 校验附件大小、SHA-256 与 0700/0600。
+- `m6_outsider` 改为只加入第二个 Team，并在源/恢复环境核对真实成员关系与三类 404。
+
 提交 SHA 见最终交付回复与 PR 提交列表；不修改历史 M1–M5 验收报告。
 
 ## 9. 遗留风险与技术债
@@ -145,7 +155,8 @@ M6 综合验收未发现需要修改生产代码的阻断缺陷。新增：
 5. **生产部署与恢复**：只在一次性隔离环境验证，未做生产存储、备份介质、HTTPS、RTO/RPO 验收。
 6. **附件恢复规模**：1 个 108 字节文件，未验证大文件、多文件、跨对象存储场景。
 7. **性能客户端**：Python urllib 非生产压测工具；P50/P95 仅供本机参考。
-8. **PR 未合并**：M6 仍待评审，V1.1 不能声明发布。
+8. **Linux 恢复演练**：脚本已无平台专属命令，但本轮只在 macOS 实际执行，Linux 端到端恢复为 **Not Tested**。
+9. **PR 未合并**：M6 仍待评审，V1.1 不能声明发布。
 
 ## 10. 发布就绪评估
 
@@ -157,3 +168,32 @@ M6 综合验收未发现需要修改生产代码的阻断缺陷。新增：
 ## 11. 评审 PR
 
 [PR #9](https://github.com/YEXIAONAN/Nexora/pull/9)，目标 `develop`，状态 Open、等待正式评审。不自动合并，不修改 main，不发布 V1.0/V1.1，不进入后续阶段。
+
+## 12. PR #9 评审整改（最终验收）
+
+### 12.1 P1 恢复脚本安全门禁
+
+事实：旧脚本在任何校验之前注册 `trap cleanup EXIT`，而 `cleanup` 无条件执行两次 `DROP DATABASE`。因此错误标签、错误端口、停止容器或缺失凭据时仍会向 `nexora-devtest-pg` 发出删除命令。
+
+修复：
+
+- 四项校验（容器标签、运行状态、loopback 端口、凭据文件）全部通过后才注册退出 trap。
+- 新增 `DB_TOUCHED` 标志，只有脚本真正创建隔离库后才允许清理删除。
+- 新增 [test_m6_split_restore_safety.py](file:///Users/waiting/Desktop/Project/Nexora/infra/scripts/test_m6_split_restore_safety.py)，用假 `docker` 记录调用并在临时目录复制真实脚本；断言失败场景退出非 0、未进入构建、没有任何 `docker exec` 与 `DROP DATABASE`。该测试接入 `make verify`（`script-safety-test`）。
+
+失败先行证据：修复前运行 4 项测试全部 FAIL，日志明确出现两次 `DROP DATABASE IF EXISTS nexora_m6_source/restore`；修复后 4/4 PASS，`DROP DATABASE` 计数为 0。测试不连接真实开发数据库，也不使用真实 Docker 守护进程。
+
+### 12.2 P2 跨平台兼容
+
+移除 `stat -f '%z'`、`stat -f '%Lp'` 与 `shasum -a 256`，新增 Python 3 帮助函数读取文件大小、SHA-256（流式）与权限位（04o）；附件总量用 `os.walk` 统计。恢复演练在 macOS 重新全量通过；Linux 实际执行未测试（**Not Tested**），代码路径已无平台专属命令。
+
+### 12.3 P2 真实跨 Team 测试
+
+此前 `m6_outsider` 同时加入了被测 Team，404 实际验证的是“Team 成员但非项目成员”。现改为：
+
+- `m6_worker`、`m6_reviewer`、`m6_appraiser` 加入被测 Team。
+- `m6_outsider` 只接受第二个 Team 的邀请，绝不加入被测 Team。
+- 源环境与恢复环境都通过 `GET /teams/{id}/members` 核对真实成员关系：outsider 不在被测 Team、在第二 Team；worker 在被测 Team。
+- 源环境与恢复环境均验证 attachment、case、`contribution-results/mine` 返回 404；恢复后额外验证 outsider 可读第二 Team 成员列表（200）、读被测 Team 成员列表 404。
+
+最终重跑结果：联合恢复 PASS（11.92s，schema v7，16 张业务表行数一致，附件 108 字节 SHA-256 `0d7dc95c…a125`），`make verify` PASS，Go 全量 `-race` PASS，Vitest 209/209 PASS，Playwright 31/31 PASS，恢复脚本安全回归 4/4 PASS。

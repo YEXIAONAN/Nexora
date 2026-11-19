@@ -29,6 +29,7 @@ PW_FILE="$ROOT_DIR/.cache/devtest-pg-password"
 ROOT_PASSWORD="$(openssl rand -hex 16)"
 SRC_PID=""
 RESTORE_PID=""
+DB_TOUCHED=0
 
 die() { echo "m6-split: $*" >&2; exit 1; }
 psql_db() { docker exec "$CONTAINER" psql -U "$DB_USER" -d "$1" -v ON_ERROR_STOP=1 -tAc "$2"; }
@@ -42,14 +43,39 @@ wait_ready() {
   done
   return 1
 }
+file_size() {
+  python3 - "$1" <<'PY'
+import os, sys
+print(os.path.getsize(sys.argv[1]))
+PY
+}
+file_mode() {
+  python3 - "$1" <<'PY'
+import os, sys
+print(format(os.stat(sys.argv[1]).st_mode & 0o777, "04o"))
+PY
+}
+file_sha256() {
+  python3 - "$1" <<'PY'
+import hashlib, sys
+digest = hashlib.sha256()
+with open(sys.argv[1], "rb") as handle:
+    for chunk in iter(lambda: handle.read(1 << 20), b""):
+        digest.update(chunk)
+print(digest.hexdigest())
+PY
+}
 cleanup() {
   [ -n "$SRC_PID" ] && kill "$SRC_PID" 2>/dev/null || true
   [ -n "$RESTORE_PID" ] && kill "$RESTORE_PID" 2>/dev/null || true
   wait 2>/dev/null || true
-  drop_db "$SRC_DB" >/dev/null 2>&1 || true
-  drop_db "$RESTORE_DB" >/dev/null 2>&1 || true
+  # Never touch PostgreSQL until the disposable container, loopback port and
+  # credentials have all been validated (and this script created the databases).
+  if [ "$DB_TOUCHED" = 1 ]; then
+    drop_db "$SRC_DB" >/dev/null 2>&1 || true
+    drop_db "$RESTORE_DB" >/dev/null 2>&1 || true
+  fi
 }
-trap cleanup EXIT
 
 [ "$(docker inspect -f '{{index .Config.Labels "nexora.purpose"}}' "$CONTAINER" 2>/dev/null)" = "$LABEL" ] ||
   die "refusing a container without the disposable label"
@@ -59,6 +85,8 @@ docker port "$CONTAINER" 5432/tcp 2>/dev/null | grep -qx "127.0.0.1:$PG_PORT" ||
   die "$CONTAINER is not bound to 127.0.0.1:$PG_PORT"
 [ -f "$PW_FILE" ] || die "missing $PW_FILE"
 PGPASSWORD="$(cat "$PW_FILE")"
+# The exit trap is registered only after every destructive-target check passed.
+trap cleanup EXIT
 mkdir -p "$WORK" "$SRC_ATTACH" "$RESTORE_ATTACH" "$BACKUP_DIR" "$BIN_DIR"
 chmod 700 "$WORK" "$SRC_ATTACH" "$RESTORE_ATTACH" "$BACKUP_DIR"
 
@@ -66,6 +94,7 @@ echo "m6-split: building API binaries"
 (cd apps/api && go build -o "$BIN_DIR/nexora-migrate" ./cmd/migrate && go build -o "$BIN_DIR/nexora-bootstrap" ./cmd/bootstrap && go build -o "$BIN_DIR/nexora-api" ./cmd/server)
 
 echo "m6-split: recreating isolated databases"
+DB_TOUCHED=1
 drop_db "$SRC_DB"
 drop_db "$RESTORE_DB"
 create_db "$SRC_DB"
@@ -105,9 +134,17 @@ for path in sorted(p for p in root.rglob('*') if p.is_file()):
     digest = hashlib.sha256(path.read_bytes()).hexdigest()
     print(f"{digest}  {path.relative_to(root)}")
 PY
-DB_SHA="$(shasum -a 256 "$BACKUP_DIR/db.dump" | awk '{print $1}')"
+DB_SHA="$(file_sha256 "$BACKUP_DIR/db.dump")"
 FILE_COUNT="$(wc -l <"$BACKUP_DIR/attachments.sha256" | tr -d ' ')"
-TOTAL_BYTES="$(find "$BACKUP_DIR/attachments" -type f -exec stat -f '%z' {} + | awk '{s+=$1} END {print s+0}')"
+TOTAL_BYTES="$(python3 - "$BACKUP_DIR/attachments" <<'PY'
+import os, sys
+total = 0
+for root, _dirs, files in os.walk(sys.argv[1]):
+    for name in files:
+        total += os.path.getsize(os.path.join(root, name))
+print(total)
+PY
+)"
 
 echo "m6-split: restoring into $RESTORE_DB and a second attachment directory"
 RESTORE_START="$(python3 -c 'import time; print(time.time())')"
@@ -139,10 +176,10 @@ case "$ATTACH_KEY" in
   *) die "restored storage_key is not a scoped blob key: $ATTACH_KEY" ;;
 esac
 [ -f "$RESTORE_ATTACH/$ATTACH_KEY" ] || die "restored attachment file is missing: $ATTACH_KEY"
-[ "$(stat -f '%z' "$RESTORE_ATTACH/$ATTACH_KEY")" = "$ATTACH_SIZE" ] || die "restored attachment size differs"
-[ "$(shasum -a 256 "$RESTORE_ATTACH/$ATTACH_KEY" | awk '{print $1}')" = "$ATTACH_SHA" ] || die "restored attachment hash differs"
-[ "$(stat -f '%Lp' "$RESTORE_ATTACH")" = "700" ] || die "restored attachment directory permissions are not 0700"
-[ "$(stat -f '%Lp' "$RESTORE_ATTACH/$ATTACH_KEY")" = "600" ] || die "restored attachment file permissions are not 0600"
+[ "$(file_size "$RESTORE_ATTACH/$ATTACH_KEY")" = "$ATTACH_SIZE" ] || die "restored attachment size differs"
+[ "$(file_sha256 "$RESTORE_ATTACH/$ATTACH_KEY")" = "$ATTACH_SHA" ] || die "restored attachment hash differs"
+[ "$(file_mode "$RESTORE_ATTACH")" = "0700" ] || die "restored attachment directory permissions are not 0700"
+[ "$(file_mode "$RESTORE_ATTACH/$ATTACH_KEY")" = "0600" ] || die "restored attachment file permissions are not 0600"
 
 # Every bound row must have a byte-identical file; no silent metadata-only success.
 psql_db "$RESTORE_DB" "SELECT storage_key||'|'||byte_size||'|'||sha256 FROM submission_attachments WHERE status='bound' AND removed_at IS NULL ORDER BY storage_key" >"$WORK/bound-files.txt"
