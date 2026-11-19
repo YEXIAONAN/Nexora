@@ -2,6 +2,7 @@
 import type { ContributionHistory } from '@/api/contributions'
 import type { ProjectMember } from '@/api/projects'
 import ContributionVersionPanel from './ContributionVersionPanel.vue'
+import { memberDisplayName } from './contributionPresentation'
 import { formatDateTime } from '@/utils/format'
 defineProps<{ history: ContributionHistory; members: ProjectMember[] }>()
 const eventLabels: Record<string, string> = {
@@ -60,7 +61,8 @@ const eventLabels: Record<string, string> = {
         >
           <p>
             {{ eventLabels[event.event_type] || event.event_type }} ·
-            {{ formatDateTime(event.created_at) }} · {{ event.actor_id }}
+            {{ formatDateTime(event.created_at) }} ·
+            {{ memberDisplayName(members, event.actor_id) }}
           </p>
           <p class="mt-1 whitespace-pre-wrap">
             {{ event.reason === 'contribution evidence recorded' ? '记录贡献证据' : event.reason }}

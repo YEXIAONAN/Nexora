@@ -3,7 +3,6 @@ import type {
   ContributionCase,
   ContributionConfirmation,
   ContributionNotice,
-  ContributionShare,
   ContributionVersion,
 } from '@/api/contributions'
 
@@ -21,16 +20,29 @@ export function formatBasisPoints(value: number): string {
   return `${Math.trunc(value / 100)}.${String(Math.abs(value % 100)).padStart(2, '0')}%`
 }
 
-export function totalBasisPoints(shares: ReadonlyArray<Pick<ContributionShare, 'share_bps'>>) {
-  return shares.reduce((total, share) => total + share.share_bps, 0)
+export const contributionCaseStatuses = [
+  'draft',
+  'pending_review',
+  'confirmed',
+  'disputed',
+  'revising',
+  'abandoned',
+] as const satisfies ReadonlyArray<ContributionCase['case_workflow_status']>
+
+interface MemberIdentity {
+  user_id: string
+  display_name?: string | null
+  username?: string | null
 }
 
-export function canSubmitShares(shares: ReadonlyArray<Pick<ContributionShare, 'share_bps'>>) {
-  return (
-    shares.length > 0 &&
-    shares.every((share) => Number.isSafeInteger(share.share_bps) && share.share_bps > 0) &&
-    totalBasisPoints(shares) === 10000
-  )
+/** Prefer a real project name; never present a raw UUID without context. */
+export function memberDisplayName(
+  members: ReadonlyArray<MemberIdentity> | undefined,
+  id: string | null | undefined,
+): string {
+  if (!id) return '—'
+  const member = members?.find((item) => item.user_id === id)
+  return member?.display_name || member?.username || `成员 ${id.slice(0, 8)}…`
 }
 
 const caseStatuses: Record<ContributionCase['case_workflow_status'], string> = {

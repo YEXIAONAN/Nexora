@@ -27,6 +27,40 @@ const evidence: ContributionEvidence = {
   ],
 }
 describe('contribution evidence attachment access', () => {
+  it('only activates HTTPS evidence links outside local development', () => {
+    const w = mount(ContributionEvidencePanel, {
+      props: {
+        team: 'team1',
+        project: 'project1',
+        evidence: {
+          ...evidence,
+          evidence_references: [
+            { kind: 'link', label: '安全 HTTPS', url: 'https://example.com/proof' },
+            { kind: 'link', label: '外部 HTTP', url: 'http://example.com/proof' },
+            { kind: 'link', label: '本地 HTTP', url: 'http://localhost:8080/proof' },
+            {
+              kind: 'link',
+              label: '带凭据',
+              url: 'https://user:secret@example.com/proof',
+            },
+            { kind: 'link', label: '脚本协议', url: 'javascript:alert(1)' },
+          ],
+        },
+      },
+    })
+    const link = (label: string) =>
+      w
+        .findAll('a')
+        .find((item) => item.text().startsWith(label))!
+        .attributes('href')
+    expect(link('安全 HTTPS')).toBe('https://example.com/proof')
+    expect(link('外部 HTTP')).toBeUndefined()
+    expect(link('本地 HTTP')).toBe('http://localhost:8080/proof')
+    expect(link('带凭据')).toBeUndefined()
+    expect(link('脚本协议')).toBeUndefined()
+    w.unmount()
+  })
+
   it('explains original-task authorization and preserves the workspace if download is denied', () => {
     const w = mount(ContributionEvidencePanel, {
       props: { team: 'team1', project: 'project1', evidence },

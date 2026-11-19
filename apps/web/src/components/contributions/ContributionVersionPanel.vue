@@ -2,7 +2,7 @@
 import type { ContributionVersion } from '@/api/contributions'
 import type { ProjectMember } from '@/api/projects'
 import { formatDateTime } from '@/utils/format'
-import { formatBasisPoints as percent } from './contributionPresentation'
+import { formatBasisPoints as percent, memberDisplayName } from './contributionPresentation'
 const props = defineProps<{
   version: ContributionVersion
   members?: ProjectMember[]
@@ -16,10 +16,7 @@ const statusLabels: Record<ContributionVersion['status'], string> = {
   overturned: '已被裁定推翻',
   abandoned: '已放弃的草案',
 }
-const name = (id: string) =>
-  props.members?.find((m) => m.user_id === id)?.display_name ||
-  props.members?.find((m) => m.user_id === id)?.username ||
-  id
+const name = (id: string) => memberDisplayName(props.members, id)
 </script>
 <template>
   <article class="space-y-3 rounded-lg border border-line p-4">

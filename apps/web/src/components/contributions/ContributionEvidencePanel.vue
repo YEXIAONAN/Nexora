@@ -6,9 +6,11 @@ defineProps<{ evidence: ContributionEvidence; team: string; project: string }>()
 function safeURL(value: string) {
   try {
     const u = new URL(value)
-    return ['https:', 'http:'].includes(u.protocol) && !u.username && !u.password
-      ? value
-      : undefined
+    // Secure transport is required outside local development; credentials in
+    // URLs and non-HTTP schemes are never rendered as active links.
+    const loopback = ['localhost', '127.0.0.1', '::1', '[::1]'].includes(u.hostname)
+    const allowed = u.protocol === 'https:' || (u.protocol === 'http:' && loopback)
+    return allowed && !u.username && !u.password ? value : undefined
   } catch {
     return undefined
   }
