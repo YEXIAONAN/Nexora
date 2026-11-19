@@ -84,7 +84,11 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 		p05Must(t, goose.SetDialect("postgres"))
 		p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 6))
 	} else {
-		p05Must(t, database.Up(f.ctx, f.db.SQL, f.log))
+		// Keep Phase05-specific integration fixtures pinned at v7.
+		// M2 and later migrations have independent regression tests.
+		goose.SetBaseFS(p05MigrationFS)
+		p05Must(t, goose.SetDialect("postgres"))
+		p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 7))
 	}
 	ar := audit.NewRepository(f.db.Pool)
 	f.as = auth.NewService(auth.NewRepository(f.db.Pool), ar, auth.NewLoginLimiter(1000, time.Minute), time.Hour, f.log)
@@ -568,7 +572,10 @@ func TestContributionUpgradePreservesPhase04AndArchivedHistory(t *testing.T) {
 	f := newContributionFixture(t, true)
 	p05Must(t, f.archive())
 	before := f.snapshot(p05LegacyTables)
-	p05Must(t, database.Up(f.ctx, f.db.SQL, f.log))
+	// This historical upgrade specifically tests the Phase05 v6->v7 boundary.
+	goose.SetBaseFS(p05MigrationFS)
+	p05Must(t, goose.SetDialect("postgres"))
+	p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 7))
 	after := f.snapshot(p05LegacyTables)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatal("v7 changed preexisting Phase02-04 history")
