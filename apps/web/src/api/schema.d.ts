@@ -5955,5 +5955,4 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
-
 }
