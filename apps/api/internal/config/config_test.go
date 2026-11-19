@@ -2,10 +2,20 @@ package config
 
 import (
 	"net/url"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
+
+// absolutePrivatePath builds a path that is absolute on every supported
+// platform so production-path validation behaves identically outside Linux.
+func absolutePrivatePath() string {
+	if runtime.GOOS == "windows" {
+		return `C:\private\nexora\attachments`
+	}
+	return "/private/nexora/attachments"
+}
 
 func lookupFrom(values map[string]string) func(string) string {
 	return func(key string) string { return values[key] }
@@ -104,7 +114,7 @@ func TestCookieSecureIsEnvironmentDerived(t *testing.T) {
 		{"test", false},
 		{"production", true},
 	} {
-		cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": tc.env, "NEXORA_ATTACHMENT_DIR": "/private/nexora/attachments"}))
+		cfg, err := load(lookupFrom(map[string]string{"NEXORA_DATABASE_URL": testDSN, "NEXORA_ENV": tc.env, "NEXORA_ATTACHMENT_DIR": absolutePrivatePath()}))
 		if err != nil {
 			t.Fatalf("load %s: %v", tc.env, err)
 		}

@@ -2,10 +2,13 @@ package submissions
 
 import (
 	"bytes"
+	"errors"
 	"github.com/google/uuid"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 )
 
@@ -41,8 +44,12 @@ func TestFileValidationAndRootedStorage(t *testing.T) {
 	}
 	f.Close()
 	info, e := os.Stat(filepath.Join(dir, key))
-	if e != nil || info.Mode().Perm() != 0600 {
-		t.Fatal(info, e)
+	if e != nil {
+		t.Fatal(e)
+	}
+	// NTFS does not carry Unix permission bits; 0600 is only assertable there.
+	if runtime.GOOS != "windows" && info.Mode().Perm() != 0600 {
+		t.Fatal(info)
 	}
 	if _, e = s.root.OpenFile(key, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0600); e == nil {
 		t.Fatal("overwrote immutable key")
@@ -53,6 +60,13 @@ func TestFileValidationAndRootedStorage(t *testing.T) {
 	outside := t.TempDir()
 	team := uuid.New().String()
 	if e = os.Symlink(outside, filepath.Join(dir, team)); e != nil {
+		// Creating symlinks needs the SeCreateSymbolicLinkPrivilege on Windows
+		// (ERROR_PRIVILEGE_NOT_HELD), which normal user sessions lack. The
+		// rooted-store escape guarantee is enforced by os.Root itself; exercise
+		// it where symlinks are creatable.
+		if runtime.GOOS == "windows" && errors.Is(e, syscall.Errno(1314)) {
+			t.Skip("symlink creation requires elevated privileges on windows")
+		}
 		t.Fatal(e)
 	}
 	id, _ := uuid.Parse(team)
