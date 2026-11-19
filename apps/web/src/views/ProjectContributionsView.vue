@@ -6,6 +6,10 @@ import * as projects from '@/api/projects'
 import * as tasks from '@/api/tasks'
 import * as submissions from '@/api/submissions'
 import { useContributionResource } from '@/composables/useContributionResource'
+import {
+  caseStatusLabel,
+  contributionCaseStatuses,
+} from '@/components/contributions/contributionPresentation'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 const route = useRoute(),
@@ -22,14 +26,6 @@ const context = computed(() =>
 )
 const reason = ref(''),
   filter = ref('all')
-const statusLabels: Record<api.ContributionCase['case_workflow_status'], string> = {
-  draft: '草案',
-  pending_review: '待核定',
-  confirmed: '已确认',
-  disputed: '存在争议',
-  revising: '修订中',
-  abandoned: '已放弃',
-}
 const resource = useContributionResource(
   () => context.value,
   async (scope, signal) => {
@@ -38,7 +34,7 @@ const resource = useContributionResource(
       projects.getProject(t, p, signal),
       api.getContributionEligibility(t, p, signal),
       api.listContributions(t, p, signal),
-      tasks.getTaskTree(t, p),
+      tasks.getTaskTree(t, p, signal),
     ])
     const accepted = tree.tasks.filter(
       (task) =>
@@ -51,7 +47,7 @@ const resource = useContributionResource(
     )
     const candidates = await Promise.all(
       accepted.map(async (task) => {
-        const versions = await submissions.listVersions(t, p, task.id)
+        const versions = await submissions.listVersions(t, p, task.id, signal)
         const version = versions.find(
           (v) => v.id === task.current_submission_version_id && v.review?.decision === 'approve',
         )
@@ -192,8 +188,8 @@ async function create(taskID: string, reviewID: string) {
           <label class="form-label"
             >案例状态<select v-model="filter" class="form-input">
               <option value="all">全部状态</option>
-              <option v-for="(label, status) in statusLabels" :key="status" :value="status">
-                {{ label }}
+              <option v-for="status in contributionCaseStatuses" :key="status" :value="status">
+                {{ caseStatusLabel(status) }}
               </option>
             </select></label
           >
@@ -213,7 +209,7 @@ async function create(taskID: string, reviewID: string) {
                 }"
                 class="font-medium text-accent-strong"
                 >{{ data.tasks.find((t) => t.id === c.task_id)?.title || c.task_id }}</RouterLink
-              ><span class="badge">{{ statusLabels[c.case_workflow_status] }}</span>
+              ><span class="badge">{{ caseStatusLabel(c.case_workflow_status) }}</span>
             </div>
             <dl class="grid gap-2 text-xs text-ink-muted sm:grid-cols-2">
               <div>

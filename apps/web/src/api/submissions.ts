@@ -9,10 +9,16 @@ export type Reviewer = S['ProjectReviewer']
 export type PendingReview = S['PendingReview']
 export const deliveryPath = (team: string, project: string, task: string) =>
   `${projectPath(team, project)}/tasks/${encodeURIComponent(task)}`
-export async function listVersions(team: string, project: string, task: string) {
+export async function listVersions(
+  team: string,
+  project: string,
+  task: string,
+  signal?: AbortSignal,
+) {
   return (
     await requestJSON<S['SubmissionVersionsEnvelope']>(
       `${deliveryPath(team, project, task)}/submissions`,
+      { signal },
     )
   ).data
 }
