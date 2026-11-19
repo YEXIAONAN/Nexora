@@ -93,3 +93,18 @@ PR #3 首轮评审补充 TaskEditing.spec.ts 4 项组件回归：执行中的汇
 README 的 test-db.sh start / race integration / make e2e / stop 是当前可执行示例，专用容器带 nexora.purpose=phase04-disposable 标签、loopback 5433、nexora_test。不能将 TEST_DATABASE_URL 改为普通 nexora 库，也不能放宽 testdb 护栏。每次 E2E 独立初始化 nexora_e2e 和临时附件目录，并通过真实 HTTP 工作流验收；浏览器使用显式 127.0.0.1 host，避免 localhost 的 IPv6 解析差异。
 
 新增测试覆盖：版本不可变/幂等/并发、V1 驳回与 V2 独立批准、显式授权/撤销/成员 epoch/自审、SQL 伪造完成拒绝、审计失败事务回滚、精确进度和依赖、文件路径/类型/大小/版本总量/Team 配额、私有下载、缺失文件、暂存/孤立文件回收、v5 升级及空库回滚/有证据拒绝回滚。Vitest 使用可控 Promise 验证 Team/Project/Task/Version 竞态与旧上传链中止。完整命令、数量和结果只以 [Phase 04 报告](phase-04-report.md) 的实测记录为准。
+
+## Phase 05 M4 贡献工作台
+
+`apps/web/e2e/phase05.spec.ts` 使用同一隔离 PostgreSQL/真实 API 栈，新增六个串行业务场景：真实成果验收、手工草案与越权拒绝、独立核定和本人显式收件、独立争议推翻、重新人工填写修订与有效版本切换、离队者普通查询拒绝及隐私 intake。没有 route mock、伪造生产数据或直接修改业务表。
+
+```bash
+# 全量（Phase 02–05）
+make e2e
+# 仅在开发定位时运行贡献专项；不能用专项冒充全量验收
+bash infra/scripts/e2e.sh phase05.spec.ts
+```
+
+Vitest 覆盖精确整数基点、服务端能力、latest/effective、不可变历史、显式核定/收件、409 重新读取、AbortController/generation、Team/Project/身份切换、冷启动深链接，以及取消旧 401 响应不得清除当前会话。新增测试可在 `apps/web` 内运行 `pnpm test`，完整工程门禁仍为 `make verify`，真实 Go 集成回归仍使用受护栏保护的 `TEST_DATABASE_URL` 与 `-race -count=1 -tags=integration`。
+
+最终数量、真实权限/收件证据及 CI 见 [M4 开发与验收报告](phase-05-m4-report.md)，操作步骤见 [工作台使用说明](phase-05-m4-workspace.md)。

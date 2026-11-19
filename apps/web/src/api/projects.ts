@@ -11,14 +11,18 @@ export type MilestoneInput = S['CreateMilestoneRequest']
 export const projectBase = (team: string) => `/api/v1/teams/${encodeURIComponent(team)}/projects`
 export const projectPath = (team: string, project: string) =>
   `${projectBase(team)}/${encodeURIComponent(project)}`
-export async function listProjects(team: string): Promise<Project[]> {
-  return (await requestJSON<S['ProjectsEnvelope']>(projectBase(team))).data
+export async function listProjects(team: string, signal?: AbortSignal): Promise<Project[]> {
+  return (await requestJSON<S['ProjectsEnvelope']>(projectBase(team), { signal })).data
 }
 export async function createProject(team: string, body: CreateProject): Promise<Project> {
   return (await requestJSON<S['ProjectEnvelope']>(projectBase(team), { method: 'POST', body })).data
 }
-export async function getProject(team: string, project: string): Promise<Project> {
-  return (await requestJSON<S['ProjectEnvelope']>(projectPath(team, project))).data
+export async function getProject(
+  team: string,
+  project: string,
+  signal?: AbortSignal,
+): Promise<Project> {
+  return (await requestJSON<S['ProjectEnvelope']>(projectPath(team, project), { signal })).data
 }
 export async function editProject(
   team: string,
@@ -53,9 +57,16 @@ export async function handoffProject(
     })
   ).data
 }
-export async function listProjectMembers(team: string, project: string): Promise<ProjectMember[]> {
-  return (await requestJSON<S['ProjectMembersEnvelope']>(`${projectPath(team, project)}/members`))
-    .data
+export async function listProjectMembers(
+  team: string,
+  project: string,
+  signal?: AbortSignal,
+): Promise<ProjectMember[]> {
+  return (
+    await requestJSON<S['ProjectMembersEnvelope']>(`${projectPath(team, project)}/members`, {
+      signal,
+    })
+  ).data
 }
 export async function addProjectMember(
   team: string,

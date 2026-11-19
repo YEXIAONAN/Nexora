@@ -85,6 +85,9 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
 
     const payload: unknown = await response.json().catch(() => null)
 
+    // A canceled old context must not expire the current session after body parsing aborts.
+    if (controller.signal.aborted) throw new DOMException('Request aborted', 'AbortError')
+
     if (!response.ok && !acceptStatuses.includes(response.status)) {
       if (response.status === 401 && !skipSessionExpiry) {
         window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))

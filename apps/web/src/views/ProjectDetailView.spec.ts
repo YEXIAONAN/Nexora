@@ -102,6 +102,10 @@ async function setup() {
     history: createMemoryHistory(),
     routes: [
       { path: '/teams/:teamId/projects/:projectId', component: ProjectDetailView },
+      {
+        path: '/teams/:teamId/projects/:projectId/contributions',
+        component: { template: '<div />' },
+      },
       { path: '/teams/:teamId/projects', name: 'projects', component: { template: '<div />' } },
     ],
   })

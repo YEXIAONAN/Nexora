@@ -304,6 +304,9 @@ onBeforeUnmount(() => {
         </p>
       </section>
       <div class="flex flex-wrap gap-2 border-b border-line pb-3">
+        <RouterLink class="btn" :to="`/teams/${teamId}/projects/${projectId}/contributions`"
+          >贡献核算</RouterLink
+        >
         <button
           v-for="item in [
             { id: 'tasks', label: '任务树' },

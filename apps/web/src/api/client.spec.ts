@@ -16,6 +16,32 @@ function jsonResponse(payload: unknown, status = 200): Response {
 }
 
 describe('request cancellation', () => {
+  it('does not expire the current session when a canceled old response body rejects', async () => {
+    const caller = new AbortController()
+    let rejectBody!: (reason: unknown) => void
+    const body = new Promise<unknown>((_resolve, reject) => {
+      rejectBody = reject
+    })
+    const parse = vi.fn(() => body)
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => ({ ok: false, status: 401, json: parse })),
+    )
+    const listener = vi.fn()
+    window.addEventListener(SESSION_EXPIRED_EVENT, listener)
+    try {
+      const pending = requestJSON('/api/v1/teams/old-team/contributions', { signal: caller.signal })
+      await Promise.resolve()
+      expect(parse).toHaveBeenCalledTimes(1)
+      caller.abort()
+      rejectBody(new DOMException('body canceled after context switch', 'AbortError'))
+      await expect(pending).rejects.toBeInstanceOf(ApiError)
+      expect(listener).not.toHaveBeenCalled()
+    } finally {
+      window.removeEventListener(SESSION_EXPIRED_EVENT, listener)
+    }
+  })
+
   it('forwards a signal that was already aborted before the request', async () => {
     vi.useFakeTimers()
     const caller = new AbortController()

@@ -23,10 +23,18 @@ const navItems = computed<{ label: string; to: string; icon: IconName }[]>(() =>
     items.push(
       { label: '我的团队', to: '/teams', icon: 'users' },
       { label: '邀请收件箱', to: '/invitations', icon: 'inbox' },
+      { label: '本人异议请求', to: '/contribution-dispute-requests', icon: 'shield' },
     )
   }
   if (auth.isAuthenticated && teams.currentTeamId)
-    items.push({ label: '项目', to: `/teams/${teams.currentTeamId}/projects`, icon: 'overview' })
+    items.push(
+      { label: '项目', to: `/teams/${teams.currentTeamId}/projects`, icon: 'overview' },
+      {
+        label: '我的贡献结果',
+        to: `/teams/${teams.currentTeamId}/contribution-results`,
+        icon: 'inbox',
+      },
+    )
   return items
 })
 </script>
