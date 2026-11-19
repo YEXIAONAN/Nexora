@@ -122,6 +122,8 @@ P50 132 ms 是当前本机/夹具观测值，不代表生产 SLO；本轮不据�
 | 容器构建 | 由 PR CI Containers job 执行；本地未重复构建 |
 | 数据库 + 附件联合恢复 | PASS（13.5s，见 §5） |
 | 并发/权限专项 | PASS（见 §3–§6） |
+| Push CI [44510358000](https://github.com/YEXIAONAN/Nexora/actions/runs/44510358000) | PASS，head `97b6d17` |
+| PR CI [44510388076](https://github.com/YEXIAONAN/Nexora/actions/runs/44510388076) | PASS，head `97b6d17` |
 
 ## 8. 缺陷、修复与提交
 
@@ -154,4 +156,4 @@ M6 综合验收未发现需要修改生产代码的阻断缺陷。新增：
 
 ## 11. 评审 PR
 
-指向 `develop` 的 M6 评审 PR 与最终 CI 结果见交付回复及 PR Checks；不自动合并，不进入后续阶段。
+[PR #9](https://github.com/YEXIAONAN/Nexora/pull/9)，目标 `develop`，状态 Open、等待正式评审。不自动合并，不修改 main，不发布 V1.0/V1.1，不进入后续阶段。
