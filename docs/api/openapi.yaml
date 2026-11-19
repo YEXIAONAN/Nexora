@@ -20,6 +20,8 @@ servers:
   - url: http://127.0.0.1:8080
     description: 本地开发
 tags:
+  - name: Bonuses
+    description: Authenticated subject-only confirmed bonus results (read-only)
   - name: Contributions
     description: Authenticated contribution governance and verified receipt
   - name: System
@@ -3821,6 +3823,41 @@ paths:
         "500":
           "$ref": "#/components/responses/InternalError"
       "description": "Requires current project edit authority. Exposes no session identifier, token or hash. Departed subjects retain no normal Team read access."
+  "/api/v1/teams/{teamID}/bonus-results/mine":
+    get:
+      tags: [Bonuses]
+      operationId: listMyBonusResults
+      summary: List my effective and confirmed bonus amounts
+      description: |
+        Returns only the signed-in subject's own confirmed, currently effective
+        amount per independently identified funding round. Requires a current,
+        unrevoked session and active team and project membership. ROOT and Team
+        Owner do not receive an implicit financial visibility bypass.
+        Draft and pending amounts are never returned. An empty list does not
+        claim that future bonus approval or payout occurred.
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+      responses:
+        '200':
+          description: Subject-only confirmed bonus results
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusResultsPageEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
 components:
   securitySchemes:
     sessionCookie:
@@ -7070,3 +7107,60 @@ components:
       "properties":
         "data":
           "$ref": "#/components/schemas/ContributionIdentityEvidence"
+
+    "BonusResult":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "round_id"
+        - "project_id"
+        - "funding_label"
+        - "currency_code"
+        - "currency_minor_unit"
+        - "amount_minor"
+        - "confirmed_at"
+      "properties":
+        "round_id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "funding_label":
+          "type": "string"
+        "currency_code":
+          "type": "string"
+          "enum": ["CNY"]
+        "currency_minor_unit":
+          "type": "integer"
+          "enum": [2]
+        "amount_minor":
+          "type": "integer"
+          "format": "int64"
+          "minimum": 0
+          "maximum": 900000000000000
+          "description": "Subject-only internal amount in CNY fen, not a payment claim."
+        "confirmed_at":
+          "type": "string"
+          "format": "date-time"
+    "BonusResultsPage":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "items"
+        - "has_more"
+      "properties":
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/BonusResult"
+        "has_more":
+          "type": "boolean"
+    "BonusResultsPageEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/BonusResultsPage"
