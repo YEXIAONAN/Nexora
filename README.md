@@ -2,14 +2,14 @@
 
 Nexora 是 ZERO_R 等小型研发团队使用的内部工程管理平台。**V1.0 方案 B 已于 2026-11-17 批准**：先建立多 Team 数据与权限边界，首版交付项目、任务、成果与独立验收闭环。正式范围见 [产品需求](docs/product/product-requirements.md)。
 
-Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)），Phase 04 合并提交为 `07f6fa1c`（[PR #4](https://github.com/YEXIAONAN/Nexora/pull/4)）。Phase 04 设计与验证记录见 [设计](docs/development/phase-04-design.md) 与 [报告](docs/development/phase-04-report.md)。V1.0 尚未声明发布；`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
+Phase 01–04 与 Phase 05 M2–M4 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3](https://github.com/YEXIAONAN/Nexora/pull/3)），Phase 04 为 `07f6fa1c`（[PR #4](https://github.com/YEXIAONAN/Nexora/pull/4)），M3 为 `d030198`（PR #6），M4 为 `9c8b0e5`（PR #7）。Phase 05 M5 可靠性与质量加固已在 `feature/phase05-m5-hardening` 完成，等待评审，见 [M5 报告](docs/development/phase-05-m5-report.md)。V1.0 尚未声明发布；`main` 仍保留 Phase 0 发布基线，发布同步见 [检查清单](docs/development/main-readme-release-checklist.md)。
 
 ## 产品版本与功能
 
 | 产品版本 | 范围 | 状态 |
 | --- | --- | --- |
 | V1.0 | 方案 B：多 Team、项目、三级任务、成果版本和正式验收 | 已批准，按阶段开发；尚未声明发布 |
-| V1.1 | 验收后的贡献记录、建议与人工核定 | Phase 05 M2 已合并；M3 Service/API 功能分支待评审，暂无 Vue 页面 |
+| V1.1 | 验收后的贡献记录、建议与人工核定 | Phase 05 M2–M4 已合并；M5 可靠性加固功能分支待评审 |
 | V2.0 | 奖金方案、精确分配与更完整的协作工具 | 长期规划，未作为当前交付 |
 
 | 能力 | 阶段 | 当前交付位置 |
@@ -21,7 +21,9 @@ Phase 01–04 已合入 `develop`；Phase 03 合并提交为 `c360327`（[PR #3]
 | 不可变成果 V1/V2、链接、Commit/PR 引用 | Phase 04 | 已合并 develop（PR #4） |
 | 私有附件、审核人授权、独立验收与重新提交 | Phase 04 | 已合并 develop（PR #4） |
 | 贡献 Schema v7、状态机、争议与归档完整性 | Phase 05 M2 | 已合并 develop（PR #5 / b336bed）；见 [M2 报告](docs/development/phase-05-m2-report.md) |
-| 认证贡献服务、核定/争议 API、本人显式收件 | Phase 05 M3 | 功能分支待评审；见 [M3 报告](docs/development/phase-05-m3-report.md)，无 Vue/奖金 |
+| 认证贡献服务、核定/争议 API、本人显式收件 | Phase 05 M3 | 已合并 develop（PR #6 / d030198）；见 [M3 报告](docs/development/phase-05-m3-report.md) |
+| 贡献 Vue 工作台、人工草案、争议与隐私 intake | Phase 05 M4 | 已合并 develop（PR #7 / 9c8b0e5）；见 [M4 报告](docs/development/phase-05-m4-report.md) |
+| 告知业务幂等、前端请求去重与取消传播 | Phase 05 M5 | 功能分支待评审；见 [M5 报告](docs/development/phase-05-m5-report.md) |
 | 奖金、完整通知和导出 | 后续阶段 | 未交付 |
 
 ## 技术与环境
