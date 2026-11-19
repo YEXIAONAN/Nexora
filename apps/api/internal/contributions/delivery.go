@@ -28,31 +28,86 @@ func (s *Service) PrepareNotice(ctx context.Context, a reqctx.Identity, team, pi
 	if in.ConfirmationID == uuid.Nil || in.RecipientID == uuid.Nil {
 		return CommandResult{}, invalid("notice", "confirmation_id and recipient_id are required")
 	}
-	return s.caseCommand(ctx, a, team, pid, cid, "notice", in.Command, in, func(_ pgx.Tx, _ Case, el Eligibility) error {
+	return s.noticeCommand(ctx, a, team, pid, cid, in)
+}
+
+// noticeCommand is deliberately separate from caseCommand: the business
+// identity (confirmation, recipient, channel) is resolved after the Team→Case
+// lock and before expected_version. A lost response or concurrent retry for an
+// already prepared notice therefore returns that immutable notice instead of
+// inserting another one or failing on a revision changed by the first insert.
+func (s *Service) noticeCommand(ctx context.Context, a reqctx.Identity, team, pid, cid uuid.UUID, in NoticeInput) (out CommandResult, err error) {
+	ctx = requestContext(ctx)
+	hash, e := digestOf(struct {
+		Kind                string
+		Team, Project, Case uuid.UUID
+		Input               any
+	}{"notice", team, pid, cid, in})
+	if e != nil {
+		return out, invalid("request", "cannot be encoded")
+	}
+	err = s.within(ctx, a, team, pid, func(tx pgx.Tx, sc projects.Scope, el Eligibility) error {
+		c, e := s.repo.caseByID(ctx, tx, team, pid, cid, true)
+		if e != nil {
+			return e
+		}
+		if e = s.requireVisible(ctx, tx, c, a); e != nil {
+			return e
+		}
 		if !el.CanEditCases {
 			return projects.Forbidden()
 		}
-		return nil
-	}, func(tx pgx.Tx, c Case, request string) (uuid.UUID, error) {
-		if c.EffectiveConfirmedVersionID == nil || *c.EffectiveConfirmedVersionID != in.CaseVersionID {
-			return uuid.Nil, httpx.Conflict("notice must identify the current effective confirmation")
+		if e = requireActive(sc); e != nil {
+			return e
 		}
-		f, e := s.repo.confirmation(ctx, tx, c, in.CaseVersionID)
+		var replay bool
+		if out, replay, e = s.replay(ctx, tx, a, team, pid, in.ClientRequestID, hash); e != nil || replay {
+			return e
+		}
+		if e = s.repo.lockCase(ctx, tx, c); e != nil {
+			return e
+		}
+		current, e := s.repo.caseByID(ctx, tx, team, pid, cid, false)
 		if e != nil {
-			return uuid.Nil, e
+			return e
 		}
-		if f == nil || f.ID != in.ConfirmationID {
-			return uuid.Nil, projects.NotFound()
-		}
-		ok, e := s.repo.beneficiary(ctx, tx, in.CaseVersionID, in.RecipientID)
+		id, exists, e := s.repo.noticeIntent(ctx, tx, current, in)
 		if e != nil {
-			return uuid.Nil, e
+			return e
 		}
-		if !ok {
-			return uuid.Nil, projects.NotFound()
+		if !exists {
+			if e = projects.CheckVersion(in.ExpectedVersion, current.Revision); e != nil {
+				return e
+			}
+			if current.EffectiveConfirmedVersionID == nil || *current.EffectiveConfirmedVersionID != in.CaseVersionID {
+				return httpx.Conflict("notice must identify the current effective confirmation")
+			}
+			f, e := s.repo.confirmation(ctx, tx, current, in.CaseVersionID)
+			if e != nil {
+				return e
+			}
+			if f == nil || f.ID != in.ConfirmationID {
+				return projects.NotFound()
+			}
+			ok, e := s.repo.beneficiary(ctx, tx, in.CaseVersionID, in.RecipientID)
+			if e != nil {
+				return e
+			}
+			if !ok {
+				return projects.NotFound()
+			}
+			if id, e = s.repo.notice(ctx, tx, current, a.UserID, in, reqctx.RequestID(ctx)); e != nil {
+				return e
+			}
 		}
-		return s.repo.notice(ctx, tx, c, a.UserID, in, request)
+		after, e := s.repo.caseByID(ctx, tx, team, pid, cid, false)
+		if e != nil {
+			return e
+		}
+		out = CommandResult{id, &cid, after.Revision, in.ClientRequestID}
+		return s.completed(ctx, tx, a, team, pid, in.ClientRequestID, hash, in.Reason, out)
 	})
+	return
 }
 func (s *Service) MyResults(ctx context.Context, a reqctx.Identity, team, pid uuid.UUID) (out []Result, err error) {
 	out = []Result{}
