@@ -118,6 +118,11 @@ Phase 02 实施计划见 [phase-02-plan.md](phase-02-plan.md)。阶段代号不�
 - 备份恢复演练、部署验证、文档复核。
 - 仅报告真实执行结果。
 
-## 当前交付跟踪（2026-11-19）
+## 当前交付跟踪（2026-11-19，Phase 06 M1 启动）
 
-Phase 01–04 已合并 develop；Phase 03 PR #3 合并提交 c360327，Phase 04 PR #4 合并提交 07f6fa1c（合并 CI 44202649641 四项成功）。历史设计和验收记录保留；功能、验证与 CI 状态见 [Phase 04 报告](phase-04-report.md)。V1.0 尚未声明发布。Phase 05 M1 的 18 项规则于 2026-11-18 获产品负责人批准；M2 经 PR #5 合并（b336bed），M3 经 PR #6 合并（d030198），M4 经 PR #7 合并（9c8b0e5），M5 经 PR #8 合并（9e35a28，合并 CI 44505800232 四项成功）。M6 综合验收在 `feature/phase05-m6-acceptance` 执行完整业务闭环、安全/幂等复验、数据库与附件联合恢复和性能专项，经 [PR #9](https://github.com/YEXIAONAN/Nexora/pull/9) 评审，见 [M6 报告](phase-05-m6-report.md)。M6 不自动合并、不进入后续阶段；无奖金或完整通知系统。
+Phase 01–05 工程代码与验收已合并至 `develop`；Phase 05 M6 [PR #9](https://github.com/YEXIAONAN/Nexora/pull/9) Merge Commit 为 `af3802b19749daccafff0589c1d7286782944aab`，合并后 [CI 44522533362](https://github.com/YEXIAONAN/Nexora/actions/runs/44522533362) 四项 Success，具体证据见 [M6 报告](phase-05-m6-report.md)。V1.0/V1.1 尚未正式发布至 `main`，生产部署未验收。
+
+**下一阶段：Phase 06 M1 设计评审（V2.0）。** [M1 奖金治理设计](phase-06-m1-design.md) 当前仅 Proposed；ADR 0005 **金额部分仍 Proposed，未获批准**。M1 分别提出显式案例预算、金额/币种精度、资格、独立核定、整数余数分配及历史追溯的候选方案，不能直接认定为已实施或已批准。
+
+上述“Phase 4 贡献核算”旧路线图文字中的“自动建议”属于早期概括，不能覆盖 Phase 05 M1/ADR 0007 已接受的**不自动推断精确贡献份额**规则；跨案例奖金指数与金额分配另须产品决策。MVP/Alpha 运行由产品负责人自行管理，不属于 Phase 06 的工作项目。
+
