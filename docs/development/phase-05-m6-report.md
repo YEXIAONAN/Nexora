@@ -125,8 +125,8 @@ P50 约 99 ms 是当前本机/夹具观测值，不代表生产 SLO；本轮不�
 | 容器构建 | 由 PR CI Containers job 执行；本地未重复构建 |
 | 数据库 + 附件联合恢复 | PASS（11.92s，见 §5） |
 | 并发/权限专项 | PASS（见 §3–§6） |
-| Push CI [44510358000](https://github.com/YEXIAONAN/Nexora/actions/runs/44510358000) | PASS，head `97b6d17` |
-| PR CI [44510388076](https://github.com/YEXIAONAN/Nexora/actions/runs/44510388076) | PASS，head `97b6d17` |
+| Push CI [44519475619](https://github.com/YEXIAONAN/Nexora/actions/runs/44519475619) | PASS，head `0cbe5ee`，8/8 |
+| PR CI [44519487025](https://github.com/YEXIAONAN/Nexora/actions/runs/44519487025) | PASS，head `0cbe5ee`，8/8 |
 
 ## 8. 缺陷、修复与提交
 
