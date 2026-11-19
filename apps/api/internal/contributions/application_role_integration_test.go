@@ -146,7 +146,7 @@ func TestContributionApplicationRoleCannotBypassHistory(t *testing.T) {
 	f.login("worker")
 	ignorePath := f.base() + "/tasks/" + dependent.ID.String() + "/dependencies/" + dependency.ID.String() + "/ignore"
 	ignored := data[tasks.Dependency](t, f.do("POST", ignorePath, map[string]any{
-		"reason": "Ignore dependency with production-style restricted app credentials",
+		"reason":           "Ignore dependency with production-style restricted app credentials",
 		"expected_version": dependent.Version,
 	}, f.cookies["lead"], true), 200)
 	if ignored.ID != dependency.ID || ignored.IgnoredAt == nil || ignored.IgnoredBy == nil || *ignored.IgnoredBy != f.actors["lead"].UserID {
