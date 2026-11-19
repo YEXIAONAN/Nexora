@@ -14,6 +14,7 @@ import (
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusresults"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/contributions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -102,6 +103,7 @@ func run() error {
 	submissionsSvc := submissions.NewService(submissions.NewRepository(pool), projectsSvc, tasksSvc)
 	submissionsSvc.SetStore(store)
 	contributionsSvc := contributions.NewService(contributions.NewRepository(pool), projectsSvc)
+	bonusResultsSvc := bonusresults.NewService(bonusresults.NewRepository(pool))
 	recoveryCtx, recoveryCancel := context.WithCancel(rootCtx)
 	recoveryDone := make(chan struct{})
 	defer func() { recoveryCancel(); <-recoveryDone }()
@@ -123,7 +125,7 @@ func run() error {
 			}
 		}
 	}()
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger))
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger), bonusresults.NewHandler(bonusResultsSvc, logger))
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,
