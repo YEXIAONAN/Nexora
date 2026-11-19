@@ -71,9 +71,13 @@ func run() error {
 		}
 	}
 
-	var schemaVersion int
-	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion != 7 {
-		return fmt.Errorf("contribution API requires schema v7; apply reviewed migrations explicitly before startup")
+	var schemaVersion int64
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil {
+		return fmt.Errorf("read schema version before startup: %w", database.SafeError(e))
+	}
+	if !database.CompatibleSchemaVersion(schemaVersion) {
+		return fmt.Errorf("API requires schema v%d–v%d; current schema v%d; apply reviewed migrations explicitly before startup",
+			database.MinimumSupportedSchemaVersion, database.MaximumSupportedSchemaVersion, schemaVersion)
 	}
 	store, err := submissions.OpenStore(cfg.AttachmentDir)
 	if err != nil {
