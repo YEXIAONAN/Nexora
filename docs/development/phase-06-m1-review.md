@@ -5,7 +5,7 @@
 - 基线：`develop` af3802b19749daccafff0589c1d7286782944aab（Phase 05 M6 PR #9 已合并）；Schema v7；`main` 未改动
 - PR：[#10](https://github.com/YEXIAONAN/Nexora/pull/10)，base `develop`，评审前 Head `82e9364320f92ba421e29e1a62104a4f66d93230`，draft
 - 范围：仅设计评审与文档修订；**没有新增表、迁移、Go 代码、API 或 Vue 页面**
-- 结论：设计方向成立，但原稿存在 5 项 P1 与 5 项 P2 设计缺口；已在同分支修订 [phase-06-m1-design.md](phase-06-m1-design.md)。**D1–D10 与 A1–A5 全部保持 Proposed，未获任何产品批准，禁止进入 M2。**
+- 结论：原稿 5 项 P1 与 5 项 P2 缺口已修订；**补充复审**另发现 2 项 P1 与 2 项 P2 设计缺口（逐来源账本、无独立核定人、状态双轴、资格舍入顺序），已继续修订 [phase-06-m1-design.md](phase-06-m1-design.md)。**D1–D10 与 A1–A5 全部保持 Proposed，未获任何产品批准，禁止进入 M2。**
 
 ## 1. 评审结论摘要
 
@@ -140,6 +140,17 @@
 - **影响**：并发或重试可能产生重复确认/重复调整；SQL 旁路可以绕过 Service。
 - **处置**：M2 必须为命令记录、确认记录、来源绑定、告知/收件建立数据库唯一约束；M3 继续使用 expected_version + Team→Plan 锁顺序。
 
+### 4.3 补充复审整改（2026-11-19，本轮仅修设计）
+
+| 级别 | 发现的设计缺口 | 修订后的候选约束 | 产品待批项 |
+| --- | --- | --- | --- |
+| **P1-6** | 原 ERD 只用 `(plan_version_id,user_id)` 存计划级分配，人工调整缺 `source_id`，不足以证明逐来源资金守恒 | **来源 × 成员**明细作为权威账本，调整逐笔绑定 source_id；成员总额只读聚合，逐来源与计划级等式分别验算 | D2/D4/D6：来源预算和调整范围 |
+| **P1-7** | 所有项目成员均为受益人时，内部独立核定候选永远为零 | 保持 `pending_review`；提出**经产品批准才可启用**的单计划、限时、核验身份且权限最小化的外部独立核定授权；外部人也必须通过完全相同回避谓词 | D7/A3：是否允许外部独立核定、授权主体/核验/撤销 |
+| **P2-6** | `confirmed → disputed` 在“版本转换”表中把派生计划工作流误写成版本状态 | 拆成两张状态表；收到异议只新增争议记录，**confirmed 版本及核定事实保持不变**；撤回待核定版本须 abandoned + 新 draft | D8/D9：争议与推翻政策 |
+| **P2-7** | 无资格持有人参与最大余数法的先后顺序未明确，过滤后可能多给合格者 1 最小单位 | **所有正式份额持有人先舍入，再按资格分流**；无资格份额的 raw 结果进入来源未分配；加入 1 单位并列且低 UUID 无资格的反例 | D4/D6：未分配余额是否可核定 |
+
+上述四项只代表**设计整改完成**，不代表 Schema/API 已实施或资金规则获批准。
+
 ## 5. 概念 ERD（候选，不是已实施表结构）
 
 ```mermaid
@@ -147,9 +158,9 @@ erDiagram
   bonus_plans ||--o{ bonus_plan_versions : versions
   bonus_plan_versions ||--o{ bonus_plan_sources : sources
   bonus_plan_versions ||--o{ bonus_eligibility : eligibility_snapshot
-  bonus_plan_versions ||--o{ bonus_allocations : allocations
+  bonus_plan_sources ||--o{ bonus_allocation_lines : member_lines
   bonus_plan_versions ||--o| bonus_confirmations : confirmation
-  bonus_plan_versions ||--o{ bonus_adjustments : adjustments
+  bonus_plan_sources ||--o{ bonus_adjustments : source_adjustments
   bonus_plans ||--o{ bonus_disputes : disputes
   bonus_disputes ||--o| bonus_dispute_resolutions : resolution
   bonus_plans ||--o{ bonus_roles : roles
@@ -157,22 +168,24 @@ erDiagram
   bonus_confirmations ||--o{ bonus_receipts : receipts
   contribution_confirmations ||--o{ bonus_plan_sources : bound_source
   project_members ||--o{ bonus_roles : qualifies
-  users ||--o{ bonus_allocations : beneficiary
+  users ||--o{ bonus_allocation_lines : beneficiary
 ```
 
 | 对象 | 关键字段 | 必须的约束（候选） |
 | --- | --- | --- |
 | `bonus_plans` | id, team_id, project_id, purpose, currency_code, currency_minor_unit, total_budget_minor, latest_version_id, effective_confirmed_version_id, status, created_by | `UNIQUE(team_id,project_id,id)`；复合外键到 `projects`；币种与预算 CHECK；指针同计划 |
-| `bonus_plan_versions` | id, plan_id, version, status, supersedes_version_id, input_digest, algorithm_version, created_by, reason | `UNIQUE(plan_id,version)`；`UNIQUE(plan_id,client_request_id)`；仅 draft 可改内容；状态转换触发器 |
-| `bonus_plan_sources` | plan_version_id, case_id, case_version_id, confirmation_id, confirmation_digest, source_budget_minor, coverage_decision, reason, shares_snapshot, is_active | 复合外键到贡献基础表；`confirmation_digest` 必须等于确认摘要；`is_active` 部分唯一索引防止跨计划重复 |
+| `bonus_plan_versions` | id, plan_id, version, status, total_budget_minor, currency/minor_unit_snapshot, plan_unallocated_minor, supersedes_version_id, input_digest, algorithm_version, created_by, reason | `UNIQUE(plan_id,version)`；`UNIQUE(plan_id,client_request_id)`；仅 draft 可改内容；状态转换触发器 |
+| `bonus_plan_sources` | id, plan_version_id, case_id, case_version_id, confirmation_id, confirmation_digest, source_budget_minor, source_unallocated_minor, coverage_decision, reason, shares_snapshot, is_active | 复合外键到贡献基础表；`confirmation_digest` 必须等于确认摘要；`is_active` 部分唯一索引防止跨计划重复 |
 | `bonus_eligibility` | plan_version_id, user_id, decision, reason, decided_by, member_epoch, decided_at | `UNIQUE(plan_version_id,user_id)`；决定人 ≠ 本人；epoch 必须与 `project_members.authorization_version` 一致 |
-| `bonus_allocations` | plan_version_id, user_id, suggested_minor, adjustment_delta_minor, final_minor, algorithm_version, remainder_rank | `UNIQUE(plan_version_id,user_id)`；金额非负；最终金额与建议不同必须有调整记录 |
+| `bonus_allocation_lines` | plan_version_id, source_id, user_id, bps, raw_rounded_minor, eligible_suggested_minor, final_minor, eligibility_decision_id, remainder_rank | **UNIQUE(plan_version_id,source_id,user_id)**；source_id 同版本同范围；ineligible final=0；逐来源守恒；建议与最终不同必须有 source-linked 调整 |
 | `bonus_confirmations` | plan_version_id UNIQUE, confirmed_by, confirmed_at, rationale, version_digest, request_id | 不可变；独立核定触发器；摘要必须匹配重算结果 |
-| `bonus_adjustments` | plan_version_id, user_id, old_minor, new_minor, reason, actor_id, request_id | 追加式；理由非空；actor 不可为本人最终决定 |
+| `bonus_adjustments` | plan_version_id, source_id, user_id, old_minor, new_minor, delta_minor, old/new_source_unallocated_minor, reason, actor_id, request_id | 追加式；来源与分配行一致；必须给出理由且逐来源守恒，不得改其他来源 |
 | `bonus_disputes` / `bonus_dispute_resolutions` | 争议版本、理由、裁定、裁定人 | 不可变；裁定人独立；推翻必须生成后继草案 |
-| `bonus_roles` | plan_id, user_id, role, member_epoch, granted_by, status, reason | 禁止自我授权；epoch 变化失效；追加式授权历史 |
+| `bonus_roles` | plan_id, user_id, role, member_epoch (内部), grant_version/expiry (外部), granted_by, status, reason | 禁止自我授权；内部 epoch 变化失效；外部候选必须先经 D7/A3 批准，身份校验、单计划最小权限、到期/撤销；追加式历史 |
 | `bonus_notices` / `bonus_receipts` | plan_version_id, confirmation_id, recipient_id, digest, channel, acknowledged_at | 追加式；每收件人唯一；摘要必须匹配确认版本；不复用贡献告知表 |
 | `bonus_events` | plan_id, plan_version_id, event_type, actor_id, reason, request_id | 追加式；写 `audit_events`；禁止 UPDATE/DELETE |
+
+**成员汇总只读投影**：`bonus_member_totals(plan_version_id,user_id,total_minor)` 必须由 `SUM(bonus_allocation_lines.final_minor)` 计算；不得增设一个可独立编辑且与来源明细可能分歧的“总分配额”表。资金快照必须同时保存每个来源的 `source_unallocated_minor` 与计划版本的 `plan_unallocated_minor`。
 
 ## 6. 状态机与数据完整性
 
@@ -187,7 +200,7 @@ erDiagram
 | B5 | `overturned` 必须存在 overturn 裁定；有效指针被清空；同一事务生成后继 draft。 |
 | B6 | 每个计划版本至多一条确认记录；确认、裁定、调整、收件不可变。 |
 | B7 | 版本内容离开 draft 后不可变；来源、资格、分配仅在父版本 draft 可写。 |
-| B8 | `total = Σ final + Σ source_unallocated + plan_unallocated`，精确相等且全部非负。 |
+| B8 | **每来源** `Σ final(source,user)+source_unallocated(source)=source_budget(source)`；**计划** `total=Σ所有来源 final+Σ来源未分配+plan_unallocated`，精确相等且全部非负。 |
 | B9 | `Σ source_budget <= total`；来源预算、分配、未分配均非负。 |
 | B10 | 来源必须指向当前有效确认、摘要匹配、无未决争议；提交与核定各重验一次。 |
 | B11 | 绑定来源中的每位份额持有人必须有显式资格决定；缺失即拒绝提交。 |
@@ -196,26 +209,25 @@ erDiagram
 | B14 | 计划工作流状态由权威字段派生并被数据库校验；客户端不可写。 |
 | B15 | 归档项目不得绕过 Phase 05 归档门禁；奖金写入不得修改贡献历史。 |
 | B16 | 命令、确认、来源 active、收件均有数据库唯一约束；重放返回既有结果。 |
+| B17 | 权威明细键为 `(plan_version_id,source_id,user_id)`；人工调整必须包含 source_id；成员总额只能从逐来源行派生。 |
+| B18 | **全部**确认份额持有人先按 LRM 得到 `raw_rounded`（Σ = source_budget），然后按资格分流；不允许先过滤无资格人。 |
+| B19 | `disputed/revising` 是**计划工作流**而非版本状态；打开争议不改 confirmed 版本；撤回 pending_review 不返回 draft，而 abandoned 后另建 draft。 |
+| B20 | 无内部独立人时保持 pending；外部 reviewer 若经 D7/A3 批准，必须计划级、限时、身份核验、可撤销、最小权限且同等 COI。 |
 
-## 7. 权限与职责分离
+## 7. 权限与职责分离（内部和候选外部两条路径）
 
 完整矩阵见修订后的设计 §5。独立核定谓词必须同时满足：
 
-1. 是有效的 Team + Project 成员；
-2. 持有有效的奖金核定授权，且授权 epoch 与当前成员 epoch 一致；
-3. 不是计划创建人；
-4. 不是该版本任何人工调整的作出人；
-5. 不是该计划任何受益人（最终金额大于 0）；
-6. 不是任一绑定来源的贡献提案人、贡献核定人或贡献争议裁定人；
-7. 没有为该计划声明利益冲突；
-8. 若以上任一条件不满足，服务层拒绝、数据库触发器再次拒绝；若没有任何候选人，计划保持 `pending_review`，不得自动指派或由 ROOT 兜底。
+1. 经身份核验、持有**针对该具体奖金计划**的有效核定授权，且满足两类**互斥可核验路径之一**：**内部**为有效 Team/Project 成员并匹配当前成员 epoch；**外部**仅在 D7/A3 事先获批后通过可撤销、限时、版本化的单计划证据审阅/确认授权，不能藉此获得通用 Team/Project 成员身份或横向读取权限。
+2. 不是计划创建人、当前版本人工调整人或本人资格决定人。
+3. 不是该计划任何经济受益人（包含可能受本计划金额变化影响的利益关系，不可只靠把 `final_minor` 改为 0 来规避）。
+4. 不是任一绑定来源的贡献提案人、贡献核定人或贡献争议裁定人。
+5. 无其他已声明或应当声明的利益冲突；确认事务中实时重验身份、授权撤销/期限、来源有效性、账务守恒与上述回避谓词。
+6. 服务层拒绝非法请求，数据库再次验证；若没有合法候选人，保持 `pending_review`，不得自动指派、将 ROOT 当兜底，或用所有受益人的会签取代独立核定。
 
-访问隔离要求：
+**小团队可行性**：若 ZERO_R 的实际项目所有候选内部核定人都同时是受益人，这不是程序 bug，而是一个真实制度死锁。候选方案是产品负责人明示批准一名**外部独立自然人**的限时单计划核定授权（只可读作决定所需的最小来源证据与奖金方案，不可浏览其他 Team/Project）；未批准前继续 pending。任何外部通道都必须有授予/拒绝/撤销审计及到期权限测试。
 
-- 所有奖金对象必须带 `(team_id, project_id)` 复合作用域与复合外键；跨 Team/Project IDOR 必须 404，不得泄露对象存在性。
-- 本人结果接口只返回本人金额与来源摘要，不返回他人金额、总预算拆分或内部调整理由。
-- 计划整体/历史查看需要显式审核授权，不能因为能读贡献就自动能读奖金。
-- ROOT 没有隐式奖金写权限；平台支持读取需单独批准并留审计。
+访问隔离：所有奖金对象带复合 Team/Project 作用域；跨 Team/Project IDOR 不得泄露对象存在性；本人结果接口仅返回本人来源及金额明细，计划整体和其他人金额需要独立授权；ROOT 不隐式具备奖金写权限。
 
 ## 8. 金额候选模型与边界案例
 
@@ -242,7 +254,7 @@ erDiagram
 | 4 | 预算 100 分、3333/3333/3334 bps | 基础 33/33/33，剩余 1 分给余数最大的 3334 份额。 |
 | 5 | 0 位小数币种（JPY） | 以元为最小单位；算法不变；不得强行补两位小数。 |
 | 6 | 3 位小数币种（KWD） | 以第纳尔千分之一为最小单位；API 仍只收整数。 |
-| 7 | 无资格份额 | 默认进入来源未分配；不得按剩余者比例自动重分。 |
+| 7 | 无资格份额 | **先按全部份额舍入，再分流**：无资格者原始金额进入来源未分配；不得预过滤重分。 |
 | 8 | 来源内全部无资格 | 不生成建议；必须显式未分配或经批准调整。 |
 | 9 | 历史离队份额持有人 | 是否可获奖待 D3；未批准前不得静默删除或自动转入他人。 |
 | 10 | 同一确认被两个计划引用 | 若 A1 批准，第二个计划必须被数据库拒绝；不得只在前端提示。 |
@@ -254,6 +266,26 @@ erDiagram
 | 16 | 并发双确认 | 仅一个成功；另一个返回冲突或既有结果；不得产生两条确认。 |
 | 17 | 重放同一 `client_request_id` | 返回既有结果，不重复写事实、不重复审计。 |
 | 18 | 核定人同时是受益人 | 数据库拒绝；不得仅靠 UI 隐藏按钮。 |
+| 19 | 重叠受益人在 A/B 两来源，人工只调整计划汇总 | 缺少 source_id 的修改必须拒绝；A/B 两条来源分别守恒，成员合计只读求和。 |
+| 20 | 来源 A 人工调整甲 -10/乙 +10 | A 600/400→590/410，B 300/700 不变；A、B 各合计 1000；总额 2000。 |
+| 21 | 预算 1 最小单位、5000/5000、较小 UUID 无资格 | 原始舍入 1 属于该无资格者并进 `source_unallocated=1`；合格者建议 0；先过滤导致合格者得 1 的实现必须失败。 |
+| 22 | 全部内部成员都有经济利益，无独立核定候选 | 计划保持 pending_review；外部未正式授权前不能确认，也不能 ROOT/Team Owner 自动兜底。 |
+| 23 | 允许的外部审查者授权已过期或被撤销 | 请求被拒绝；不得查询其他 Team/Project；外部身份核验及限时授权均留审计。 |
+| 24 | 已确认计划出现未决异议，或撤回 pending | 版本仍为 confirmed、仅工作流 disputed；撤回 pending 必须 abandoned 并新建递增 draft。 |
+
+### 8.3 两来源调整与无资格舍入的可复现算例
+
+**逐来源调整（单位均为最小货币单位）**：
+
+| 来源 | 甲原建议 | 乙原建议 | 甲最终 | 乙最终 | 来源未分配 | 来源总预算 |
+| --- | ---: | ---: | ---: | ---: | ---: | ---: |
+| A | 600 | 400 | 590 | 410 | 0 | 1000 |
+| B | 300 | 700 | 300 | 700 | 0 | 1000 |
+| **只读总额** | **900** | **1100** | **890** | **1110** | **0** | **2000** |
+
+A 的调整必须有两条绑定 `source_id=A` 的不可变记录（甲 -10，乙 +10）；B 没有改变；来源 A/B 各自为 1000，计划为 2000。若只改甲的 plan-level total=890、无法解释对应 A 来源的另一条调整，则数据模型无法证明守恒，须拒绝进入 M2。
+
+**资格舍入（1 单位）**：两个持有人各 5000 bps，UUID 较小者无资格。先对两人计算，原始结果 1/0；随后资格分流，合格者得到 0，无资格者 1 单位记入来源未分配。不得先过滤无资格者后对唯一合格者分配 1 单位。
 
 ## 9. D1–D10 逐项评审
 
@@ -290,7 +322,7 @@ erDiagram
 ### D4 无资格贡献份额处理
 
 - **已有约束**：Phase 05 要求份额合计 10000；没有奖金规则；PRD 要求零贡献、无资格、未分配余额显式处理。
-- **推荐**：禁止自动重分。默认把无资格份额对应金额放进显式“来源未分配”；授权人若要转给其他受益人，必须做带理由的人工调整记录；来源未分配与计划未分配都必须展示。
+- **推荐**：必须对**全部**正式份额先执行整数最大余数舍入，再根据明确资格决定分流；无资格者的原始舍入金额进入显式来源未分配。若授权人要转给合格受益人，必须**按来源**做有理由的调整记录；来源未分配与计划未分配都必须展示。
 - **备选**：A. 自动按剩余合格者比例重分（最危险，不建议）；B. 直接丢弃该份额（会导致合计不守恒，不允许）；C. 阻止整个计划提交直到人工处理（可作为更严格默认）。
 - **优点与代价**：显式未分配最安全、可解释；代价是需要人工决策，可能留下余额。
 - **风险**：余额被隐藏、被二次分配、贡献者争议、总额不守恒。
@@ -310,7 +342,7 @@ erDiagram
 ### D6 舍入与未分配余额
 
 - **已有约束**：ADR 0005 提到最大余数法但未批准；Phase 05 没有金额；任务书要求评估最大余数法、余数归属、平局与资格例外。
-- **推荐**：逐来源最大余数法；余数按大小分配，平局按 UUID 字节序升序；算法版本与输入摘要固化；来源未分配与计划未分配显式；人工调整不得破坏总额等式。
+- **推荐**：逐来源、对全部份额持有人先执行最大余数法；平局按 UUID 字节序升序；**舍入后再按资格分流**；算法版本与输入摘要固化；调整必须来源可追溯、逐来源与全计划同时守恒。
 - **备选**：A. 只向下取整，余数全部进未分配（简单但对个人不公平）；B. 核定人手工调平（不可复现）；C. 计划级统一舍入（会让逐案例预算失真）。
 - **优点与代价**：逐来源舍入保证每个案例预算精确守恒、可解释；代价是不同案例的 1 分归属需要稳定规则。
 - **风险**：跨平台破平局不一致、建议与最终金额对不上、未分配被隐藏。
@@ -320,12 +352,12 @@ erDiagram
 ### D7 独立核定权限及回避
 
 - **已有约束**：ADR 0007 要求受益人回避、提案人不得核定、单人独立核定、无人独立则等待、授权范围明确；Phase 05 已有 `contribution_independent` 谓词；没有奖金角色。
-- **推荐**：新建显式奖金角色（编辑/预算/资格/核定）；核定人必须是有效授权、非创建人、非调整人、非受益人、非来源贡献提案人/核定人、无冲突；无合格人保持 `pending_review`；ROOT 与 Team Owner/Admin/Project Lead 不自动获得权限。
-- **备选**：A. 复用贡献核定人（域名不同，且会让同一人同时控制贡献与金额，不建议）；B. 项目负责人自动核定（违反任务书，不建议）；C. 多人会签（更强，但首版复杂，可后续）。
+- **推荐**：新建显式奖金角色（编辑/预算/资格/核定）；核定人必须满足严格回避。**内部**候选必须是有效 Team/Project 成员且授权 epoch 一致；**外部**候选仅在 D7/A3 正式批准后可通过经身份核验、单计划限时、可撤销、最小证据范围授权参与；无人合格则保持 `pending_review`。ROOT 与 Team Owner/Admin/Project Lead 不自动获得权限。
+- **备选**：A. 复用贡献核定人（同一人控制贡献与金额，不建议）；B. 项目负责人自动核定（违反回避原则，不建议）；C. 经独立资格审查后授予外部计划级核定权（**推荐产品评估，未批准**）；D. 全部受益人会签（不能消除利益冲突，不应作为默认例外）。
 - **优点与代价**：显式角色 + 独立谓词可审计、可测试；代价是小团队可能无人可核定，需要产品接受“长期待核定”。
 - **风险**：合谋、授权撤销后仍确认、成员离队/重返 epoch、极小团队死锁、ROOT 越权。
 - **DB/API 影响**：`bonus_roles`、确认触发器、授权 API、冲突声明；确认事务重验 epoch；错误码区分未授权/冲突/无候选人。
-- **待产品决定**：角色集合；贡献核定人能否兼任奖金核定人；ROOT 策略；极小团队是否允许例外（建议不允许自动例外）。
+- **待产品决定**：角色集合、来源贡献核定人与奖金核定人能否兼任、ROOT 策略、是否准许外部独立核定、外部身份与授予主体、授权期限/撤销/证据范围，以及无外部候选时的 pending 期限；**不允许自动例外**。
 
 ### D8 本人确认、异议与修订
 
@@ -363,13 +395,14 @@ erDiagram
 
 | 层级 | 场景 | 关键断言 | 失败先行 |
 | --- | --- | --- | --- |
-| 单元（Go） | 逐来源最大余数、并列余数、0/1 分、极端预算 | 合计精确等于来源预算；平局按 UUID 字节序稳定 | 是 |
+| 单元（Go） | 逐来源最大余数、并列余数、0/1 分、极端预算 | **全体份额先舍入、资格后分流**，原始合计等于来源预算；低 UUID 无资格且预算 1 单位时，合格者 0、来源未分配 1 | 是 |
 | 单元（Go） | 0/2/3 位小数币种、非法币种、超上限 | 拒绝或精确换算；无浮点 | 是 |
 | 数据库 | 复合作用域外键、跨 Team/Project 挂接 | 插入被拒绝；查询 404 | 是 |
 | 数据库 | 来源必须指向有效确认、摘要匹配、无未决争议 | 伪造/旧确认被拒绝 | 是 |
 | 数据库 | 来源 active 唯一性（A1 若批准） | 第二计划插入失败 | 是 |
-| 数据库 | 金额非负、总额等式、来源预算合计 | CHECK/触发器拒绝不平衡版本 | 是 |
-| 数据库 | 状态转换、确认唯一、superseded/overturned | 非法转换与重复确认被拒绝 | 是 |
+| 数据库 | 金额非负、总额等式、来源预算合计 | 分别验证每个 source、整计划两层资金守恒；拒绝只写成员汇总或无 source_id 的调整 | 是 |
+| 数据库 | 两来源重叠成员、仅调整来源 A | `UNIQUE(plan_version_id,source_id,user_id)`；A 590/410、B 300/700，总额 2000 | 是 |
+| 数据库 | 状态转换、确认唯一、superseded/overturned | 非法版本状态被拒绝；争议不改 confirmed 版本；pending 撤回必须 abandoned + 新 draft | 是 |
 | 数据库 | 历史表 UPDATE/DELETE | 全部被拒绝 | 是 |
 | 数据库 | 授权 epoch、撤销、离队重返 | 旧授权不可用 | 是 |
 | 数据库 | 受限应用角色 | 不能绕过触发器/DDL | 是 |
@@ -380,6 +413,8 @@ erDiagram
 | API | 提交/核定期间来源被推翻 | 409/冲突，要求新版本 | 是 |
 | API | 资格缺失、历史成员、无资格份额 | 拒绝提交或显式未分配，不静默重分 | 是 |
 | API | 核定人=创建人/调整人/受益人/来源核定人 | 全部拒绝 | 是 |
+| API | 所有内部成员受益、无独立核定人 | 方案保持 pending_review，不自动兜底；外部通道未经批准不可用 | 是 |
+| API | 经批准的外部独立核定授权（D7/A3） | 单计划证据权限，核验身份，过期/撤销拒绝，跨 Team 404，行为留审计 | 是 |
 | 并发 | 双确认、调整与确认竞争、撤权与确认竞争 | 仅一个成功；无死锁/超时 | 是 |
 | E2E | 验收→贡献→计划→来源预算→资格→建议→调整→核定→本人结果 | 全链路真实数据；正式金额可追溯 | 是 |
 | E2E | 收件→异议→裁定→修订→重新核定 | 旧版本保留；新版本重新收件 | 是 |
@@ -392,7 +427,7 @@ erDiagram
 
 ### M2：Schema v8（仅追加）
 
-- 进入条件：D1–D10 与 A1–A5 已批准；P1 项关闭；金额算法、币种、上限冻结。
+- 进入条件：D1–D10 与 A1–A5 已批准；原 P1 及补充 P1-6/P1-7 已关闭；**逐来源 × 成员权威账本、调整来源、舍入后资格分流、版本/计划双状态机、无独立核定人的策略**均冻结；金额算法、币种、上限冻结。
 - 交付：追加迁移（不改 00001–00007）；BonusPlan/Version/Source/Eligibility/Allocation/Confirmation/Adjustment/Dispute/Notice/Receipt/Role/Event；复合外键、延迟约束触发器、部分唯一索引、金额 CHECK、不可变事实触发器、受限数据库角色。
 - 验收：迁移从 v7 干净升级；伪造来源、跨租户、重复确认、历史改写全部被数据库拒绝；`contribution_archive_guard` 行为不变。
 
@@ -429,14 +464,14 @@ erDiagram
 | D3 | 资格默认、历史成员、批准人 | 缺失即阻止提交；历史成员待批 | 静默排除或错发 | 是 |
 | D4 | 无资格份额默认处理；确认时是否允许未分配 | 显式未分配；不自动重分 | 资金争议、合计不守恒 | 是 |
 | D5 | 币种允许集、最小单位、最大预算 | ISO + 最小单位快照；bigint；上限 | 精度错误、溢出 | 是 |
-| D6 | 最大余数法、余数归属、破平局 | 逐来源 LRM；UUID 字节序 | 不可复现、1 分争议 | 是 |
-| D7 | 角色集合、独立核定谓词、ROOT 策略 | 显式角色；严格独立；ROOT 无写权限 | 自利核定、越权 | 是 |
+| D6 | 最大余数法、余数归属、破平局 | **全部份额先 LRM，再资格分流**；逐来源 UUID 字节序；调整逐来源守恒 | 不可复现、无资格份额错分 | 是 |
+| D7 | 角色集合、独立核定谓词、ROOT 策略 | 显式角色；严格独立；**外部单计划核定须另行批准**；ROOT 无写权限 | 自利核定、越权、全受益团队无核定人 | 是 |
 | D8 | 是否要求同意、异议窗口、离队送达 | 收件≠同意；默认不要求同意 | 虚假同意、无法送达 | 是 |
 | D9 | 归档前/后奖金操作；来源失效后的计划状态 | 归档前核定；不改 v7 门禁 | 历史覆盖、旧金额残留 | 是 |
 | D10 | 是否记录任何付款状态 | 不记录；仅内部核定 | 虚假付款承诺 | 是 |
 | A1 | 同一确认跨计划唯一性 | 全局唯一 | 重复发放 | 是 |
 | A2 | 来源覆盖完整性 | 必须纳入或明确排除 | 遗漏贡献 | 是 |
-| A3 | 极小团队无独立核定人 | 保持待核定，不自动例外 | 自批或长期阻塞 | 是 |
+| A3 | 极小团队无独立核定人 | 无合法核定人则 pending；建议产品批准后可启用**限时/可撤销/独立外部审计人**，不可自动例外 | 自批或长期阻塞 | 是 |
 | A4 | ROOT 平台支持访问 | 无写权限；只读需审计 | 平台越权 | 是 |
 | A5 | 是否要求逐人收件才归档/导出 | 需产品批准；未批准不声称送达 | 归档证据不足 | 是 |
 
@@ -453,3 +488,11 @@ erDiagram
 - Push CI：[44526507074](https://github.com/YEXIAONAN/Nexora/actions/runs/44526507074)，Backend (Go)、Frontend (Vue)、Secret scan、Containers 四项 pass
 - PR CI：[44526516108](https://github.com/YEXIAONAN/Nexora/actions/runs/44526516108)，四项 pass
 - PR HEAD 更新为 `14032e3`；PR #10 仍为 draft，未合并，未自动进入 M2。
+
+
+### 13.2 补充评审整改交付（2026-11-19，仍为 Proposed）
+
+- PR #10 补充评审的 **P1-6、P1-7、P2-6、P2-7** 已全部反映到概念模型、金额不变量、两层状态机、权限矩阵、具体算例、D7/A3 和测试矩阵；没有将外部核定或资金分配政策改为 Accepted。
+- 本次只修改 M1 设计文档及本评审报告；不新增 Schema v8、金额业务 API、Vue 页面或运行中的数据库操作。
+- 此前 §13.1 为**历史 CI 检查点**，不代表本次整改后的 HEAD；本次整改提交及最新 CI 以 PR #10 当前 Head 和其对应 Actions 运行结果为准。
+- **M2 继续阻断**：逐来源账本和外部核定方案仍是待批准设计，并非已实施保证。
