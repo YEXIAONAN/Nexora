@@ -39,7 +39,7 @@ Phase 05 的 10000 bps 是**单个已验收贡献案例内部**的人工份额�
 | 对象 | 候选职责 | 必须保存的上下文 |
 | --- | --- | --- |
 | BonusPlan | 项目级预算与规则、币种、版本与指针 | team_id、project_id、用途/事前约定、币种代码与最小单位、当前/有效版本指针、创建人 |
-| BonusPlanVersion | 不可变方案修订快照 | version、前一版本、修改原因、状态、input_digest、算法版本 |
+| BonusPlanVersion | 不可变方案修订快照（权威金额归属版本） | version、前一版本、修改原因、状态、total_budget_minor、币种/最小单位快照、plan_unallocated_minor、事前约定快照、input_digest、算法版本 |
 | BonusSource | 显式绑定来源案例与预算 | source_id、case_id、case_version_id、confirmation_id、version_digest、source_budget_minor、source_unallocated_minor、纳入/排除决定与理由、确认时的份额快照 |
 | BonusEligibility | 每人资格与资格理由 | user_id、决定、理由、决定人、成员 epoch、决定时间；按计划版本快照 |
 | BonusAllocationLine | **逐来源 × 逐成员**的权威金额明细 | plan_version_id、source_id、user_id、raw_rounded_minor、eligible_suggested_minor、final_minor、份额、资格决定、破平局顺位；唯一键 (plan_version_id, source_id, user_id) |
@@ -49,7 +49,7 @@ Phase 05 的 10000 bps 是**单个已验收贡献案例内部**的人工份额�
 | BonusRole | 奖金管理授权 | user_id、角色、成员 epoch、授予人、状态、理由、版本 |
 | BonusReceipt / BonusDispute | 本人可见与异议记录（若批准） | 本人身份、精确计划版本及内容摘要、收件/异议证据 |
 
-这些名称只是设计占位，M2 前必须验证与现有 Team / Project / Contribution 模型的一致性，禁止直接按此列表建表。金额一律以最小货币单位整数存储；不得用浮点承载或传输金额。
+这些名称只是设计占位，M2 前必须验证与现有 Team / Project / Contribution 模型的一致性，禁止直接按此列表建表。金额一律以最小货币单位整数存储；不得用浮点承载或传输金额。**预算与币种不能仅保存在可变的 BonusPlan 顶层字段**：每个 PlanVersion 必须持有自己的冻结预算、币种及最小单位快照；历史版本可独立重算与对账。
 
 ## 4. 候选不可变约束、金额模型与状态机（全部 Proposed）
 
