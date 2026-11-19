@@ -15,6 +15,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/contributions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/httpapi"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/observability"
@@ -64,10 +65,15 @@ func run() error {
 		return fmt.Errorf("connect to database: %w", err)
 	}
 	defer pool.Close()
+	if cfg.Environment == config.EnvironmentProduction {
+		if err := database.ValidateApplicationRole(rootCtx, pool); err != nil {
+			return err
+		}
+	}
 
 	var schemaVersion int
-	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion < 6 || schemaVersion > 7 {
-		return fmt.Errorf("existing API requires schema v6 or v7; apply reviewed migrations explicitly before startup")
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion != 7 {
+		return fmt.Errorf("contribution API requires schema v7; apply reviewed migrations explicitly before startup")
 	}
 	store, err := submissions.OpenStore(cfg.AttachmentDir)
 	if err != nil {
@@ -91,6 +97,7 @@ func run() error {
 	tasksHandler := tasks.NewHandler(tasksSvc, logger)
 	submissionsSvc := submissions.NewService(submissions.NewRepository(pool), projectsSvc, tasksSvc)
 	submissionsSvc.SetStore(store)
+	contributionsSvc := contributions.NewService(contributions.NewRepository(pool), projectsSvc)
 	recoveryCtx, recoveryCancel := context.WithCancel(rootCtx)
 	recoveryDone := make(chan struct{})
 	defer func() { recoveryCancel(); <-recoveryDone }()
@@ -112,7 +119,7 @@ func run() error {
 			}
 		}
 	}()
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger))
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger))
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

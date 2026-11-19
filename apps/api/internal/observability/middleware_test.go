@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/reqctx"
@@ -99,5 +100,18 @@ func TestSecurityHeaders(t *testing.T) {
 		if recorder.Header().Get(header) == "" {
 			t.Errorf("missing security header %s", header)
 		}
+	}
+}
+
+func TestRequestIDDoesNotReflectCookieCredentials(t *testing.T) {
+	const credential = "fixture-cookie-credential-not-a-real-session"
+	handler := RequestID(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) { _, _ = w.Write([]byte(reqctx.RequestID(r.Context()))) }))
+	request := httptest.NewRequest(http.MethodGet, "/", nil)
+	request.AddCookie(&http.Cookie{Name: "nexora_session", Value: credential})
+	request.Header.Set("X-Request-Id", credential)
+	response := httptest.NewRecorder()
+	handler.ServeHTTP(response, request)
+	if response.Header().Get("X-Request-Id") == credential || strings.Contains(response.Body.String(), credential) {
+		t.Fatal("cookie credential reflected as request correlation data")
 	}
 }

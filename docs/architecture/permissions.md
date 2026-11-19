@@ -1,6 +1,6 @@
 # 权限矩阵
 
-> Phase 01–04 已合并 develop（Phase 03 PR #3 / c360327；Phase 04 PR #4 / 07f6fa1c）。Phase 05 M1 的 18 项规则已于 2026-11-18 批准，见 [ADR 0007](adr/0007-contribution-governance.md)。M2 已实现数据库资格与利益冲突防线，仍在功能分支；贡献 Service/API 尚待 M3，不能把数据库参数中的 actor_id 当作会话认证。矩阵见 [Phase 05 设计](../development/phase-05-design.md)，验证见 [M2 报告](../development/phase-05-m2-report.md)。
+> Phase 01–04 已合并 develop（Phase 03 PR #3 / c360327；Phase 04 PR #4 / 07f6fa1c）。Phase 05 M1 的 18 项规则已于 2026-11-18 批准，见 [ADR 0007](adr/0007-contribution-governance.md)。M2 数据库已通过 PR #5 合并 develop（b336bed）。M3 已在功能分支实现真实 Cookie/reqctx 身份绑定、实时业务权限、COI、scoped 读取和本人收件，尚待正式评审；没有平台角色越权或离队 Team 数据通道。矩阵见 [Phase 05 设计](../development/phase-05-design.md)，验证见 [M3 报告](../development/phase-05-m3-report.md)；数据库历史证据仍见 M2 报告。
 
 ## 平台角色
 

@@ -2,6 +2,7 @@ package httpx
 
 import (
 	"encoding/json"
+	"io"
 	"log/slog"
 	"mime"
 	"net/http"
@@ -22,6 +23,11 @@ func DecodeBody(w http.ResponseWriter, r *http.Request, logger *slog.Logger, dst
 	dec.DisallowUnknownFields()
 	if err := dec.Decode(dst); err != nil {
 		WriteError(w, r, logger, BadRequest("the request body must be a valid JSON object with known fields"))
+		return false
+	}
+	var extra any
+	if err := dec.Decode(&extra); err != io.EOF {
+		WriteError(w, r, logger, BadRequest("the request body must contain exactly one JSON object"))
 		return false
 	}
 	return true

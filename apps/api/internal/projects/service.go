@@ -61,7 +61,7 @@ func (s *Service) Event(ctx context.Context, tx pgx.Tx, actor reqctx.Identity, t
 // withTeam takes the same first lock as Phase 02 membership mutations. Even
 // reads use it so multi-query resource responses are consistent with removal.
 func (s *Service) withTeam(ctx context.Context, actor reqctx.Identity, teamID uuid.UUID, fn func(pgx.Tx, teams.Member) error) error {
-	tx, err := s.repo.pool.Begin(ctx)
+	tx, err := s.repo.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.ReadCommitted})
 	if err != nil {
 		return httpx.Internal(err)
 	}
