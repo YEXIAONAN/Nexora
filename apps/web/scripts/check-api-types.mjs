@@ -15,7 +15,9 @@ if (generated !== committed) {
   let difference = 0
   while (difference < max && expectedLines[difference] === actualLines[difference]) difference++
   console.error('First differing line:', difference + 1)
-  for (let index = Math.max(0, difference - 2); index <= Math.min(max - 1, difference + 8); index++) {
+  const first = Math.max(0, difference - 2)
+  const last = Math.min(max - 1, difference + 8)
+  for (let index = first; index <= last; index++) {
     console.error(`${index + 1} expected: ${expectedLines[index] ?? '<EOF>'}`)
     console.error(`${index + 1} actual:   ${actualLines[index] ?? '<EOF>'}`)
   }
