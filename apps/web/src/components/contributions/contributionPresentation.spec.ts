@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest'
 import { ApiError } from '@/api/client'
 import type { ContributionConfirmation, ContributionNotice } from '@/api/contributions'
 import {
-  canSubmitShares,
   caseStatusLabel,
+  contributionCaseStatuses,
   contributionError,
   formatBasisPoints,
+  memberDisplayName,
   percentToBasisPoints,
-  totalBasisPoints,
   verifiedReceipt,
   versionStatusLabel,
 } from './contributionPresentation'
@@ -33,18 +33,6 @@ describe('manual integer basis points', () => {
     },
   )
 
-  it('permits incomplete draft totals but requires exactly 10000 to submit', () => {
-    const draft = [{ share_bps: 3333 }, { share_bps: 3333 }]
-    expect(totalBasisPoints(draft)).toBe(6666)
-    expect(canSubmitShares(draft)).toBe(false)
-    expect(canSubmitShares([...draft, { share_bps: 3334 }])).toBe(true)
-    expect(canSubmitShares([...draft, { share_bps: 3333 }])).toBe(false)
-    expect(canSubmitShares([...draft, { share_bps: 3335 }])).toBe(false)
-    expect(canSubmitShares([])).toBe(false)
-    expect(canSubmitShares([{ share_bps: 0 }, { share_bps: 10000 }])).toBe(false)
-    expect(canSubmitShares([{ share_bps: 9999.5 }, { share_bps: 0.5 }])).toBe(false)
-  })
-
   it('formats basis points as precise percentage text', () => {
     expect(formatBasisPoints(1)).toBe('0.01%')
     expect(formatBasisPoints(3333)).toBe('33.33%')
@@ -54,6 +42,27 @@ describe('manual integer basis points', () => {
 })
 
 describe('governance semantics', () => {
+  it('uses one status vocabulary for every contribution page', () => {
+    expect(contributionCaseStatuses.map(caseStatusLabel)).toEqual([
+      '草案',
+      '待核定',
+      '已确认',
+      '存在争议',
+      '修订中',
+      '草案已放弃',
+    ])
+  })
+
+  it('shows real member names and only labels an unknown identity compactly', () => {
+    const members = [{ user_id: 'u1', display_name: '独立核定人' }]
+    expect(memberDisplayName(members, 'u1')).toBe('独立核定人')
+    expect(memberDisplayName([{ user_id: 'u2', username: 'worker' }], 'u2')).toBe('worker')
+    expect(memberDisplayName(members, '12345678-aaaa-bbbb-cccc-1234567890ab')).toBe(
+      '成员 12345678…',
+    )
+    expect(memberDisplayName(undefined, null)).toBe('—')
+  })
+
   it('distinguishes disputed, revising, superseded and overturned states', () => {
     expect(caseStatusLabel('disputed')).toBe('存在争议')
     expect(caseStatusLabel('revising')).toBe('修订中')

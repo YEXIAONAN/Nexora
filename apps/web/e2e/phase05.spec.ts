@@ -322,6 +322,7 @@ test('independent appraisal is immutable and only an explicit personal POST reco
   await logout(page)
   await login(page)
   await page.goto(caseURL())
+  const beforeNotice = await current(page)
   await page.getByLabel('操作原因', { exact: true }).fill('准备本人查看正式结果和独立确认收件')
   await page
     .getByTestId(`prepare-notice-${people[0]!.id}`)
@@ -339,6 +340,28 @@ test('independent appraisal is immutable and only an explicit personal POST reco
     await page.request.get(`${casePath()}/notices`),
   )
   expect(prepared[0]!.receipt).toBeNull()
+  // Simulate a lost response: the browser retries with a new idempotency key
+  // and the revision captured before the first insert. The business intent is
+  // unchanged, so the authoritative earliest notice is returned.
+  const duplicateIntent = await data<S['ContributionCommandResult']>(
+    await page.request.post(`${casePath()}/notices`, {
+      headers,
+      data: {
+        expected_version: beforeNotice.case.revision,
+        case_version_id: firstVersion,
+        confirmation_id: confirmation,
+        recipient_id: people[0]!.id,
+        client_request_id: randomUUID(),
+        reason: '响应丢失后重试同一收件告知',
+      },
+    }),
+    201,
+  )
+  expect(duplicateIntent.id).toBe(prepared[0]!.id)
+  const afterRetry = await data<S['ContributionNotice'][]>(
+    await page.request.get(`${casePath()}/notices`),
+  )
+  expect(afterRetry).toHaveLength(1)
   expect(
     (
       await page.request.post(`${casePath()}/notices/${prepared[0]!.id}/receipt`, {

@@ -3,10 +3,11 @@ import { computed, ref, watch } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ApiError } from '@/api/client'
 import * as api from '@/api/contributions'
-import { listProjects, type Project } from '@/api/projects'
+import { listProjectMembers, listProjects, type Project, type ProjectMember } from '@/api/projects'
 import { useContributionResource } from '@/composables/useContributionResource'
 import {
   formatBasisPoints,
+  memberDisplayName,
   versionStatusLabel,
   verifiedReceipt,
 } from '@/components/contributions/contributionPresentation'
@@ -14,11 +15,15 @@ import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
 
-interface ResultRow {
-  project: Project
-  result: api.ContributionResult
+interface CaseRead {
   detail: api.ContributionCaseDetail
   evidence: api.ContributionEvidence
+  versions: api.ContributionVersion[]
+}
+interface ResultRow extends CaseRead {
+  project: Project
+  members: ProjectMember[]
+  result: api.ContributionResult
   version: api.ContributionVersion
 }
 const route = useRoute(),
@@ -45,20 +50,30 @@ const { data, loading, pending, error, reload, mutate } = useContributionResourc
       projects.map(async (project): Promise<ResultRow[]> => {
         try {
           const results = await api.listMyContributionResults(team!, project.id, signal)
-          return await Promise.all(
-            results.map(async (result) => {
-              const caseId = result.notice.case_id
+          if (!results.length) return []
+          const members = await listProjectMembers(team!, project.id, signal)
+          // One cache per loader invocation only: nothing survives a Team,
+          // Project or identity switch and no data is shared across contexts.
+          const caseIds = [...new Set(results.map((result) => result.notice.case_id))]
+          const cases = new Map<string, CaseRead>()
+          await Promise.all(
+            caseIds.map(async (caseId) => {
               const [detail, evidence, versions] = await Promise.all([
                 api.getContribution(team!, project.id, caseId, signal),
                 api.getContributionEvidence(team!, project.id, caseId, signal),
                 api.listContributionVersions(team!, project.id, caseId, signal),
               ])
-              const version = versions.find((v) => v.id === result.notice.case_version_id)
-              if (!version || version.confirmation?.id !== result.confirmation.id)
-                throw new ApiError('结果版本无法核对，请刷新重试')
-              return { project, result, detail, evidence, version }
+              cases.set(caseId, { detail, evidence, versions })
             }),
           )
+          return results.map((result) => {
+            const loaded = cases.get(result.notice.case_id)
+            if (!loaded) throw new ApiError('结果版本无法核对，请刷新重试')
+            const version = loaded.versions.find((v) => v.id === result.notice.case_version_id)
+            if (!version || version.confirmation?.id !== result.confirmation.id)
+              throw new ApiError('结果版本无法核对，请刷新重试')
+            return { project, members, result, ...loaded, version }
+          })
         } catch (reason) {
           if (reason instanceof ApiError && [403, 404].includes(reason.status ?? 0)) {
             unavailable.push(project.name)
@@ -213,7 +228,9 @@ async function receive(row: ResultRow) {
           <dl class="grid gap-3 text-xs sm:grid-cols-2">
             <div>
               <dt class="text-ink-subtle">核定者</dt>
-              <dd class="mt-1 break-all">{{ row.result.confirmation.confirmed_by }}</dd>
+              <dd class="mt-1 break-all">
+                {{ memberDisplayName(row.members, row.result.confirmation.confirmed_by) }}
+              </dd>
             </div>
             <div>
               <dt class="text-ink-subtle">核定时间</dt>

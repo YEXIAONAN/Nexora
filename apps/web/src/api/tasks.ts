@@ -12,8 +12,12 @@ export type CreateTask = S['CreateTaskRequest']
 export type EditTask = S['EditTaskRequest']
 const path = (team: string, project: string, task?: string) =>
   `${projectPath(team, project)}/tasks${task ? `/${encodeURIComponent(task)}` : ''}`
-export async function getTaskTree(team: string, project: string): Promise<TaskTree> {
-  return (await requestJSON<S['TaskTreeEnvelope']>(path(team, project))).data
+export async function getTaskTree(
+  team: string,
+  project: string,
+  signal?: AbortSignal,
+): Promise<TaskTree> {
+  return (await requestJSON<S['TaskTreeEnvelope']>(path(team, project), { signal })).data
 }
 export async function createTask(team: string, project: string, body: CreateTask): Promise<Task> {
   return (await requestJSON<S['TaskEnvelope']>(path(team, project), { method: 'POST', body })).data

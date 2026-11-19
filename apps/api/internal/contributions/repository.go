@@ -246,6 +246,27 @@ func (r *Repository) conflict(ctx context.Context, tx pgx.Tx, c Case, actor uuid
 	e := tx.QueryRow(ctx, `INSERT INTO contribution_conflicts(team_id,project_id,task_id,case_id,user_id,kind,details,recorded_by,request_id) VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id`, c.TeamID, c.ProjectID, c.TaskID, c.ID, in.UserID, in.Kind, in.Details, actor, request).Scan(&id)
 	return id, e
 }
+func (r *Repository) lockCase(ctx context.Context, tx pgx.Tx, c Case) error {
+	_, e := tx.Exec(ctx, `SELECT contribution_lock($1,$2,$3)`, c.TeamID, c.ProjectID, c.ID)
+	return e
+}
+
+// noticeIntent is the business identity of one delivery notice. Multiple
+// retries or concurrent requests for the same confirmed result and recipient
+// must resolve to the earliest immutable row; a later confirmed revision has a
+// different confirmation_id and is therefore a separate intent.
+func (r *Repository) noticeIntent(ctx context.Context, tx pgx.Tx, c Case, in NoticeInput) (uuid.UUID, bool, error) {
+	var id uuid.UUID
+	e := tx.QueryRow(ctx, `SELECT id FROM contribution_notifications WHERE team_id=$1 AND project_id=$2 AND task_id=$3 AND case_id=$4 AND case_version_id=$5 AND confirmation_id=$6 AND recipient_id=$7 AND channel='authenticated_ack' ORDER BY prepared_at,id LIMIT 1`, c.TeamID, c.ProjectID, c.TaskID, c.ID, in.CaseVersionID, in.ConfirmationID, in.RecipientID).Scan(&id)
+	if errors.Is(e, pgx.ErrNoRows) {
+		return uuid.Nil, false, nil
+	}
+	if e != nil {
+		return uuid.Nil, false, e
+	}
+	return id, true, nil
+}
+
 func (r *Repository) notice(ctx context.Context, tx pgx.Tx, c Case, actor uuid.UUID, in NoticeInput, request string) (uuid.UUID, error) {
 	var id uuid.UUID
 	e := tx.QueryRow(ctx, `INSERT INTO contribution_notifications(team_id,project_id,task_id,case_id,case_version_id,confirmation_id,recipient_id,channel,created_by,request_id) VALUES($1,$2,$3,$4,$5,$6,$7,'authenticated_ack',$8,$9) RETURNING id`, c.TeamID, c.ProjectID, c.TaskID, c.ID, in.CaseVersionID, in.ConfirmationID, in.RecipientID, actor, request).Scan(&id)

@@ -16,7 +16,7 @@ vi.mock('@/api/contributions', () => ({
   listContributionVersions: vi.fn(),
   acknowledgeContributionReceipt: vi.fn(),
 }))
-vi.mock('@/api/projects', () => ({ listProjects: vi.fn() }))
+vi.mock('@/api/projects', () => ({ listProjects: vi.fn(), listProjectMembers: vi.fn() }))
 const timestamp = '2026-11-19T06:00:00Z'
 const confirmation: api.ContributionConfirmation = {
   id: 'confirmation',
@@ -150,6 +150,9 @@ beforeEach(() => {
   vi.mocked(projects.listProjects).mockResolvedValue([
     { id: 'project', name: '项目 A', status: 'active' } as projects.Project,
   ])
+  vi.mocked(projects.listProjectMembers).mockResolvedValue([
+    { user_id: 'appraiser', display_name: '独立核定人', active: true },
+  ] as projects.ProjectMember[])
   vi.mocked(api.listMyContributionResults).mockResolvedValue(structuredClone([result]))
   vi.mocked(api.getContribution).mockResolvedValue(structuredClone(detail))
   vi.mocked(api.getContributionEvidence).mockResolvedValue(structuredClone(evidence))
@@ -273,6 +276,41 @@ describe('本人贡献结果与独立收件', () => {
     expect(api.listMyContributionResults).toHaveBeenCalledTimes(2)
     wrapper.unmount()
   })
+  it('同一案例的多个核定只读取一次详情、证据和版本，并显示真实核定人', async () => {
+    const confirmation2 = {
+      ...confirmation,
+      id: 'confirmation2',
+      case_version_id: 'version2',
+    }
+    const version2 = {
+      ...version,
+      id: 'version2',
+      version: 2,
+      confirmation: confirmation2,
+    }
+    const result2 = structuredClone(result)
+    result2.notice = {
+      ...result2.notice,
+      id: 'notice2',
+      case_version_id: 'version2',
+      confirmation_id: 'confirmation2',
+    }
+    result2.confirmation = confirmation2
+    vi.mocked(api.listMyContributionResults).mockResolvedValue([
+      structuredClone(result),
+      structuredClone(result2),
+    ])
+    vi.mocked(api.listContributionVersions).mockResolvedValue([version, version2])
+    const { wrapper } = await setup()
+    expect(wrapper.findAll('[data-testid="contribution-result"]')).toHaveLength(2)
+    expect(api.getContribution).toHaveBeenCalledTimes(1)
+    expect(api.getContributionEvidence).toHaveBeenCalledTimes(1)
+    expect(api.listContributionVersions).toHaveBeenCalledTimes(1)
+    expect(projects.listProjectMembers).toHaveBeenCalledTimes(1)
+    expect(wrapper.text()).toContain('独立核定人')
+    wrapper.unmount()
+  })
+
   it('被推翻的核定仍显示原始结果和历史语义', async () => {
     vi.mocked(api.listContributionVersions).mockResolvedValue([
       { ...version, status: 'overturned' },

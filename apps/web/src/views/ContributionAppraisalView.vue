@@ -5,7 +5,10 @@ import * as api from '@/api/contributions'
 import { getProject, listProjectMembers } from '@/api/projects'
 import { getTeam } from '@/api/teams'
 import { useContributionResource } from '@/composables/useContributionResource'
-import { caseStatusLabel } from '@/components/contributions/contributionPresentation'
+import {
+  caseStatusLabel,
+  memberDisplayName,
+} from '@/components/contributions/contributionPresentation'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
@@ -76,8 +79,7 @@ const candidates = computed(
     ) ?? [],
 )
 function memberName(id: string) {
-  const member = data.value?.members.find((m) => m.user_id === id)
-  return member?.display_name || member?.username || id
+  return memberDisplayName(data.value?.members, id)
 }
 async function change(appraiser?: api.ContributionAppraiser) {
   const target = appraiser?.user_id ?? user.value

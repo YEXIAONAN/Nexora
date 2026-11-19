@@ -13,6 +13,7 @@ import ContributionHistoryPanel from '@/components/contributions/ContributionHis
 import ContributionProxyDispute from '@/components/contributions/ContributionProxyDispute.vue'
 import {
   caseStatusLabel,
+  memberDisplayName,
   verifiedReceipt,
 } from '@/components/contributions/contributionPresentation'
 import { formatDateTime } from '@/utils/format'
@@ -195,10 +196,7 @@ function recordConflict() {
   }
   void write((t, p, c, s) => api.recordContributionConflict(t, p, c, input, s))
 }
-const memberName = (id: string) =>
-  data.value?.members.find((m) => m.user_id === id)?.display_name ||
-  data.value?.members.find((m) => m.user_id === id)?.username ||
-  id
+const memberName = (id: string) => memberDisplayName(data.value?.members, id)
 </script>
 <template>
   <div class="mx-auto max-w-6xl space-y-5">
