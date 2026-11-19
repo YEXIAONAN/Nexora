@@ -2704,7 +2704,7 @@ export interface components {
             funding_label: string;
             /** @enum {string} */
             currency_code: "CNY";
-            /** @enum {number} */
+            /** @enum {integer} */
             currency_minor_unit: 2;
             /**
              * Format: int64
