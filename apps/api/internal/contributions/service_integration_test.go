@@ -204,6 +204,72 @@ func TestServiceContributionAuditFailureIsAtomicAndSanitized(t *testing.T) {
 	must(t, e)
 	f.noCredentials()
 }
+func TestServiceContributionNoticeIntentDeduplication(t *testing.T) {
+	f := setup(t)
+	f.grant("appraiser")
+	c := f.create()
+	f.prepare(c)
+	confirmation := f.confirm(c)
+	input := func() contributions.NoticeInput {
+		return contributions.NoticeInput{VersionCommand: f.current(c), ConfirmationID: confirmation, RecipientID: f.actors["worker"].UserID}
+	}
+	firstInput := input()
+	first := f.http("POST", f.path(c, "/notices"), "lead", firstInput, 201)
+	replay := f.http("POST", f.path(c, "/notices"), "lead", firstInput, 201)
+	if replay.ID != first.ID {
+		t.Fatal("same client_request_id created another notice")
+	}
+	// A lost response is retried by the browser with a new idempotency key but
+	// the same confirmed result and recipient: it is still one business notice.
+	retry := f.http("POST", f.path(c, "/notices"), "lead", input(), 201)
+	if retry.ID != first.ID {
+		t.Fatal("the same confirmed result and recipient created a duplicate notice")
+	}
+	count := func(confirmation uuid.UUID) int {
+		var n int
+		must(t, f.db.Pool.QueryRow(f.ctx, `SELECT count(*) FROM contribution_notifications WHERE team_id=$1 AND project_id=$2 AND task_id=$3 AND case_id=$4 AND confirmation_id=$5 AND recipient_id=$6 AND channel='authenticated_ack'`, f.team, f.project.ID, f.task.ID, c, confirmation, f.actors["worker"].UserID).Scan(&n))
+		return n
+	}
+	if n := count(confirmation); n != 1 {
+		t.Fatalf("duplicate notice rows=%d, want 1", n)
+	}
+	// Existing rows from before M5 must stay immutable. A new request resolves
+	// to the earliest record and does not add a third duplicate.
+	_, e := f.db.Pool.Exec(f.ctx, `INSERT INTO contribution_notifications(team_id,project_id,task_id,case_id,case_version_id,confirmation_id,recipient_id,channel,created_by,request_id) VALUES($1,$2,$3,$4,$5,$6,$7,'authenticated_ack',$8,'legacy-duplicate-intent')`, f.team, f.project.ID, f.task.ID, c, firstInput.CaseVersionID, confirmation, f.actors["worker"].UserID, f.actors["lead"].UserID)
+	must(t, e)
+	legacy := f.http("POST", f.path(c, "/notices"), "lead", input(), 201)
+	if legacy.ID != first.ID {
+		t.Fatal("dedupe did not select the earliest existing notice")
+	}
+	if n := count(confirmation); n != 2 {
+		t.Fatalf("legacy duplicates were deleted or a third row was added: rows=%d", n)
+	}
+	in := f.receiptInput(c, confirmation)
+	f.http("POST", f.path(c, "/notices/"+first.ID.String()+"/receipt"), "worker", in, 200)
+	var bound bool
+	must(t, f.db.Pool.QueryRow(f.ctx, `SELECT EXISTS(SELECT 1 FROM contribution_attestations WHERE notice_id=$1 AND confirmation_id=$2 AND case_version_id=$3 AND subject_id=$4 AND purpose='delivery')`, first.ID, confirmation, in.CaseVersionID, f.actors["worker"].UserID).Scan(&bound))
+	if !bound {
+		t.Fatal("receipt did not bind the displayed confirmation and version")
+	}
+	// A new confirmed revision is a separate business intent and must be told
+	// again; the earlier receipt cannot satisfy the new effective version.
+	f.http("POST", f.path(c, "/revisions"), "lead", f.current(c), 200)
+	f.prepare(c)
+	confirmation = f.confirm(c)
+	next := f.notice(c, confirmation)
+	if next == first.ID {
+		t.Fatal("a new confirmed revision reused the previous notice")
+	}
+	if n := count(confirmation); n != 1 {
+		t.Fatalf("new revision notices=%d, want 1", n)
+	}
+	_, e = f.ps.Archive(f.ctx, f.actors["lead"], f.team, f.project.ID, f.project.Version)
+	status(t, e, 409)
+	f.http("POST", f.path(c, "/notices/"+next.String()+"/receipt"), "worker", f.receiptInput(c, confirmation), 200)
+	_, e = f.ps.Archive(f.ctx, f.actors["lead"], f.team, f.project.ID, f.project.Version)
+	must(t, e)
+}
+
 func TestServiceContributionScopeAndSessionBinding(t *testing.T) {
 	f := setup(t)
 	c := f.create()

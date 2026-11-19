@@ -257,6 +257,37 @@ func TestServiceConcurrentConfirmationDisputeAndRuling(t *testing.T) {
 		})
 	}
 }
+func TestServiceConcurrentNoticeIntentIsSingle(t *testing.T) {
+	f := setup(t)
+	f.grant("appraiser")
+	c := f.create()
+	f.prepare(c)
+	confirmation := f.confirm(c)
+	input := func() contributions.NoticeInput {
+		return contributions.NoticeInput{VersionCommand: f.current(c), ConfirmationID: confirmation, RecipientID: f.actors["worker"].UserID}
+	}
+	var first, second uuid.UUID
+	a, b := f.pair(func() error {
+		out, e := f.svc.PrepareNotice(f.ctx, f.actors["lead"], f.team, f.project.ID, c, input())
+		first = out.ID
+		return e
+	}, func() error {
+		out, e := f.svc.PrepareNotice(f.ctx, f.actors["lead"], f.team, f.project.ID, c, input())
+		second = out.ID
+		return e
+	})
+	must(t, a)
+	must(t, b)
+	if first == uuid.Nil || first != second {
+		t.Fatal("concurrent identical notice intents returned different notices")
+	}
+	var n int
+	must(t, f.db.Pool.QueryRow(f.ctx, `SELECT count(*) FROM contribution_notifications WHERE team_id=$1 AND project_id=$2 AND task_id=$3 AND case_id=$4 AND confirmation_id=$5 AND recipient_id=$6 AND channel='authenticated_ack'`, f.team, f.project.ID, f.task.ID, c, confirmation, f.actors["worker"].UserID).Scan(&n))
+	if n != 1 {
+		t.Fatalf("concurrent identical intents created %d notices, want 1", n)
+	}
+}
+
 func TestServiceConcurrentRevisionAndArchive(t *testing.T) {
 	for _, archiveFirst := range []bool{false, true} {
 		t.Run(map[bool]string{false: "revision_first", true: "archive_first"}[archiveFirst], func(t *testing.T) {
