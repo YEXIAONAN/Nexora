@@ -1470,6 +1470,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{teamID}/bonus-results/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my effective and confirmed bonus amounts
+         * @description Only the signed-in subject's effective confirmed amounts; requires live session and active team/project membership, excludes drafts, and never bypasses membership for ROOT.
+         */
+        get: operations["listMyBonusResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2675,6 +2695,31 @@ export interface components {
         };
         ContributionIdentityEvidenceEnvelope: {
             data: components["schemas"]["ContributionIdentityEvidence"];
+        };
+        BonusResult: {
+            /** Format: uuid */
+            round_id: string;
+            /** Format: uuid */
+            project_id: string;
+            funding_label: string;
+            /** @enum {string} */
+            currency_code: "CNY";
+            /** @enum {number} */
+            currency_minor_unit: 2;
+            /**
+             * Format: int64
+             * @description Subject-only internal amount in CNY fen, not a payment claim.
+             */
+            amount_minor: number;
+            /** Format: date-time */
+            confirmed_at: string;
+        };
+        BonusResultsPage: {
+            items: components["schemas"]["BonusResult"][];
+            has_more: boolean;
+        };
+        BonusResultsPageEnvelope: {
+            data: components["schemas"]["BonusResultsPage"];
         };
     };
     responses: {
@@ -5883,4 +5928,32 @@ export interface operations {
             500: components["responses"]["InternalError"];
         };
     };
+    listMyBonusResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subject-only confirmed bonus results */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusResultsPageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+
 }
