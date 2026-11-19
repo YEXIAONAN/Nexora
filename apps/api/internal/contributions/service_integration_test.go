@@ -270,6 +270,42 @@ func TestServiceContributionNoticeIntentDeduplication(t *testing.T) {
 	must(t, e)
 }
 
+func TestServiceContributionNoticeHistoricalIntentIsNotNewDelivery(t *testing.T) {
+	f := setup(t)
+	f.grant("appraiser")
+	c := f.create()
+	f.prepare(c)
+	firstConfirmation := f.confirm(c)
+	firstVersion := *f.detail(c).Case.EffectiveConfirmedVersionID
+	firstNotice := f.notice(c, firstConfirmation)
+	f.http("POST", f.path(c, "/notices/"+firstNotice.String()+"/receipt"), "worker", f.receiptInput(c, firstConfirmation), 200)
+	f.http("POST", f.path(c, "/revisions"), "lead", f.current(c), 200)
+	f.prepare(c)
+	secondConfirmation := f.confirm(c)
+	// A stale request for the superseded confirmation resolves to its immutable
+	// historical notice; it does not create a new notice or new delivery proof.
+	oldCommand := f.current(c)
+	oldCommand.CaseVersionID = firstVersion
+	old := f.http("POST", f.path(c, "/notices"), "lead", contributions.NoticeInput{VersionCommand: oldCommand, ConfirmationID: firstConfirmation, RecipientID: f.actors["worker"].UserID}, 201)
+	if old.ID != firstNotice {
+		t.Fatal("historical notice intent was not resolved to its immutable notice")
+	}
+	var historical int
+	must(t, f.db.Pool.QueryRow(f.ctx, `SELECT count(*) FROM contribution_notifications WHERE case_id=$1 AND confirmation_id=$2`, c, firstConfirmation).Scan(&historical))
+	if historical != 1 {
+		t.Fatalf("historical notices=%d, want 1", historical)
+	}
+	_, e := f.ps.Archive(f.ctx, f.actors["lead"], f.team, f.project.ID, f.project.Version)
+	status(t, e, 409)
+	next := f.notice(c, secondConfirmation)
+	if next == firstNotice {
+		t.Fatal("new confirmation reused the historical notice")
+	}
+	f.http("POST", f.path(c, "/notices/"+next.String()+"/receipt"), "worker", f.receiptInput(c, secondConfirmation), 200)
+	_, e = f.ps.Archive(f.ctx, f.actors["lead"], f.team, f.project.ID, f.project.Version)
+	must(t, e)
+}
+
 func TestServiceContributionScopeAndSessionBinding(t *testing.T) {
 	f := setup(t)
 	c := f.create()
