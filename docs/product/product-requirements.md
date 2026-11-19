@@ -7,7 +7,7 @@
 | 当前交付版本 | **V1.0**（正式批准） |
 | 批准日期 | 2026-11-17 |
 | 批准决策 | 产品负责人选择**方案 B**：多 Team 数据与权限架构先行，首版优先交付 ZERO_R 核心业务闭环 |
-| 当前工程阶段 | Phase 01–05 已合并 develop（M6 PR #9 / af3802b，合并后 CI 44522533362 全绿）；Phase 06 M1 已完成候选设计，**D5 初版仅 CNY、D9 归档后奖金业务只读已由产品负责人明确决定**；其他金额政策仍 Proposed、未获全面批准。工程阶段不等于正式发布 |
+| 当前工程阶段 | Phase 01–05 已合并 develop（M6 PR #9 / af3802b，合并后 CI 44522533362 全绿）；Phase 06 M1 已完成候选设计，**D5 初版仅 CNY、D9 归档后独立奖金可续办已由产品负责人明确决定**；其他金额政策仍 Proposed、未获全面批准。工程阶段不等于正式发布 |
 | 长期规划 | V2.0 原始需求基线完整保留于本文件第二部分，作为长期产品规划与历史决策记录 |
 
 状态用语约定：**已批准**指产品决策生效；**已设计**指有设计文档但尚未实现；**已开发**指代码已在特性分支完成、尚未合入 develop；**已实现**指代码已合入 develop（或 main）并通过测试；**已验证**指有真实执行证据（集成测试、E2E 或验收报告）。PR 待合并阶段只能标注“已开发并验证”，不得标注“已实现”或“正式集成完成”。文档中必须严格区分，不得混用。
@@ -210,7 +210,7 @@ ROOT 初始身份标识为 `waiting`，但该名称不可作为授权依据。�
 | 项目、三级任务、状态机、进度 | 已实现并验证：PR #3 已合并 develop（c360327）；证据见 [Phase 03 报告](../development/phase-03-report.md)，不包含成果验收 |
 | 成果提交与验收 | 已实现并验证：PR #4 已合并 develop（07f6fa1c），合并 CI 44202649641 四项成功；证据见 [Phase 04 报告](../development/phase-04-report.md) |
 | 贡献核算 | Phase 05 M1–M6 已实现并验证并合并 develop（PR #9 / af3802b，合并后 CI 44522533362 成功）；[M6 报告](../development/phase-05-m6-report.md)。尚未正式发布 main；不包含奖金金额 |
-| 奖金分配 | V2.0 原文已有规划；Phase 06 M1 [候选设计](../development/phase-06-m1-design.md)、[独立评审](../development/phase-06-m1-review.md) 与 [产品决策记录](../development/phase-06-m1-product-decisions.md) 已完成。**D5/CNY-only 和 D9/A（归档后业务只读）已明确批准**；其余 D/A 项及 D5 金额技术细节待批准，ADR 0005 金额整体仍 Proposed；无 Schema/API/页面实现 |
+| 奖金分配 | V2.0 原文已有规划；Phase 06 M1 [候选设计](../development/phase-06-m1-design.md)、[独立评审](../development/phase-06-m1-review.md) 与 [产品决策记录](../development/phase-06-m1-product-decisions.md) 已完成。**D5/CNY-only 和 D9/B（归档后独立奖金可续办）已明确批准**；其余 D/A 项及 D5 金额技术细节待批准，ADR 0005 金额整体仍 Proposed；无 Schema/API/页面实现 |
 | 工作台与视图 | 部分已设计，未实现（V2.0 / Phase 07） |
 | 通知、导出、归档 | 已设计（V2.0 原文），未实现（V2.0 / Phase 07） |
 | 系统级验收与发布 | 未开始（Phase 08） |
@@ -226,4 +226,8 @@ Phase 01–04 已合并 develop；Phase 04 成果与验收经 PR #4 合并（07f
 
 ### 当前跟踪增补（2026-11-19，Phase 06 M1）
 
-Phase 05 M6 的 PR #9 已合并至 develop，合并 CI 44522533362 四项成功；以 [M6 报告](../development/phase-05-m6-report.md) 及最新 Roadmap 为准。V2.0 / Phase 06 M1 已完成 [奖金分配候选设计](../development/phase-06-m1-design.md) 与 [独立设计评审](../development/phase-06-m1-review.md)；其中 **D5 只支持 CNY（人民币分）和 D9 方案 A（归档后奖金业务完全只读）已获产品负责人明确决策**；D1–D4、D6–D8、D10、A1–A5 与 D5 其余技术细节仍待批准，ADR 0005 金额整体仍 Proposed。不改变历史快照、已批准 V1.0/V1.1 范围、Phase 05 份额不可自动推断规则，也不包含奖金数据库、API、付款或正式发布；未获批准前不得进入 M2。
+Phase 05 M6 的 PR #9 已合并至 develop，合并 CI 44522533362 四项成功；以 [M6 报告](../development/phase-05-m6-report.md) 及最新 Roadmap 为准。V2.0 / Phase 06 M1 已完成 [奖金分配候选设计](../development/phase-06-m1-design.md) 与 [独立设计评审](../development/phase-06-m1-review.md)；其中 **D5 只支持 CNY（人民币分）和 D9 方案 B（归档后独立奖金可续办，项目/贡献冻结）已获产品负责人明确决策**；D1–D4、D6–D8、D10、A1–A5 与 D5 其余技术细节仍待批准，ADR 0005 金额整体仍 Proposed。不改变历史快照、已批准 V1.0/V1.1 范围、Phase 05 份额不可自动推断规则，也不包含奖金数据库、API、付款或正式发布；未获批准前不得进入 M2。
+
+### Phase 06 M1 Final Fix 业务增量（2026-11-19）
+
+产品负责人支持**归档后继续通过独立奖金域开展奖金批次管理**，因为学校、主办方或学院可在比赛结束数月后才拨款。该决定 **D9/B** 覆盖以前的 D9/A；项目、任务、成果、贡献历史不得改变。**D1/A1**：同一项目可有多个独立奖金批次；同一个正式贡献确认可在真实不同资金批次中复用，但每批次不可重复绑定和重复资金。D5 仍仅人民币 CNY。用户已授权 M2 的独立 Schema v8 工程研发，未授权默认合并、生产部署或启动未获批的核定算法。
