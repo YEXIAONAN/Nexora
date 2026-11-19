@@ -1479,9 +1479,49 @@ export interface paths {
         };
         /**
          * List my effective and confirmed bonus amounts
-         * @description Only the signed-in subject's effective confirmed amounts; requires live session and active team/project membership, excludes drafts, and never bypasses membership for ROOT.
+         * @description Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v8; a compatible v7 deployment does not mount this route (404).
          */
         get: operations["listMyBonusResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List funding-round metadata for one project
+         * @description Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+         */
+        get: operations["listBonusRounds"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one funding round with its version history
+         * @description Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+         */
+        get: operations["getBonusRound"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2711,6 +2751,16 @@ export interface components {
              * @description Subject-only internal amount in CNY fen, not a payment claim.
              */
             amount_minor: number;
+            /**
+             * @description Internal bonus result state. Confirmed does not mean paid.
+             * @enum {string}
+             */
+            status: "confirmed";
+            /**
+             * @description Nexora records bonus calculation and confirmation only; payments are not executed or tracked in this phase.
+             * @enum {string}
+             */
+            payment_status: "not_recorded";
             /** Format: date-time */
             confirmed_at: string;
         };
@@ -2720,6 +2770,76 @@ export interface components {
         };
         BonusResultsPageEnvelope: {
             data: components["schemas"]["BonusResultsPage"];
+        };
+        BonusRoundVersion: {
+            version: number;
+            /**
+             * @description Immutable plan-version status; not the derived funding-round workflow state.
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "superseded" | "overturned" | "abandoned";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            confirmed_at: string | null;
+            /** @description True only for the round's effective confirmed version. */
+            effective: boolean;
+        };
+        BonusRoundSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** @description Project-scoped normalized identifier of one real funding round. */
+            funding_key: string;
+            funding_label: string;
+            funding_source: string;
+            /**
+             * @description Derived round workflow. A version status is never overwritten by this value.
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "revising" | "abandoned" | "unavailable";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            latest_version: components["schemas"]["BonusRoundVersion"] | null;
+            effective_confirmed_version: components["schemas"]["BonusRoundVersion"] | null;
+            /**
+             * @description Always false in this phase: project read access does not grant access to budgets or member amounts.
+             * @enum {boolean}
+             */
+            amounts_visible: false;
+        };
+        BonusRoundDetail: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            funding_key: string;
+            funding_label: string;
+            funding_source: string;
+            /** @enum {string} */
+            status: "draft" | "pending_review" | "confirmed" | "revising" | "abandoned" | "unavailable";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            latest_version: components["schemas"]["BonusRoundVersion"] | null;
+            effective_confirmed_version: components["schemas"]["BonusRoundVersion"] | null;
+            /** @enum {boolean} */
+            amounts_visible: false;
+            versions: components["schemas"]["BonusRoundVersion"][];
+        };
+        BonusRoundsPage: {
+            items: components["schemas"]["BonusRoundSummary"][];
+            has_more: boolean;
+        };
+        BonusRoundsPageEnvelope: {
+            data: components["schemas"]["BonusRoundsPage"];
+        };
+        BonusRoundDetailEnvelope: {
+            data: components["schemas"]["BonusRoundDetail"];
         };
     };
     responses: {
@@ -5947,6 +6067,63 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["BonusResultsPageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listBonusRounds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-monetary funding-round metadata */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusRoundsPageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getBonusRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: string;
+                roundID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-monetary funding-round metadata and version history */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusRoundDetailEnvelope"];
                 };
             };
             400: components["responses"]["BadRequest"];

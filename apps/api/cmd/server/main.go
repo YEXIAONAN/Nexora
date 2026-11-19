@@ -15,6 +15,7 @@ import (
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusresults"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusrounds"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/contributions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -130,11 +131,14 @@ func run() error {
 		submissions.NewHandler(submissionsSvc, logger),
 		contributions.NewHandler(contributionsSvc, logger),
 	}
-	// The Phase06 result relations only exist in v8. Keep the existing v7 MVP
-	// operational without exposing a route that would query absent tables.
-	if schemaVersion >= 8 {
-		bonusResultsSvc := bonusresults.NewService(bonusresults.NewRepository(pool))
-		modules = append(modules, bonusresults.NewHandler(bonusResultsSvc, logger))
+	// The Phase06 bonus relations only exist from schema v8. A v7 deployment
+	// keeps the Phase05 API set and must never expose a route that would query
+	// absent tables and turn a compatible startup into HTTP 500 responses.
+	if database.SupportsBonusSchema(schemaVersion) {
+		modules = append(modules,
+			bonusresults.NewHandler(bonusresults.NewService(bonusresults.NewRepository(pool)), logger),
+			bonusrounds.NewHandler(bonusrounds.NewService(bonusrounds.NewRepository(pool)), logger),
+		)
 	}
 	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, modules...)
 

@@ -5,6 +5,7 @@ info:
   description: |
     Nexora V1.0 的 HTTP 接口契约。
 
+    Phase 06 M3 增加只读奖金批次与本人正式结果（Schema v8；v7 部署不暴露这些路由）。
     Phase 05 M3 增加绑定认证身份的贡献治理、争议和本人收件确认（Schema v7）。
     Phase 04 增加不可变成果版本、明确审核授权、正式验收和私有附件。
     成果提交与正式完成分离；通用状态接口不能代替当前版本的正式审核。
@@ -21,7 +22,7 @@ servers:
     description: 本地开发
 tags:
   - name: Bonuses
-    description: Authenticated subject-only confirmed bonus results (read-only)
+    description: Read-only bonus funding-round metadata and authenticated subject-only confirmed results
   - name: Contributions
     description: Authenticated contribution governance and verified receipt
   - name: System
@@ -3828,7 +3829,7 @@ paths:
       tags: [Bonuses]
       operationId: listMyBonusResults
       summary: List my effective and confirmed bonus amounts
-      description: Only the signed-in subject's effective confirmed amounts; requires live session and active team/project membership, excludes drafts, and never bypasses membership for ROOT.
+      description: Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v8; a compatible v7 deployment does not mount this route (404).
       security:
         - sessionCookie: []
       parameters:
@@ -3843,6 +3844,80 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/BonusResultsPageEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds":
+    get:
+      tags: [Bonuses]
+      operationId: listBonusRounds
+      summary: List funding-round metadata for one project
+      description: Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Non-monetary funding-round metadata
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusRoundsPageEnvelope'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}":
+    get:
+      tags: [Bonuses]
+      operationId: getBonusRound
+      summary: Read one funding round with its version history
+      description: Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+      security:
+        - sessionCookie: []
+      parameters:
+        - $ref: '#/components/parameters/TeamID'
+        - name: projectID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: roundID
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Non-monetary funding-round metadata and version history
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BonusRoundDetailEnvelope'
         '400':
           $ref: '#/components/responses/BadRequest'
         '401':
@@ -7112,6 +7187,8 @@ components:
         - "currency_code"
         - "currency_minor_unit"
         - "amount_minor"
+        - "status"
+        - "payment_status"
         - "confirmed_at"
       "properties":
         "round_id":
@@ -7134,6 +7211,14 @@ components:
           "minimum": 0
           "maximum": 900000000000000
           "description": "Subject-only internal amount in CNY fen, not a payment claim."
+        "status":
+          "type": "string"
+          "enum": ["confirmed"]
+          "description": "Internal bonus result state. Confirmed does not mean paid."
+        "payment_status":
+          "type": "string"
+          "enum": ["not_recorded"]
+          "description": "Nexora records bonus calculation and confirmation only; payments are not executed or tracked in this phase."
         "confirmed_at":
           "type": "string"
           "format": "date-time"
@@ -7158,3 +7243,170 @@ components:
       "properties":
         "data":
           "$ref": "#/components/schemas/BonusResultsPage"
+    "BonusRoundVersion":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "version"
+        - "status"
+        - "created_at"
+        - "submitted_at"
+        - "confirmed_at"
+        - "effective"
+      "properties":
+        "version":
+          "type": "integer"
+          "minimum": 1
+        "status":
+          "type": "string"
+          "enum": ["draft", "pending_review", "confirmed", "superseded", "overturned", "abandoned"]
+          "description": "Immutable plan-version status; not the derived funding-round workflow state."
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "submitted_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "confirmed_at":
+          "type":
+            - "string"
+            - "null"
+          "format": "date-time"
+        "effective":
+          "type": "boolean"
+          "description": "True only for the round's effective confirmed version."
+    "BonusRoundSummary":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "project_id"
+        - "funding_key"
+        - "funding_label"
+        - "funding_source"
+        - "status"
+        - "revision"
+        - "created_at"
+        - "latest_version"
+        - "effective_confirmed_version"
+        - "amounts_visible"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "funding_key":
+          "type": "string"
+          "description": "Project-scoped normalized identifier of one real funding round."
+        "funding_label":
+          "type": "string"
+        "funding_source":
+          "type": "string"
+        "status":
+          "type": "string"
+          "enum": ["draft", "pending_review", "confirmed", "revising", "abandoned", "unavailable"]
+          "description": "Derived round workflow. A version status is never overwritten by this value."
+        "revision":
+          "type": "integer"
+          "minimum": 1
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "latest_version":
+          "anyOf":
+            - "$ref": "#/components/schemas/BonusRoundVersion"
+            - "type": "null"
+        "effective_confirmed_version":
+          "anyOf":
+            - "$ref": "#/components/schemas/BonusRoundVersion"
+            - "type": "null"
+        "amounts_visible":
+          "type": "boolean"
+          "enum": [false]
+          "description": "Always false in this phase: project read access does not grant access to budgets or member amounts."
+    "BonusRoundDetail":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "project_id"
+        - "funding_key"
+        - "funding_label"
+        - "funding_source"
+        - "status"
+        - "revision"
+        - "created_at"
+        - "latest_version"
+        - "effective_confirmed_version"
+        - "amounts_visible"
+        - "versions"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "funding_key":
+          "type": "string"
+        "funding_label":
+          "type": "string"
+        "funding_source":
+          "type": "string"
+        "status":
+          "type": "string"
+          "enum": ["draft", "pending_review", "confirmed", "revising", "abandoned", "unavailable"]
+        "revision":
+          "type": "integer"
+          "minimum": 1
+        "created_at":
+          "type": "string"
+          "format": "date-time"
+        "latest_version":
+          "anyOf":
+            - "$ref": "#/components/schemas/BonusRoundVersion"
+            - "type": "null"
+        "effective_confirmed_version":
+          "anyOf":
+            - "$ref": "#/components/schemas/BonusRoundVersion"
+            - "type": "null"
+        "amounts_visible":
+          "type": "boolean"
+          "enum": [false]
+        "versions":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/BonusRoundVersion"
+    "BonusRoundsPage":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "items"
+        - "has_more"
+      "properties":
+        "items":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/BonusRoundSummary"
+        "has_more":
+          "type": "boolean"
+    "BonusRoundsPageEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/BonusRoundsPage"
+    "BonusRoundDetailEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "$ref": "#/components/schemas/BonusRoundDetail"
