@@ -9,6 +9,7 @@
 - `feature/phase05-m5-hardening` 远端分支存在且起点等于 develop；本地跟踪分支从其建立。
 - 开工工作区干净，无 stash、无未提交修改；未修改 `main`/`develop`，未操作开发数据库。
 - 本次只新增提交，不修改历史报告中的既有测试结果。
+- 评审 PR：[#8](https://github.com/YEXIAONAN/Nexora/pull/8)，目标 develop，Open 且不自动合并。
 
 ## 2. 重复告知与幂等修复
 
@@ -87,6 +88,8 @@ team_id + project_id + task_id + case_id + case_version_id
 | Playwright 全量真实栈 | **31/31 通过**（约 1.3m；原 25 + M4 6，新增丢响应重试断言位于第 3 条场景） |
 | Go 全量 `-race -count=1 -tags=integration ./...` | 全部包 ok；contributions 163.945s、database 128.927s、httpapi 97.601s，PostgreSQL 17.11 |
 | `make verify` | 通过（lint、gofmt/vet、类型、格式、构建、契约、secret scan 8 项自测） |
+| Push CI [44471998014](https://github.com/YEXIAONAN/Nexora/actions/runs/44471998014) | success，head `109c60e`，四项 job 全绿 |
+| PR CI [44472022818](https://github.com/YEXIAONAN/Nexora/actions/runs/44472022818) | success，head `109c60e`，四项 job 全绿 |
 | 覆盖场景 | 同请求重放；不同请求 ID 同业务意图；旧 revision 的低响应重试；并发准备；新修订重新告知；收件绑定；缺少新版本收件时归档 409；跨 Team/Project 隔离；取消与迟到响应；M4 全流程 UI |
 
 专用测试容器只使用 `nexora-devtest-pg`（loopback 5433、`nexora_test`/`nexora_e2e`），测试后删除；未连接或迁移开发数据库。
@@ -111,4 +114,4 @@ team_id + project_id + task_id + case_id + case_version_id
 
 ## 7. 评审 PR
 
-指向 `develop` 的评审 PR 与本报告最终 CI 结果见交付回复及 PR Checks；不自动合并，不进入 M6。
+[PR #8](https://github.com/YEXIAONAN/Nexora/pull/8)，目标 `develop`，状态 Open、MERGEABLE，等待正式评审。不自动合并，不进入 M6。

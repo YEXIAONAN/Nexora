@@ -23,7 +23,7 @@ Phase 01–04 与 Phase 05 M2–M4 已合入 `develop`；Phase 03 合并提交�
 | 贡献 Schema v7、状态机、争议与归档完整性 | Phase 05 M2 | 已合并 develop（PR #5 / b336bed）；见 [M2 报告](docs/development/phase-05-m2-report.md) |
 | 认证贡献服务、核定/争议 API、本人显式收件 | Phase 05 M3 | 已合并 develop（PR #6 / d030198）；见 [M3 报告](docs/development/phase-05-m3-report.md) |
 | 贡献 Vue 工作台、人工草案、争议与隐私 intake | Phase 05 M4 | 已合并 develop（PR #7 / 9c8b0e5）；见 [M4 报告](docs/development/phase-05-m4-report.md) |
-| 告知业务幂等、前端请求去重与取消传播 | Phase 05 M5 | 功能分支待评审；见 [M5 报告](docs/development/phase-05-m5-report.md) |
+| 告知业务幂等、前端请求去重与取消传播 | Phase 05 M5 | [PR #8](https://github.com/YEXIAONAN/Nexora/pull/8) 待评审；见 [M5 报告](docs/development/phase-05-m5-report.md) |
 | 奖金、完整通知和导出 | 后续阶段 | 未交付 |
 
 ## 技术与环境
