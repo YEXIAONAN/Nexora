@@ -3828,13 +3828,7 @@ paths:
       tags: [Bonuses]
       operationId: listMyBonusResults
       summary: List my effective and confirmed bonus amounts
-      description: |
-        Returns only the signed-in subject's own confirmed, currently effective
-        amount per independently identified funding round. Requires a current,
-        unrevoked session and active team and project membership. ROOT and Team
-        Owner do not receive an implicit financial visibility bypass.
-        Draft and pending amounts are never returned. An empty list does not
-        claim that future bonus approval or payout occurred.
+      description: Only the signed-in subject's effective confirmed amounts; requires live session and active team/project membership, excludes drafts, and never bypasses membership for ROOT.
       security:
         - sessionCookie: []
       parameters:
