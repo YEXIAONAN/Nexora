@@ -5,6 +5,7 @@ info:
   description: |
     Nexora V1.0 的 HTTP 接口契约。
 
+    Phase 07 增加结构化任务进展上报（Schema v9），并把团队创建限定为平台管理员。
     Phase 05 M3 增加绑定认证身份的贡献治理、争议和本人收件确认（Schema v7）。
     Phase 04 增加不可变成果版本、明确审核授权、正式验收和私有附件。
     成果提交与正式完成分离；通用状态接口不能代替当前版本的正式审核。
@@ -356,7 +357,7 @@ paths:
       tags: [Teams]
       operationId: createTeam
       summary: 创建团队
-      description: 任何已认证用户可创建团队；创建者自动成为该团队 owner。团队角色不等于平台角色。
+      description: 仅平台管理员（ROOT 或 platform_admin）可创建团队，并可通过 owner_id 指定团队负责人；普通注册用户不能自助创建团队。团队角色不等于平台角色。
       security:
         - sessionCookie: []
       parameters:
@@ -1614,6 +1615,89 @@ paths:
           "application/json":
             "schema":
               "$ref": "#/components/schemas/TaskProgressRequest"
+  "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/progress-reports":
+    "post":
+      "tags":
+        - "Tasks"
+      "operationId": "reportTaskProgress"
+      "summary": "上报结构化工作进展（负责人/协作者）"
+      "description": "记录工作内容、已完成、待完成与交付引用，同时更新执行进度。仅 in_progress 叶子且未阻塞；不会提交验收，也不会改变验收状态。证据链接为纯文本引用（URL、commit、PR 等），最多 20 条。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+        -
+          "$ref": "#/components/parameters/CSRFHeader"
+      "responses":
+        "201":
+          "description": "进展已记录"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/TaskEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "403":
+          "$ref": "#/components/responses/Forbidden"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "409":
+          "$ref": "#/components/responses/Conflict"
+        "422":
+          "$ref": "#/components/responses/ValidationFailed"
+        "500":
+          "$ref": "#/components/responses/InternalError"
+      "requestBody":
+        "required": true
+        "content":
+          "application/json":
+            "schema":
+              "$ref": "#/components/schemas/ProgressReportRequest"
+    "get":
+      "tags":
+        - "Tasks"
+      "operationId": "listTaskProgressReports"
+      "summary": "查询任务进展记录"
+      "description": "按任务可见范围返回追加式进展记录，包含上报人、执行进度、工作说明与交付引用。"
+      "security":
+        -
+          "sessionCookie": []
+      "parameters":
+        -
+          "$ref": "#/components/parameters/TeamID"
+        -
+          "$ref": "#/components/parameters/ProjectID"
+        -
+          "$ref": "#/components/parameters/TaskID"
+      "responses":
+        "200":
+          "description": "进展记录"
+          "headers":
+            "X-Request-Id":
+              "$ref": "#/components/headers/RequestId"
+          "content":
+            "application/json":
+              "schema":
+                "$ref": "#/components/schemas/ProgressReportsEnvelope"
+        "400":
+          "$ref": "#/components/responses/BadRequest"
+        "401":
+          "$ref": "#/components/responses/Unauthorized"
+        "404":
+          "$ref": "#/components/responses/NotFound"
+        "500":
+          "$ref": "#/components/responses/InternalError"
   "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/weight":
     "put":
       "tags":
@@ -4365,6 +4449,10 @@ components:
         description:
           type: string
           description: 可选，最长 500 个字符。
+        owner_id:
+          type: string
+          format: uuid
+          description: 团队负责人。仅平台管理员可创建团队；省略时默认为创建者本人。
     CreateInvitationRequest:
       type: object
       additionalProperties: false
@@ -4980,6 +5068,91 @@ components:
         "expected_version":
           "type": "integer"
           "minimum": 1
+    "ProgressReportRequest":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "reported_progress"
+        - "work_summary"
+        - "expected_version"
+      "properties":
+        "reported_progress":
+          "type": "integer"
+          "minimum": 0
+          "maximum": 99
+        "work_summary":
+          "type": "string"
+          "minLength": 1
+          "maxLength": 4000
+        "completed_work":
+          "type": "string"
+          "maxLength": 4000
+        "pending_work":
+          "type": "string"
+          "maxLength": 4000
+        "evidence_links":
+          "type": "array"
+          "maxItems": 20
+          "items":
+            "type": "string"
+            "maxLength": 500
+        "expected_version":
+          "type": "integer"
+          "minimum": 1
+    "ProgressReport":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "id"
+        - "team_id"
+        - "project_id"
+        - "task_id"
+        - "actor_id"
+        - "actor_display_name"
+        - "actor_username"
+        - "reported_progress"
+        - "work_summary"
+        - "completed_work"
+        - "pending_work"
+        - "evidence_links"
+        - "created_at"
+      "properties":
+        "id":
+          "type": "string"
+          "format": "uuid"
+        "team_id":
+          "type": "string"
+          "format": "uuid"
+        "project_id":
+          "type": "string"
+          "format": "uuid"
+        "task_id":
+          "type": "string"
+          "format": "uuid"
+        "actor_id":
+          "type": "string"
+          "format": "uuid"
+        "actor_display_name":
+          "type": "string"
+        "actor_username":
+          "type": "string"
+        "reported_progress":
+          "type": "integer"
+          "minimum": 0
+          "maximum": 99
+        "work_summary":
+          "type": "string"
+        "completed_work":
+          "type": "string"
+        "pending_work":
+          "type": "string"
+        "evidence_links":
+          "type": "array"
+          "items":
+            "type": "string"
+        "created_at":
+          "type": "string"
+          "format": "date-time"
     "TaskWeightRequest":
       "type": "object"
       "additionalProperties": false
@@ -5285,6 +5458,16 @@ components:
           "type": "array"
           "items":
             "$ref": "#/components/schemas/TaskHistory"
+    "ProgressReportsEnvelope":
+      "type": "object"
+      "additionalProperties": false
+      "required":
+        - "data"
+      "properties":
+        "data":
+          "type": "array"
+          "items":
+            "$ref": "#/components/schemas/ProgressReport"
     "ProgressEnvelope":
       "type": "object"
       "additionalProperties": false

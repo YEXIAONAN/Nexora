@@ -55,7 +55,7 @@ func setup(t *testing.T) *fixture {
 	user := reqctx.Identity{UserID: u.ID}
 	tr := teams.NewRepository(db.Pool)
 	ts := teams.NewService(tr, a, ar, l)
-	team, e := ts.CreateTeam(ctx, r, "A", "")
+	team, e := ts.CreateTeam(ctx, r, teams.CreateTeamInput{Name: "A"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -86,7 +86,8 @@ func create(t *testing.T, f *fixture) Project {
 func TestProjectIsolationPermissionsAndQualification(t *testing.T) {
 	f := setup(t)
 	p := create(t, f)
-	other, e := f.t.CreateTeam(f.ctx, f.user, "B", "")
+	userID := f.user.UserID
+	other, e := f.t.CreateTeam(f.ctx, f.root, teams.CreateTeamInput{Name: "B", OwnerID: &userID})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -178,7 +179,8 @@ func TestRemovedMemberCannotLeadAndForeignAdminCannotEdit(t *testing.T) {
 	}
 	_, e := f.s.Create(f.ctx, f.root, f.team, CreateInput{ProjectInput: ProjectInput{Name: "invalid lead"}, LeadID: f.user.UserID})
 	status(t, e, 422)
-	other, e := f.t.CreateTeam(f.ctx, f.user, "Other", "")
+	userID := f.user.UserID
+	other, e := f.t.CreateTeam(f.ctx, f.root, teams.CreateTeamInput{Name: "Other", OwnerID: &userID})
 	if e != nil {
 		t.Fatal(e)
 	}

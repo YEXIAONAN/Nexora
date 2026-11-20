@@ -100,10 +100,21 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 	f.root = reqctx.Identity{UserID: root.ID, SystemRoot: true}
 	tr := teams.NewRepository(f.db.Pool)
 	f.ts = teams.NewService(tr, f.as, ar, f.log)
-	tm, e := f.ts.CreateTeam(f.ctx, f.root, "Contribution tests", "")
-	p05Must(t, e)
-	f.team = tm.ID
+	if old {
+		// The v6 historical fixture cannot call the current teams service: it
+		// validates account status columns that only exist from v8.
+		f.team = uuid.New()
+		_, err := f.db.Pool.Exec(f.ctx, `INSERT INTO teams(id,name,created_by) VALUES($1,'Contribution tests',$2)`, f.team, f.root.UserID)
+		p05Must(t, err)
+		_, err = f.db.Pool.Exec(f.ctx, `INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')`, f.team, f.root.UserID)
+		p05Must(t, err)
+	} else {
+		tm, err := f.ts.CreateTeam(f.ctx, f.root, teams.CreateTeamInput{Name: "Contribution tests"})
+		p05Must(t, err)
+		f.team = tm.ID
+	}
 	f.ps = projects.NewService(projects.NewRepository(f.db.Pool), tr, ar, f.log)
+	var e error
 	f.project, e = f.ps.Create(f.ctx, f.root, f.team, projects.CreateInput{ProjectInput: projects.ProjectInput{Name: "Contribution project"}, LeadID: f.root.UserID})
 	p05Must(t, e)
 	f.worker = f.user("worker", true)
@@ -623,9 +634,9 @@ func TestContributionRollbackRefusesFormalEvidence(t *testing.T) {
 	f.prepare(c)
 	_, e := f.confirm(c, f.appraiser)
 	p05Must(t, e)
-	// Remove the later P0 account schema first so this test exercises the
-	// Phase 05 contribution rollback guard directly.
-	p05Must(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
+	// Drop the later additive migrations (task reports v9, P0 accounts v8)
+	// first so this test exercises the Phase 05 rollback guard directly.
+	p05Must(t, database.Down(f.ctx, f.db.SQL, 2, f.log))
 	before := f.snapshot(p05BusinessTables)
 	p05Denied(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
 	v, e := database.Version(f.ctx, f.db.SQL)

@@ -15,10 +15,18 @@ export async function listMyTeams(signal?: AbortSignal): Promise<Team[]> {
   return payload.data
 }
 
-export async function createTeam(name: string, description?: string): Promise<Team> {
+export async function createTeam(
+  name: string,
+  description?: string,
+  ownerId?: string,
+): Promise<Team> {
   const payload = await requestJSON<components['schemas']['TeamEnvelope']>('/api/v1/teams', {
     method: 'POST',
-    body: { name, description } satisfies components['schemas']['CreateTeamRequest'],
+    body: {
+      name,
+      description,
+      ...(ownerId ? { owner_id: ownerId } : {}),
+    } satisfies components['schemas']['CreateTeamRequest'],
   })
   return payload.data
 }

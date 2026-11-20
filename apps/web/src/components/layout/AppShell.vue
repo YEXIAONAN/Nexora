@@ -26,12 +26,12 @@ onMounted(async () => {
     <div class="flex min-h-screen flex-col lg:pl-[240px]">
       <AppTopbar @open-nav="navOpen = true" />
 
-      <main class="mx-auto w-full max-w-[1220px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main class="mx-auto w-full max-w-[1360px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <slot />
       </main>
 
       <footer
-        class="mx-auto w-full max-w-[1220px] px-4 pb-6 text-[11px] text-ink-subtle sm:px-6 lg:px-8"
+        class="mx-auto w-full max-w-[1360px] px-4 pb-6 text-[11px] text-ink-subtle sm:px-6 lg:px-8"
       >
         Nexora · 团队任务与贡献协作
       </footer>

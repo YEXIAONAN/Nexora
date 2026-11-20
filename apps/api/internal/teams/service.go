@@ -143,33 +143,61 @@ func (s *Service) requireManager(actor reqctx.Identity, teamID uuid.UUID, m Memb
 	return nil
 }
 
-// CreateTeam creates a team and makes the creator its first owner.
-func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, name, description string) (TeamSummary, error) {
-	name = strings.TrimSpace(name)
+// CreateTeamInput lets a platform administrator create a team and choose its
+// owner. OwnerID defaults to the administrator when omitted.
+type CreateTeamInput struct {
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	OwnerID     *uuid.UUID `json:"owner_id"`
+}
+
+// CreateTeam is platform-level provisioning: ordinary accounts cannot create
+// teams on their own. The chosen owner receives team-wide management rights;
+// the creating administrator does not become a member automatically.
+func (s *Service) CreateTeam(ctx context.Context, actor reqctx.Identity, in CreateTeamInput) (TeamSummary, error) {
+	if !actor.SystemRoot && !actor.PlatformAdmin {
+		return TeamSummary{}, httpx.Forbidden("only platform administrators may create teams")
+	}
+	name := strings.TrimSpace(in.Name)
 	fields := make(map[string]string)
 	if n := utf8.RuneCountInString(name); n < 1 || n > maxTeamNameRunes {
 		fields["name"] = fmt.Sprintf("must be between 1 and %d characters", maxTeamNameRunes)
 	}
-	if utf8.RuneCountInString(description) > maxTeamDescriptionRunes {
+	if utf8.RuneCountInString(in.Description) > maxTeamDescriptionRunes {
 		fields["description"] = fmt.Sprintf("must be at most %d characters", maxTeamDescriptionRunes)
 	}
 	if len(fields) > 0 {
 		return TeamSummary{}, httpx.ValidationFailed(fields)
 	}
-	team := Team{ID: uuid.New(), Name: name, Description: description, CreatedBy: actor.UserID}
+	ownerID := actor.UserID
+	if in.OwnerID != nil {
+		ownerID = *in.OwnerID
+	}
+	team := Team{ID: uuid.New(), Name: name, Description: in.Description, CreatedBy: actor.UserID}
 	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		active, err := s.repo.ActiveUserExists(ctx, tx, ownerID)
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		if !active {
+			return httpx.ValidationFailed(map[string]string{"owner_id": "must reference an active account"})
+		}
 		if err := s.repo.InsertTeam(ctx, tx, &team); err != nil {
 			return httpx.Internal(err)
 		}
-		if err := s.repo.InsertMember(ctx, tx, team.ID, actor.UserID, RoleOwner); err != nil {
+		if err := s.repo.InsertMember(ctx, tx, team.ID, ownerID, RoleOwner); err != nil {
 			return httpx.Internal(err)
 		}
-		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "team.created", "team", &team.ID, &team.ID, map[string]any{"name": team.Name}))
+		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "team.created", "team", &team.ID, &team.ID, map[string]any{"name": team.Name, "owner_id": ownerID}))
 	})
 	if err != nil {
 		return TeamSummary{}, err
 	}
-	return TeamSummary{Team: team, MyRole: RoleOwner}, nil
+	summary := TeamSummary{Team: team}
+	if ownerID == actor.UserID {
+		summary.MyRole = RoleOwner
+	}
+	return summary, nil
 }
 
 func (s *Service) ListMyTeams(ctx context.Context, actor reqctx.Identity) ([]TeamSummary, error) {

@@ -2,8 +2,8 @@ import { mount } from '@vue/test-utils'
 import { describe, expect, it } from 'vitest'
 import type { ProjectMember } from '@/api/projects'
 import type { Task } from '@/api/tasks'
+import TaskDetail from './TaskDetail.vue'
 import TaskEditor from './TaskEditor.vue'
-import TaskPanel from './TaskPanel.vue'
 
 const member = (user_id: string, username: string, active: boolean): ProjectMember => ({
   user_id,
@@ -49,30 +49,50 @@ const candidates = [
   task({ id: 'pending', title: '待开始的叶子' }),
   task({ id: 'deep', depth: 3, is_leaf: false }),
 ]
+const baseProps = {
+  tasks: candidates,
+  members: [owner],
+  teamMembers: [],
+  defaultOwner: owner.user_id,
+  canManageMembers: false,
+}
+
+function mountDetail() {
+  return mount(TaskDetail, {
+    props: {
+      team: 'team',
+      project: 'project',
+      task: task(),
+      tasks: candidates,
+      dependencies: [],
+      members: [owner],
+      teamMembers: [],
+      canManage: true,
+      history: [],
+      historyLoading: false,
+      reports: [],
+      reportsLoading: false,
+      busy: false,
+    },
+    global: { stubs: { SubmissionPanel: true } },
+  })
+}
 
 describe('task editing after execution and membership changes', () => {
   it('offers an existing in-progress summary as a parent when creating a child', () => {
-    const wrapper = mount(TaskEditor, {
-      props: { tasks: candidates, members: [owner], defaultOwner: owner.user_id },
-    })
+    const wrapper = mount(TaskEditor, { props: baseProps })
     const select = wrapper.get('select[aria-label="父任务"]')
     expect(select.find('option[value="summary"]').exists()).toBe(true)
     expect(select.find('option[value="pending"]').exists()).toBe(true)
     expect(select.find('option[value="running"]').exists()).toBe(false)
     expect(select.find('option[value="deep"]').exists()).toBe(false)
   })
-  it('offers an in-progress summary as a subtree move destination', () => {
-    const wrapper = mount(TaskPanel, {
-      props: {
-        task: task(),
-        tasks: candidates,
-        dependencies: [],
-        members: [owner],
-        canManage: true,
-        history: [],
-        historyLoading: false,
-      },
-    })
+  it('offers an in-progress summary as a subtree move destination', async () => {
+    const wrapper = mountDetail()
+    await wrapper
+      .findAll('button')
+      .find((button) => button.text() === '设置')!
+      .trigger('click')
     const select = wrapper.get('select[aria-label="移动到父任务"]')
     expect(select.find('option[value="summary"]').exists()).toBe(true)
     expect(select.find('option[value="running"]').exists()).toBe(false)
@@ -80,10 +100,10 @@ describe('task editing after execution and membership changes', () => {
   it('can explicitly remove an inactive collaborator when no selectable collaborators remain', async () => {
     const wrapper = mount(TaskEditor, {
       props: {
+        ...baseProps,
         task: task({ collaborator_ids: ['former'] }),
         tasks: [],
         members: [owner, member('former', 'Alice', false)],
-        defaultOwner: owner.user_id,
       },
     })
     await wrapper.get('button[aria-label="移除失效协作者 Alice"]').trigger('click')
@@ -98,14 +118,31 @@ describe('task editing after execution and membership changes', () => {
   it('preserves active collaborators while explicitly removing inactive ones', async () => {
     const wrapper = mount(TaskEditor, {
       props: {
+        ...baseProps,
         task: task({ collaborator_ids: ['former', 'active'] }),
         tasks: [],
         members: [owner, member('former', 'Alice', false), member('active', 'Bob', true)],
-        defaultOwner: owner.user_id,
       },
     })
     await wrapper.get('button[aria-label="移除失效协作者 Alice"]').trigger('click')
     await wrapper.get('form').trigger('submit')
     expect(wrapper.emitted('save')?.[0]?.[0]).toMatchObject({ collaborator_ids: ['active'] })
+  })
+  it('selects collaborators by clicking and explains when none are available', async () => {
+    const bob = member('bob', 'Bob', true)
+    const wrapper = mount(TaskEditor, {
+      props: { ...baseProps, members: [owner, bob] },
+    })
+    const checkbox = wrapper.get('input[type="checkbox"]')
+    await checkbox.trigger('change')
+    expect(wrapper.emitted('save')).toBeUndefined()
+    await wrapper.get('form').trigger('submit')
+    expect(wrapper.emitted('save')?.[0]?.[0]).toMatchObject({ collaborator_ids: ['bob'] })
+
+    const solo = mount(TaskEditor, {
+      props: { ...baseProps, members: [owner], canManageMembers: true },
+    })
+    expect(solo.text()).toContain('只有负责人一个成员')
+    expect(solo.text()).toContain('前往添加项目成员')
   })
 })

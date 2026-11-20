@@ -211,7 +211,7 @@ export interface paths {
         put?: never;
         /**
          * 创建团队
-         * @description 任何已认证用户可创建团队；创建者自动成为该团队 owner。团队角色不等于平台角色。
+         * @description 仅平台管理员（ROOT 或 platform_admin）可创建团队，并可通过 owner_id 指定团队负责人；普通注册用户不能自助创建团队。团队角色不等于平台角色。
          */
         post: operations["createTeam"];
         delete?: never;
@@ -711,6 +711,30 @@ export interface paths {
          */
         put: operations["recordTaskProgress"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/progress-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询任务进展记录
+         * @description 按任务可见范围返回追加式进展记录，包含上报人、执行进度、工作说明与交付引用。
+         */
+        get: operations["listTaskProgressReports"];
+        put?: never;
+        /**
+         * 上报结构化工作进展（负责人/协作者）
+         * @description 记录工作内容、已完成、待完成与交付引用，同时更新执行进度。仅 in_progress 叶子且未阻塞；不会提交验收，也不会改变验收状态。证据链接为纯文本引用（URL、commit、PR 等），最多 20 条。
+         */
+        post: operations["reportTaskProgress"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1679,6 +1703,11 @@ export interface components {
             name: string;
             /** @description 可选，最长 500 个字符。 */
             description?: string;
+            /**
+             * Format: uuid
+             * @description 团队负责人。仅平台管理员可创建团队；省略时默认为创建者本人。
+             */
+            owner_id?: string;
         };
         CreateInvitationRequest: {
             /** @description 已存在账号的用户名；不存在公开注册。 */
@@ -1902,6 +1931,35 @@ export interface components {
             actual_progress: number;
             expected_version: number;
         };
+        ProgressReportRequest: {
+            reported_progress: number;
+            work_summary: string;
+            completed_work?: string;
+            pending_work?: string;
+            evidence_links?: string[];
+            expected_version: number;
+        };
+        ProgressReport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            actor_id: string;
+            actor_display_name: string;
+            actor_username: string;
+            reported_progress: number;
+            work_summary: string;
+            completed_work: string;
+            pending_work: string;
+            evidence_links: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
         TaskWeightRequest: {
             weight: number;
             reason: string;
@@ -2009,6 +2067,9 @@ export interface components {
         };
         TaskHistoriesEnvelope: {
             data: components["schemas"]["TaskHistory"][];
+        };
+        ProgressReportsEnvelope: {
+            data: components["schemas"]["ProgressReport"][];
         };
         ProgressEnvelope: {
             data: components["schemas"]["Progress"];
@@ -4171,6 +4232,74 @@ export interface operations {
         responses: {
             /** @description 操作成功 */
             200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTaskProgressReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 进展记录 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressReportsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportTaskProgress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressReportRequest"];
+            };
+        };
+        responses: {
+            /** @description 进展已记录 */
+            201: {
                 headers: {
                     "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;

@@ -8,7 +8,7 @@ import { ApiError } from '@/api/client'
 import * as projects from '@/api/projects'
 import * as submissions from '@/api/submissions'
 import * as tasks from '@/api/tasks'
-import TaskPanel from '@/components/projects/TaskPanel.vue'
+import TaskDetail from '@/components/projects/TaskDetail.vue'
 import ProjectDetailView from './ProjectDetailView.vue'
 
 vi.mock('@/api/submissions', () => ({
@@ -25,6 +25,7 @@ vi.mock('@/api/tasks', async (original) => ({
   getTaskTree: vi.fn(),
   getSnapshots: vi.fn().mockResolvedValue([]),
   transitionTask: vi.fn(),
+  listTaskProgressReports: vi.fn().mockResolvedValue([]),
 }))
 vi.mock('@/api/teams', () => ({ listTeamMembers: vi.fn().mockResolvedValue([]) }))
 function deferred<T>() {
@@ -113,7 +114,7 @@ async function setup() {
   const wrapper = mount(ProjectDetailView, {
     global: {
       plugins: [createPinia(), router],
-      stubs: { TaskPanel: true, TaskEditor: true, ProjectForm: true },
+      stubs: { TaskDetail: true, TaskEditor: true, ProjectForm: true },
     },
   })
   return { router, wrapper }
@@ -151,7 +152,7 @@ describe('project context isolation', () => {
   it('removes old controls immediately when a new context is pending', async () => {
     const { wrapper, router } = await setup()
     await flushPromises()
-    const panel = wrapper.findComponent(TaskPanel)
+    const panel = wrapper.findComponent(TaskDetail)
     const pending = deferred<projects.Project>()
     vi.mocked(projects.getProject).mockReturnValue(pending.promise)
     await router.push('/teams/B/projects/b')
@@ -159,7 +160,7 @@ describe('project context isolation', () => {
     panel.vm.$emit('start', task('A', 'a'))
     await flushPromises()
     expect(tasks.transitionTask).not.toHaveBeenCalled()
-    expect(wrapper.findComponent(TaskPanel).exists()).toBe(false)
+    expect(wrapper.findComponent(TaskDetail).exists()).toBe(false)
     pending.resolve(fixture('B', 'b'))
     await flushPromises()
     wrapper.unmount()
@@ -169,7 +170,7 @@ describe('project context isolation', () => {
     vi.mocked(tasks.transitionTask).mockReturnValue(pending.promise)
     const { wrapper, router } = await setup()
     await flushPromises()
-    wrapper.findComponent(TaskPanel).vm.$emit('start', task('A', 'a'))
+    wrapper.findComponent(TaskDetail).vm.$emit('start', task('A', 'a'))
     await flushPromises()
     expect(tasks.transitionTask).toHaveBeenCalledWith('A', 'a', task('A', 'a'), 'in_progress')
     await router.push('/teams/B/projects/b')
@@ -185,7 +186,7 @@ describe('project context isolation', () => {
     vi.mocked(tasks.transitionTask).mockReturnValue(pending.promise)
     const { wrapper, router } = await setup()
     await flushPromises()
-    wrapper.findComponent(TaskPanel).vm.$emit('start', task('A', 'a'))
+    wrapper.findComponent(TaskDetail).vm.$emit('start', task('A', 'a'))
     await flushPromises()
     await router.push('/teams/B/projects/b')
     await flushPromises()

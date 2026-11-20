@@ -7,8 +7,7 @@ import * as tasksAPI from '@/api/tasks'
 import { listTeamMembers, type TeamMember } from '@/api/teams'
 import ProjectForm from '@/components/projects/ProjectForm.vue'
 import TaskEditor from '@/components/projects/TaskEditor.vue'
-import TaskPanel from '@/components/projects/TaskPanel.vue'
-import SubmissionPanel from '@/components/projects/SubmissionPanel.vue'
+import TaskDetail from '@/components/projects/TaskDetail.vue'
 import ReviewersPanel from '@/components/projects/ReviewersPanel.vue'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
@@ -25,12 +24,14 @@ const project = ref<projectsAPI.Project | null>(null),
   milestones = ref<projectsAPI.Milestone[]>([])
 const tree = ref<tasksAPI.TaskTree | null>(null),
   snapshots = ref<tasksAPI.Snapshot[]>([]),
-  history = ref<tasksAPI.TaskHistory[]>([])
+  history = ref<tasksAPI.TaskHistory[]>([]),
+  reports = ref<tasksAPI.ProgressReport[]>([])
 const loading = ref(false),
   busy = ref(false),
   error = ref(''),
   confirmed = ref(''),
-  historyLoading = ref(false)
+  historyLoading = ref(false),
+  reportsLoading = ref(false)
 const tab = ref('tasks'),
   selectedId = ref(''),
   creatingTask = ref(false),
@@ -44,7 +45,8 @@ const milestoneName = ref(''),
   editingMilestone = ref<projectsAPI.Milestone | undefined>()
 let generation = 0,
   historyGeneration = 0,
-  mutationGeneration = 0
+  mutationGeneration = 0,
+  reportsGeneration = 0
 const ready = computed(
   () => confirmed.value === contextKey.value && !!project.value && !!tree.value && !loading.value,
 )
@@ -124,7 +126,10 @@ async function load() {
       tree.value = null
     }
   } finally {
-    if (gen === generation && key === contextKey.value) loading.value = false
+    if (gen === generation && key === contextKey.value) {
+      loading.value = false
+      void loadTaskReports()
+    }
   }
 }
 async function run(action: (team: string, project: string) => Promise<unknown>) {
@@ -235,11 +240,99 @@ async function loadHistory(task: tasksAPI.Task) {
     if (gen === historyGeneration && key === contextKey.value) historyLoading.value = false
   }
 }
+async function loadTaskReports(task = selected.value) {
+  if (!ready.value || !task?.is_leaf) {
+    reports.value = []
+    return
+  }
+  const key = confirmed.value,
+    team = teamId.value,
+    id = projectId.value,
+    taskID = task.id,
+    gen = ++reportsGeneration
+  reportsLoading.value = true
+  try {
+    const rows = await tasksAPI.listTaskProgressReports(team, id, taskID)
+    if (gen === reportsGeneration && key === contextKey.value && selectedId.value === taskID)
+      reports.value = rows
+  } catch (e) {
+    if (gen === reportsGeneration && key === contextKey.value) error.value = errorText(e)
+  } finally {
+    if (gen === reportsGeneration && key === contextKey.value) reportsLoading.value = false
+  }
+}
+function submitReport(input: tasksAPI.ProgressReportInput) {
+  const task = selected.value
+  if (!task) return
+  void run((t, p) => tasksAPI.reportTaskProgress(t, p, task, input))
+}
+function manageMembersFromDrawer() {
+  closeTaskEditor()
+  tab.value = 'members'
+}
+function priorityLabel(priority: string): string {
+  return { low: '低', normal: '普通', high: '高', urgent: '紧急' }[priority] ?? priority
+}
+function ownerLabel(task: tasksAPI.Task): string {
+  const member = members.value.find((m) => m.user_id === task.owner_id)
+  return member?.display_name || member?.username || '未分配'
+}
+function dueLabel(task: tasksAPI.Task): string {
+  if (!task.planned_end_at) return ''
+  const end = new Date(task.planned_end_at)
+  return `${end.getMonth() + 1}/${end.getDate()}`
+}
+function isOverdue(task: tasksAPI.Task): boolean {
+  return (
+    !!task.planned_end_at &&
+    task.status !== 'completed' &&
+    task.status !== 'cancelled' &&
+    new Date(task.planned_end_at).getTime() < Date.now()
+  )
+}
+function progressPercent(task: tasksAPI.Task): string {
+  if (task.status === 'completed') return '100%'
+  return taskActions.percent(task.effective_progress_bps)
+}
+function listProgressLabel(task: tasksAPI.Task): string {
+  switch (task.status) {
+    case 'completed':
+      return '已验收'
+    case 'awaiting_review':
+      return '待验收'
+    case 'rejected':
+      return '已驳回'
+    case 'cancelled':
+      return '已取消'
+    default:
+      return progressPercent(task)
+  }
+}
+function statusDot(status: string): string {
+  switch (status) {
+    case 'in_progress':
+      return 'bg-accent'
+    case 'awaiting_review':
+      return 'bg-warning'
+    case 'completed':
+      return 'bg-accent'
+    case 'rejected':
+      return 'bg-danger'
+    case 'cancelled':
+      return 'bg-ink-subtle'
+    default:
+      return 'bg-line-strong'
+  }
+}
 watch(selectedId, () => {
   history.value = []
   historyLoading.value = false
   historyGeneration++
+  reports.value = []
+  reportsLoading.value = false
+  reportsGeneration++
   editingTask.value = false
+  if (ready.value) void loadTaskReports()
 })
 watch(
   contextKey,
@@ -418,26 +511,21 @@ onBeforeUnmount(() => {
           </div>
         </section>
         <template v-if="tab === 'tasks'">
-          <div class="flex items-center justify-between">
-            <p class="text-xs text-ink-muted">最多三级；只显示你有权访问的任务。</p>
-            <button v-if="canManage" class="btn btn-primary" @click="toggleTaskCreation">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h3 class="text-sm font-semibold text-ink">任务</h3>
+              <p class="mt-1 text-xs text-ink-muted">
+                最多三级；只显示你有权访问的任务。点击任务查看工作进展、交付与验收记录。
+              </p>
+            </div>
+            <button v-if="canManage" class="btn btn-primary btn-sm" @click="toggleTaskCreation">
               新建任务
             </button>
           </div>
-          <TaskEditor
-            v-if="creatingTask || editingTask"
-            :key="editingTask ? selected?.id : 'new'"
-            :task="editingTask ? selected : undefined"
-            :tasks="tree.tasks"
-            :members="members"
-            :default-owner="project.lead_id"
-            @save="saveTask"
-            @close="closeTaskEditor"
-          />
-          <div class="grid items-start gap-5 xl:grid-cols-[minmax(260px,0.8fr)_minmax(0,1.2fr)]">
+          <div class="grid items-start gap-4 xl:grid-cols-[minmax(360px,0.9fr)_minmax(0,1.35fr)]">
             <section class="card overflow-hidden">
               <div class="card-header">
-                <h3 class="text-sm font-semibold">任务树</h3>
+                <h3 class="text-sm font-semibold">任务列表</h3>
                 <span class="badge">{{ tree.tasks.length }}</span>
               </div>
               <div v-if="taskRows.length" class="divide-y divide-line">
@@ -445,36 +533,90 @@ onBeforeUnmount(() => {
                   v-for="t in taskRows"
                   :key="t.id"
                   type="button"
-                  class="flex w-full items-start gap-3 py-4 pr-4 text-left transition hover:bg-surface-muted"
-                  :class="selectedId === t.id ? 'bg-accent-soft' : ''"
-                  :style="{ paddingLeft: `${16 + (t.depth - 1) * 20}px` }"
+                  class="group flex w-full items-center gap-3 py-2.5 pr-3 text-left transition"
+                  :class="selectedId === t.id ? 'bg-accent-soft' : 'hover:bg-surface-muted'"
+                  :style="{ paddingLeft: `${12 + (t.depth - 1) * 16}px` }"
                   :aria-pressed="selectedId === t.id"
                   @click="selectedId = t.id"
                 >
-                  <span class="mt-0.5 text-xs text-ink-subtle">{{ t.is_leaf ? '○' : '▾' }}</span
-                  ><span class="min-w-0 grow"
-                    ><span class="block truncate text-sm font-medium">{{ t.title }}</span
-                    ><span class="mt-1 block text-xs text-ink-muted"
-                      >{{ taskActions.taskStatusLabel[t.status] }} ·
-                      {{ taskActions.percent(t.effective_progress_bps) }}
-                      <span v-if="t.blocked" class="text-warning">· 阻塞</span></span
-                    ></span
-                  ><span class="badge shrink-0">{{ t.depth }} 级</span>
+                  <span
+                    class="h-1.5 w-1.5 shrink-0 rounded-full"
+                    :class="statusDot(t.status)"
+                    aria-hidden="true"
+                  />
+                  <span class="min-w-0 grow">
+                    <span class="flex items-center gap-1.5">
+                      <span
+                        class="truncate text-sm font-medium"
+                        :class="t.status === 'completed' ? 'text-ink-muted' : 'text-ink'"
+                        >{{ t.title }}</span
+                      >
+                      <span
+                        v-if="t.priority === 'high' || t.priority === 'urgent'"
+                        class="shrink-0 rounded border border-warning/30 bg-warning-soft px-1 py-px text-[10px] font-medium text-warning"
+                        >{{ priorityLabel(t.priority) }}</span
+                      >
+                      <span v-if="t.blocked" class="shrink-0 text-[10px] text-warning">阻塞</span>
+                    </span>
+                    <span
+                      class="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-ink-subtle"
+                    >
+                      <span>{{ ownerLabel(t) }}</span>
+                      <span :class="isOverdue(t) ? 'text-danger' : ''" v-if="t.planned_end_at"
+                        >截止 {{ dueLabel(t) }}</span
+                      >
+                      <span v-if="t.collaborator_ids.length"
+                        >{{ t.collaborator_ids.length }} 协作者</span
+                      >
+                    </span>
+                  </span>
+                  <span class="flex shrink-0 items-center gap-2">
+                    <span
+                      class="hidden h-1 w-14 overflow-hidden rounded-full bg-surface-muted sm:block"
+                    >
+                      <span
+                        class="block h-full rounded-full"
+                        :class="t.status === 'completed' ? 'bg-accent' : 'bg-accent/60'"
+                        :style="{ width: progressPercent(t) }"
+                      />
+                    </span>
+                    <span
+                      class="w-14 text-right text-[11px] font-medium"
+                      :class="
+                        selectedId === t.id
+                          ? 'text-accent-strong'
+                          : t.status === 'rejected'
+                            ? 'text-danger'
+                            : 'text-ink-muted'
+                      "
+                      >{{ listProgressLabel(t) }}</span
+                    >
+                  </span>
                 </button>
               </div>
-              <p v-else class="p-8 text-sm text-ink-muted">暂无有权访问的任务。</p>
+              <div v-else class="empty-state">
+                <strong class="text-sm text-ink">还没有任务</strong>
+                <p class="mt-2 text-xs text-ink-muted">
+                  项目负责人可以创建任务，并从项目成员中选择负责人和协作者。
+                </p>
+              </div>
             </section>
-            <div v-if="selected" class="min-w-0 space-y-5">
-              <TaskPanel
-                v-if="selected"
+            <section v-if="selected" class="card min-w-0 overflow-hidden xl:sticky xl:top-4">
+              <TaskDetail
                 :key="`${selected.id}:${selected.version}`"
+                :team="teamId"
+                :project="projectId"
                 :task="selected"
                 :tasks="tree.tasks"
                 :dependencies="tree.dependencies"
                 :members="members"
+                :team-members="teamMembers"
                 :can-manage="canManage"
                 :history="history"
                 :history-loading="historyLoading"
+                :reports="reports"
+                :reports-loading="reportsLoading"
+                :busy="busy"
                 @edit="beginTaskEdit"
                 @start="
                   (task) => run((t, p) => taskActions.transitionTask(t, p, task, 'in_progress'))
@@ -482,10 +624,6 @@ onBeforeUnmount(() => {
                 @cancel="
                   (task, reason) =>
                     run((t, p) => taskActions.transitionTask(t, p, task, 'cancelled', reason))
-                "
-                @progress="
-                  (task, actual) =>
-                    run((t, p) => taskActions.recordTaskProgress(t, p, task, actual))
                 "
                 @weight="
                   (task, weight, reason) =>
@@ -501,15 +639,16 @@ onBeforeUnmount(() => {
                     run((t, p) => taskActions.ignoreDependency(t, p, task, dep, reason))
                 "
                 @history="loadHistory"
-              />
-              <SubmissionPanel
-                v-if="selected.is_leaf"
-                :key="`submission:${teamId}:${projectId}:${selected.id}:${selected.version}`"
-                :team="teamId"
-                :project="projectId"
-                :task="selected"
+                @report="submitReport"
+                @refresh-reports="loadTaskReports()"
                 @changed="load"
               />
+            </section>
+            <div v-else class="card empty-state">
+              <strong class="text-sm text-ink">选择一个任务</strong>
+              <p class="mt-2 max-w-sm text-xs text-ink-muted">
+                任务详情会显示执行进度、工作进展记录、交付验收与活动历史。
+              </p>
             </div>
           </div>
         </template>
@@ -719,5 +858,51 @@ onBeforeUnmount(() => {
         </div>
       </fieldset>
     </template>
+
+    <Teleport to="body">
+      <Transition
+        enter-active-class="transition-opacity duration-150"
+        enter-from-class="opacity-0"
+        leave-active-class="transition-opacity duration-150"
+        leave-to-class="opacity-0"
+      >
+        <div
+          v-if="ready && (creatingTask || editingTask)"
+          class="fixed inset-0 z-50 flex justify-end"
+          role="dialog"
+          aria-modal="true"
+          aria-label="任务编辑器"
+        >
+          <div class="absolute inset-0 bg-black/30" @click="closeTaskEditor" />
+          <aside
+            class="relative flex h-full w-full max-w-[620px] flex-col border-l border-line bg-surface shadow-2xl"
+          >
+            <header class="flex items-start justify-between gap-3 border-b border-line px-5 py-4">
+              <div>
+                <p class="eyebrow">任务</p>
+                <h2 class="mt-1 text-lg font-semibold text-ink">
+                  {{ editingTask ? '编辑任务' : '新建任务' }}
+                </h2>
+              </div>
+              <button class="btn btn-ghost btn-sm" type="button" @click="closeTaskEditor">
+                关闭
+              </button>
+            </header>
+            <TaskEditor
+              :key="editingTask ? selected?.id : 'new'"
+              :task="editingTask ? selected : undefined"
+              :tasks="tree?.tasks ?? []"
+              :members="members"
+              :team-members="teamMembers"
+              :default-owner="project?.lead_id ?? ''"
+              :can-manage-members="canManage"
+              @save="saveTask"
+              @close="closeTaskEditor"
+              @manage-members="manageMembersFromDrawer"
+            />
+          </aside>
+        </div>
+      </Transition>
+    </Teleport>
   </div>
 </template>
