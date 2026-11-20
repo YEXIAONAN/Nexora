@@ -180,6 +180,14 @@ function save() {
             <p v-if="!filtered.length" class="mt-2 text-xs text-ink-muted">
               没有匹配「{{ search }}」的项目成员。
             </p>
+            <button
+              v-if="canManageMembers"
+              type="button"
+              class="mt-2 text-xs text-accent-strong hover:underline"
+              @click="emit('manageMembers')"
+            >
+              需要更多成员？前往添加项目成员
+            </button>
           </template>
           <div v-else class="space-y-2">
             <p class="text-xs leading-5 text-ink-muted">{{ emptyReason }}</p>
