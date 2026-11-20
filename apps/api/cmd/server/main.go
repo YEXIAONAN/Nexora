@@ -14,6 +14,8 @@ import (
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusresults"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusrounds"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/contributions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -125,7 +127,22 @@ func run() error {
 			}
 		}
 	}()
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger))
+	modules := []httpapi.RouteModule{
+		projectsHandler,
+		tasksHandler,
+		submissions.NewHandler(submissionsSvc, logger),
+		contributions.NewHandler(contributionsSvc, logger),
+	}
+	// The Phase06 bonus relations only exist from schema v9. A v8 Alpha P0
+	// deployment keeps the P0 API set and must never expose a route that would
+	// query absent tables and turn a compatible startup into HTTP 500 responses.
+	if database.SupportsBonusSchema(schemaVersion) {
+		modules = append(modules,
+			bonusresults.NewHandler(bonusresults.NewService(bonusresults.NewRepository(pool)), logger),
+			bonusrounds.NewHandler(bonusrounds.NewService(bonusrounds.NewRepository(pool)), logger),
+		)
+	}
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, modules...)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

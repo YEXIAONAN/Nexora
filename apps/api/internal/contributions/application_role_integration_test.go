@@ -110,6 +110,25 @@ func TestContributionApplicationRoleCannotBypassHistory(t *testing.T) {
 	}
 	must(t, database.ValidateApplicationRole(f.ctx, pool))
 
+	// Phase06 M3 bonus reads use the same restricted login: SELECT is present,
+	// while every bonus write stays denied until an approved workflow exists.
+	for _, relation := range []string{"bonus_rounds", "bonus_round_versions", "bonus_allocation_lines", "bonus_member_totals"} {
+		var allowed bool
+		must(t, pool.QueryRow(f.ctx, `SELECT has_table_privilege(current_user,$1::text,'SELECT')`, pgx.Identifier{schema, relation}.Sanitize()).Scan(&allowed))
+		if !allowed {
+			t.Fatal("restricted app role cannot read a Phase06 bonus relation")
+		}
+	}
+	if _, denied := pool.Exec(f.ctx, `INSERT INTO `+qs+`.bonus_rounds(team_id,project_id,funding_key,funding_label,funding_source,created_by)
+		VALUES(gen_random_uuid(),gen_random_uuid(),'forbidden-round','Forbidden round','test',gen_random_uuid())`); denied == nil {
+		t.Fatal("restricted app role unexpectedly gained bonus write privileges")
+	} else {
+		var pg *pgconn.PgError
+		if !errors.As(denied, &pg) || pg.Code != "42501" {
+			t.Fatalf("unexpected bonus write failure: %v", denied)
+		}
+	}
+
 	for _, q := range []string{`SET session_replication_role=replica`, `CREATE TABLE forbidden_m3_ddl(id integer)`, `CREATE FUNCTION forbidden_m3_function() RETURNS integer LANGUAGE sql AS 'SELECT 1'`, `ALTER TABLE contribution_confirmations DISABLE TRIGGER ALL`, `TRUNCATE audit_events`, `UPDATE audit_events SET action='changed'`, `DELETE FROM contribution_confirmations`} {
 		_, e = pool.Exec(f.ctx, q)
 		var pg *pgconn.PgError

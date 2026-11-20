@@ -10,10 +10,9 @@ const MinimumSupportedSchemaVersion int64 = 8
 // foundation. A future migration must be reviewed before increasing this value.
 const MaximumSupportedSchemaVersion int64 = 9
 
-// BonusSchemaVersion is the first schema that carries the Phase06 bonus
-// foundation. Bonus routes are mounted only when the database is at least this
-// version, so a v8 (Alpha P0) deployment keeps serving P0 traffic without
-// bonus endpoints while the same binary can serve v9 once migrated.
+// BonusSchemaVersion is the first schema containing the Phase06 bonus
+// relations. Bonus routes and schema.d.ts models are only available from this
+// version onwards; older compatible databases keep the Alpha P0 feature set.
 const BonusSchemaVersion int64 = 9
 
 // CompatibleSchemaVersion is shared by startup and readiness so a database
@@ -22,8 +21,9 @@ func CompatibleSchemaVersion(version int64) bool {
 	return version >= MinimumSupportedSchemaVersion && version <= MaximumSupportedSchemaVersion
 }
 
-// SupportsBonus reports whether the given schema carries the Phase06 bonus
-// foundation. Route mounting and readiness use the same predicate.
-func SupportsBonus(version int64) bool {
-	return version >= BonusSchemaVersion
+// SupportsBonusSchema reports whether the Phase06 bonus read models exist.
+// It never widens the startup compatibility window: a version outside the
+// supported range is rejected before routes are registered.
+func SupportsBonusSchema(version int64) bool {
+	return CompatibleSchemaVersion(version) && version >= BonusSchemaVersion
 }
