@@ -72,8 +72,8 @@ func run() error {
 	}
 
 	var schemaVersion int
-	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion != 7 {
-		return fmt.Errorf("contribution API requires schema v7; apply reviewed migrations explicitly before startup")
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion < 7 || schemaVersion > 8 {
+		return fmt.Errorf("API requires schema v7–v8; apply reviewed migrations explicitly before startup")
 	}
 	store, err := submissions.OpenStore(cfg.AttachmentDir)
 	if err != nil {
@@ -88,8 +88,10 @@ func run() error {
 		cfg.SessionTTL,
 		logger,
 	)
+	authSvc.SetRegistrationMode(auth.RegistrationMode(cfg.RegistrationMode))
 	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
 	teamsSvc := teams.NewService(teams.NewRepository(pool), authSvc, auditRepo, logger)
+	authSvc.SetInvitationChecker(teamsSvc)
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
 	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
 	projectsHandler := projects.NewHandler(projectsSvc, logger)

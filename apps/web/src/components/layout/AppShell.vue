@@ -1,13 +1,14 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
 
+import ConfirmDialog from '@/components/ui/ConfirmDialog.vue'
+import ToastHost from '@/components/ui/ToastHost.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 
 import AppSidebar from './AppSidebar.vue'
 import AppTopbar from './AppTopbar.vue'
 
-const appVersion = __APP_VERSION__
 const navOpen = ref(false)
 const auth = useAuthStore()
 const teams = useTeamsStore()
@@ -22,18 +23,21 @@ onMounted(async () => {
   <div class="min-h-full">
     <AppSidebar :open="navOpen" @close="navOpen = false" />
 
-    <div class="flex min-h-screen flex-col lg:pl-[248px]">
+    <div class="flex min-h-screen flex-col lg:pl-[240px]">
       <AppTopbar @open-nav="navOpen = true" />
 
-      <main class="mx-auto w-full max-w-[1180px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main class="mx-auto w-full max-w-[1220px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
         <slot />
       </main>
 
       <footer
-        class="mx-auto w-full max-w-[1180px] px-4 pb-6 text-xs text-ink-subtle sm:px-6 lg:px-8"
+        class="mx-auto w-full max-w-[1220px] px-4 pb-6 text-[11px] text-ink-subtle sm:px-6 lg:px-8"
       >
-        Nexora V1.0 · Phase 04 · <span class="font-mono">v{{ appVersion }}</span>
+        Nexora · 团队任务与贡献协作
       </footer>
     </div>
+
+    <ToastHost />
+    <ConfirmDialog />
   </div>
 </template>

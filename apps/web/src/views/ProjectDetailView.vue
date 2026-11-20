@@ -50,6 +50,14 @@ const ready = computed(
 )
 const canManage = computed(() => ready.value && project.value?.can_manage === true)
 const selected = computed(() => tree.value?.tasks.find((t) => t.id === selectedId.value))
+const completedLeaves = computed(
+  () => tree.value?.tasks.filter((t) => t.is_leaf && t.status === 'completed').length ?? 0,
+)
+const leadName = computed(() => {
+  const leadId = project.value?.lead_id
+  const lead = members.value.find((m) => m.user_id === leadId)
+  return lead?.display_name || lead?.username || '—'
+})
 const taskRows = computed(() => {
   const list = tree.value?.tasks ?? [],
     ids = new Set(list.map((t) => t.id)),
@@ -105,6 +113,10 @@ async function load() {
       selectedId.value = route.query.task
     else if (!tr.tasks.some((t) => t.id === selectedId.value))
       selectedId.value = tr.tasks[0]?.id ?? ''
+    if (route.query.createTask === '1' && p.can_manage) {
+      tab.value = 'tasks'
+      creatingTask.value = true
+    }
   } catch (e) {
     if (gen === generation && key === contextKey.value) {
       error.value = errorText(e)
@@ -309,6 +321,7 @@ onBeforeUnmount(() => {
         >
         <button
           v-for="item in [
+            { id: 'overview', label: '项目概览' },
             { id: 'tasks', label: '任务树' },
             { id: 'members', label: '项目成员' },
             { id: 'milestones', label: '里程碑' },
@@ -326,6 +339,84 @@ onBeforeUnmount(() => {
       </div>
       <fieldset :disabled="busy" class="min-w-0 space-y-5">
         <p v-if="busy" role="status" class="text-sm text-ink-muted">正在保存…</p>
+        <section v-if="tab === 'overview'" class="grid gap-5 lg:grid-cols-2">
+          <div class="card">
+            <div class="card-header">
+              <h3 class="text-sm font-semibold">项目信息</h3>
+              <span class="badge">{{
+                project.status === 'archived' ? '已归档 · 只读' : '进行中'
+              }}</span>
+            </div>
+            <dl class="divide-y divide-line">
+              <div class="flex items-center justify-between px-5 py-3">
+                <dt class="text-xs text-ink-subtle">项目负责人</dt>
+                <dd class="text-sm text-ink">{{ leadName }}</dd>
+              </div>
+              <div class="flex items-center justify-between px-5 py-3">
+                <dt class="text-xs text-ink-subtle">计划开始</dt>
+                <dd class="text-sm text-ink">
+                  {{
+                    project.planned_start_at ? formatDateTime(project.planned_start_at) : '未设置'
+                  }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between px-5 py-3">
+                <dt class="text-xs text-ink-subtle">计划结束</dt>
+                <dd class="text-sm text-ink">
+                  {{ project.planned_end_at ? formatDateTime(project.planned_end_at) : '未设置' }}
+                </dd>
+              </div>
+              <div class="flex items-center justify-between px-5 py-3">
+                <dt class="text-xs text-ink-subtle">创建时间</dt>
+                <dd class="text-sm text-ink">{{ formatDateTime(project.created_at) }}</dd>
+              </div>
+            </dl>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <h3 class="text-sm font-semibold">当前进展</h3>
+            </div>
+            <div class="card-body space-y-4">
+              <div class="flex items-end justify-between">
+                <div>
+                  <p class="text-xs text-ink-subtle">有效进度</p>
+                  <p class="mt-1 text-2xl font-semibold text-ink">
+                    {{ taskActions.percent(tree.progress.progress_bps) }}
+                  </p>
+                </div>
+                <p class="text-xs text-ink-muted">
+                  {{ completedLeaves }} / {{ tree.progress.leaf_count }} 个叶子任务完成
+                </p>
+              </div>
+              <div class="h-2 overflow-hidden rounded-full bg-surface-muted">
+                <div
+                  class="h-full rounded-full bg-accent"
+                  :style="{ width: `${tree.progress.progress_bps / 100}%` }"
+                />
+              </div>
+              <div class="grid grid-cols-3 gap-2 pt-2">
+                <div class="rounded-lg border border-line p-3 text-center">
+                  <p class="text-lg font-semibold text-ink">{{ tree.tasks.length }}</p>
+                  <p class="text-[11px] text-ink-subtle">任务</p>
+                </div>
+                <div class="rounded-lg border border-line p-3 text-center">
+                  <p class="text-lg font-semibold text-ink">{{ members.length }}</p>
+                  <p class="text-[11px] text-ink-subtle">项目成员</p>
+                </div>
+                <div class="rounded-lg border border-line p-3 text-center">
+                  <p class="text-lg font-semibold text-ink">{{ milestones.length }}</p>
+                  <p class="text-[11px] text-ink-subtle">里程碑</p>
+                </div>
+              </div>
+              <RouterLink
+                :to="`/teams/${teamId}/projects/${projectId}/contributions`"
+                class="btn btn-sm w-full"
+              >
+                查看贡献核算
+              </RouterLink>
+            </div>
+          </div>
+        </section>
         <template v-if="tab === 'tasks'">
           <div class="flex items-center justify-between">
             <p class="text-xs text-ink-muted">最多三级；只显示你有权访问的任务。</p>

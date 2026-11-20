@@ -1,7 +1,8 @@
 import { computed, ref } from 'vue'
 import { defineStore } from 'pinia'
 
-import { fetchMe, login as apiLogin, logout as apiLogout, type User } from '@/api/auth'
+import * as authAPI from '@/api/auth'
+import type { RegisterInput, User } from '@/api/auth'
 
 export const useAuthStore = defineStore('auth', () => {
   const user = ref<User | null>(null)
@@ -12,6 +13,9 @@ export const useAuthStore = defineStore('auth', () => {
 
   const isAuthenticated = computed(() => user.value !== null)
   const displayName = computed(() => user.value?.display_name || user.value?.username || '')
+  const isPlatformAdmin = computed(() =>
+    Boolean(user.value?.system_root || user.value?.platform_admin),
+  )
 
   async function initialize(): Promise<void> {
     if (initialized.value) return
@@ -19,7 +23,7 @@ export const useAuthStore = defineStore('auth', () => {
     loading.value = true
     pending = (async () => {
       try {
-        user.value = await fetchMe()
+        user.value = await authAPI.fetchMe()
       } catch {
         // Fail closed: any failure (401, network, API down) means anonymous.
         user.value = null
@@ -34,15 +38,32 @@ export const useAuthStore = defineStore('auth', () => {
   }
 
   async function login(username: string, password: string): Promise<void> {
-    const result = await apiLogin(username, password)
+    const result = await authAPI.login(username, password)
     user.value = result.user
     expiresAt.value = result.expires_at
     initialized.value = true
   }
 
+  async function register(input: RegisterInput): Promise<User> {
+    return authAPI.register(input)
+  }
+
+  async function updateProfile(displayName: string, email: string): Promise<void> {
+    user.value = await authAPI.updateProfile(displayName, email)
+  }
+
+  async function changePassword(currentPassword: string, newPassword: string): Promise<void> {
+    await authAPI.changePassword(currentPassword, newPassword)
+    expire()
+  }
+
+  function setUser(next: User): void {
+    user.value = next
+  }
+
   async function logout(): Promise<void> {
     try {
-      await apiLogout()
+      await authAPI.logout()
     } catch {
       // Server-side revocation is best effort; the local identity is always
       // cleared so the UI never keeps a session the user asked to end.
@@ -61,9 +82,14 @@ export const useAuthStore = defineStore('auth', () => {
     initialized,
     loading,
     isAuthenticated,
+    isPlatformAdmin,
     displayName,
     initialize,
     login,
+    register,
+    updateProfile,
+    changePassword,
+    setUser,
     logout,
     expire,
   }

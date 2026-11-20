@@ -90,6 +90,12 @@ export const useTeamsStore = defineStore('teams', () => {
     return team
   }
 
+  function applyTeamUpdate(team: Team): void {
+    teams.value = teams.value.map((item) =>
+      item.id === team.id ? { ...item, ...team, my_role: team.my_role ?? item.my_role } : item,
+    )
+  }
+
   async function loadPermissions(teamId: string): Promise<TeamPermissions> {
     const result = await getTeamPermissions(teamId)
     if (currentTeamId.value === teamId) permissions.value = result
@@ -115,6 +121,7 @@ export const useTeamsStore = defineStore('teams', () => {
     loadTeams,
     selectTeam,
     createTeam,
+    applyTeamUpdate,
     loadPermissions,
     reset,
   }

@@ -12,6 +12,11 @@ const { pushMock, routeState } = vi.hoisted(() => ({
 vi.mock('vue-router', () => ({
   useRoute: () => routeState,
   useRouter: () => ({ push: pushMock }),
+  RouterLink: {
+    name: 'RouterLink',
+    props: ['to'],
+    template: '<a><slot /></a>',
+  },
 }))
 
 function jsonResponse(payload: unknown, status = 200): Response {

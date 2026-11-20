@@ -40,6 +40,7 @@ type Config struct {
 	SessionTTL        time.Duration
 	LoginMaxFailures  int
 	LoginWindow       time.Duration
+	RegistrationMode  string
 }
 
 // Load reads the configuration from the process environment.
@@ -64,7 +65,6 @@ func load(lookup func(string) string) (Config, error) {
 		LoginMaxFailures:  10,
 		LoginWindow:       15 * time.Minute,
 	}
-
 	if raw := strings.TrimSpace(lookup("NEXORA_ENV")); raw != "" {
 		env := Environment(strings.ToLower(raw))
 		switch env {
@@ -126,6 +126,19 @@ func load(lookup func(string) string) (Config, error) {
 			return Config{}, fmt.Errorf("NEXORA_LOGIN_MAX_FAILURES must be an integer: %w", parseErr)
 		}
 		cfg.LoginMaxFailures = value
+	}
+
+	cfg.RegistrationMode = "open"
+	if cfg.Environment == EnvironmentProduction {
+		cfg.RegistrationMode = "invite"
+	}
+	if raw := strings.ToLower(strings.TrimSpace(lookup("NEXORA_REGISTRATION_MODE"))); raw != "" {
+		switch raw {
+		case "open", "invite", "closed":
+			cfg.RegistrationMode = raw
+		default:
+			return Config{}, fmt.Errorf("NEXORA_REGISTRATION_MODE must be open, invite or closed (got %q)", raw)
+		}
 	}
 
 	if cfg.DBMaxConns < 1 {
