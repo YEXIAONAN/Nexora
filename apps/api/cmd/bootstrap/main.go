@@ -30,7 +30,7 @@ func main() {
 }
 
 func run() error {
-	username := flag.String("username", "waiting", "username for the ROOT account")
+	username := flag.String("username", "admin", "username for the ROOT account")
 	flag.Parse()
 
 	cfg, err := config.Load()

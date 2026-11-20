@@ -1479,7 +1479,7 @@ export interface paths {
         };
         /**
          * List my effective and confirmed bonus amounts
-         * @description Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+         * @description Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
          */
         get: operations["listMyBonusResults"];
         put?: never;
@@ -1499,7 +1499,7 @@ export interface paths {
         };
         /**
          * List funding-round metadata for one project
-         * @description Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+         * @description Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
          */
         get: operations["listBonusRounds"];
         put?: never;
@@ -1519,7 +1519,7 @@ export interface paths {
         };
         /**
          * Read one funding round with its version history
-         * @description Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+         * @description Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
          */
         get: operations["getBonusRound"];
         put?: never;

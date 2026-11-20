@@ -5,7 +5,7 @@ info:
   description: |
     Nexora V1.0 的 HTTP 接口契约。
 
-    Phase 06 M3 增加只读奖金批次与本人正式结果（Schema v8；v7 部署不暴露这些路由）。
+    Phase 06 M3 增加只读奖金批次与本人正式结果（Schema v9；v8 Alpha P0 部署不暴露这些路由）。
     Phase 05 M3 增加绑定认证身份的贡献治理、争议和本人收件确认（Schema v7）。
     Phase 04 增加不可变成果版本、明确审核授权、正式验收和私有附件。
     成果提交与正式完成分离；通用状态接口不能代替当前版本的正式审核。
@@ -3829,7 +3829,7 @@ paths:
       tags: [Bonuses]
       operationId: listMyBonusResults
       summary: List my effective and confirmed bonus amounts
-      description: Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+      description: Only the signed-in subject's effective confirmed amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Each item separates internal confirmation from payment, which Nexora does not execute or record. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
       security:
         - sessionCookie: []
       parameters:
@@ -3857,7 +3857,7 @@ paths:
       tags: [Bonuses]
       operationId: listBonusRounds
       summary: List funding-round metadata for one project
-      description: Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+      description: Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
       security:
         - sessionCookie: []
       parameters:
@@ -3891,7 +3891,7 @@ paths:
       tags: [Bonuses]
       operationId: getBonusRound
       summary: Read one funding round with its version history
-      description: Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v8; a compatible v7 deployment does not mount this route (404).
+      description: Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are withheld from project readers in this phase. Requires schema v9; a compatible v8 Alpha P0 deployment does not mount this route (404).
       security:
         - sessionCookie: []
       parameters:

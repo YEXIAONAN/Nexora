@@ -262,6 +262,33 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
         </div>
       </section>
 
+      <nav
+        class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
+        aria-label="团队导航"
+      >
+        <RouterLink
+          :to="`/teams/${teamId}/projects`"
+          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          项目
+        </RouterLink>
+        <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
+          >成员</span
+        >
+        <RouterLink
+          :to="`/teams/${teamId}/contribution-results`"
+          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          我的贡献
+        </RouterLink>
+        <RouterLink
+          to="/settings"
+          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+        >
+          团队设置
+        </RouterLink>
+      </nav>
+
       <div
         v-if="actionError"
         class="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
@@ -341,8 +368,8 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
         <div class="card-header">
           <div>
             <h3 class="text-sm font-semibold text-ink">邀请成员</h3>
-            <p class="mt-0.5 text-xs text-ink-muted">
-              仅限已存在的账号；可邀请为管理员或成员，所有者只能由现有所有者变更产生。
+            <p class="mt-0.5 text-xs leading-5 text-ink-muted">
+              可以填写尚未注册的用户名：对方使用该用户名注册后，邀请会出现在「邀请收件箱」中。所有者只能由现有所有者变更产生。
             </p>
           </div>
         </div>

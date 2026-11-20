@@ -148,6 +148,14 @@ const checkRows = [
             <dd class="font-mono text-xs text-ink">{{ system.meta?.version ?? '—' }}</dd>
           </div>
           <div class="flex items-baseline justify-between gap-4 px-5 py-3">
+            <dt class="text-xs text-ink-subtle">渠道</dt>
+            <dd class="text-sm text-ink">
+              {{
+                system.meta?.channel === 'alpha' ? 'Alpha 预览版' : (system.meta?.channel ?? '—')
+              }}
+            </dd>
+          </div>
+          <div class="flex items-baseline justify-between gap-4 px-5 py-3">
             <dt class="text-xs text-ink-subtle">环境</dt>
             <dd class="text-sm text-ink">{{ system.meta?.environment ?? '—' }}</dd>
           </div>

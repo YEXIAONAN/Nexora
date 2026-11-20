@@ -6,6 +6,7 @@ declare module 'vue-router' {
   interface RouteMeta {
     title?: string
     requiresAuth?: boolean
+    requiresAdmin?: boolean
     bare?: boolean
   }
 }
@@ -20,16 +21,46 @@ const router = createRouter({
       meta: { title: '登录', bare: true },
     },
     {
+      path: '/register',
+      name: 'register',
+      component: () => import('@/views/RegisterView.vue'),
+      meta: { title: '创建账号', bare: true },
+    },
+    {
       path: '/',
       name: 'overview',
-      component: () => import('@/views/OverviewView.vue'),
-      meta: { title: '系统总览' },
+      component: () => import('@/views/DashboardView.vue'),
+      meta: { title: '工作台', requiresAuth: true },
+    },
+    {
+      path: '/my-tasks',
+      name: 'my-tasks',
+      component: () => import('@/views/MyTasksView.vue'),
+      meta: { title: '我的任务', requiresAuth: true },
+    },
+    {
+      path: '/settings',
+      name: 'settings',
+      component: () => import('@/views/SettingsView.vue'),
+      meta: { title: '设置', requiresAuth: true },
+    },
+    {
+      path: '/admin/users',
+      name: 'admin-users',
+      component: () => import('@/views/AdminUsersView.vue'),
+      meta: { title: '用户管理', requiresAuth: true, requiresAdmin: true },
+    },
+    {
+      path: '/admin/system',
+      name: 'admin-system',
+      component: () => import('@/views/StatusView.vue'),
+      meta: { title: '系统状态', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/status',
       name: 'status',
       component: () => import('@/views/StatusView.vue'),
-      meta: { title: '运行状态' },
+      meta: { title: '运行状态', requiresAuth: true, requiresAdmin: true },
     },
     {
       path: '/teams',
@@ -103,11 +134,16 @@ const router = createRouter({
 
 router.beforeEach(async (to) => {
   const auth = useAuthStore()
-  if (to.meta.requiresAuth || to.name === 'login') await auth.initialize()
+  if (to.meta.requiresAuth || to.name === 'login' || to.name === 'register') {
+    await auth.initialize()
+  }
   if (to.meta.requiresAuth && !auth.isAuthenticated) {
     return { name: 'login', query: { redirect: to.fullPath } }
   }
-  if (to.name === 'login' && auth.isAuthenticated) {
+  if (to.meta.requiresAdmin && !auth.isPlatformAdmin) {
+    return { name: 'overview' }
+  }
+  if ((to.name === 'login' || to.name === 'register') && auth.isAuthenticated) {
     const redirect = to.query.redirect
     const target =
       typeof redirect === 'string' && redirect.startsWith('/') && !redirect.startsWith('//')

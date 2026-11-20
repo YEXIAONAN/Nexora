@@ -576,9 +576,28 @@ func TestInvitationLifecycleRules(t *testing.T) {
 	carol := f.account("carol")
 	team := f.team(alice, "Invitation Team")
 
-	// Unknown account, invalid role and invalid TTL are rejected.
-	_, err := f.svc.Invite(f.ctx, alice, team.ID, "ghost-user", RoleMember, 0)
-	assertStatus(t, err, http.StatusNotFound)
+	// A username that has not registered yet can still be invited; the pending
+	// invitation is claimed by username after registration.
+	ghostInv, err := f.svc.Invite(f.ctx, alice, team.ID, "ghost-user", RoleMember, 0)
+	if err != nil {
+		t.Fatalf("invite unregistered username: %v", err)
+	}
+	if ghostInv.InvitedUserID != uuid.Nil || ghostInv.InvitedUsername != "ghost-user" {
+		t.Fatalf("unregistered invitation target = %s/%s", ghostInv.InvitedUserID, ghostInv.InvitedUsername)
+	}
+	ghost := f.account("ghost-user")
+	ghostInvites, err := f.svc.ListMyInvitations(f.ctx, ghost)
+	if err != nil || len(ghostInvites) != 1 || ghostInvites[0].ID != ghostInv.ID {
+		t.Fatalf("claimable invitations = %+v, err = %v", ghostInvites, err)
+	}
+	if _, err := f.svc.AcceptInvitation(f.ctx, ghost, ghostInv.ID); err != nil {
+		t.Fatalf("accept claimed invitation: %v", err)
+	}
+	if _, err := f.svc.GetTeam(f.ctx, ghost, team.ID); err != nil {
+		t.Fatalf("claimed invitation did not create membership: %v", err)
+	}
+
+	// Invalid role and invalid TTL are rejected.
 	_, err = f.svc.Invite(f.ctx, alice, team.ID, bob.Username, RoleOwner, 0)
 	assertStatus(t, err, http.StatusUnprocessableEntity)
 	_, err = f.svc.Invite(f.ctx, alice, team.ID, bob.Username, RoleMember, MaxInvitationTTLHours+1)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -14,12 +15,15 @@ import (
 
 // User is an account row. PasswordHash never leaves the service layer.
 type User struct {
-	ID           uuid.UUID
-	Username     string
-	DisplayName  string
-	PasswordHash string
-	SystemRoot   bool
-	CreatedAt    time.Time
+	ID            uuid.UUID
+	Username      string
+	DisplayName   string
+	Email         string
+	PasswordHash  string
+	SystemRoot    bool
+	IsActive      bool
+	PlatformAdmin bool
+	CreatedAt     time.Time
 }
 
 // Session is a server-side session row; only the token digest is stored.
@@ -46,6 +50,7 @@ type SessionIdentity struct {
 type querier interface {
 	Exec(ctx context.Context, sql string, args ...any) (pgconn.CommandTag, error)
 	QueryRow(ctx context.Context, sql string, args ...any) pgx.Row
+	Query(ctx context.Context, sql string, args ...any) (pgx.Rows, error)
 }
 
 // Repository owns all SQL for users, sessions and platform roles.
@@ -57,11 +62,11 @@ func NewRepository(pool *pgxpool.Pool) *Repository {
 	return &Repository{pool: pool}
 }
 
-const userColumns = `id, username, display_name, password_hash, system_root, created_at`
+const userColumns = `id, username, display_name, COALESCE(email, ''), password_hash, system_root, is_active, created_at`
 
 func scanUser(row pgx.Row) (User, error) {
 	var u User
-	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.PasswordHash, &u.SystemRoot, &u.CreatedAt)
+	err := row.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash, &u.SystemRoot, &u.IsActive, &u.CreatedAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return User{}, ErrNotFound
 	}
@@ -92,9 +97,9 @@ func (r *Repository) RootExists(ctx context.Context, q querier) (bool, error) {
 // index users_single_system_root is what makes concurrent bootstrap safe.
 func (r *Repository) InsertUser(ctx context.Context, tx pgx.Tx, u User) error {
 	_, err := tx.Exec(ctx, `
-		INSERT INTO users (id, username, display_name, password_hash, system_root)
-		VALUES ($1, $2, $3, $4, $5)`,
-		u.ID, u.Username, u.DisplayName, u.PasswordHash, u.SystemRoot)
+		INSERT INTO users (id, username, display_name, email, password_hash, system_root, is_active)
+		VALUES ($1, $2, $3, NULLIF($4, ''), $5, $6, $7)`,
+		u.ID, u.Username, u.DisplayName, u.Email, u.PasswordHash, u.SystemRoot, u.IsActive)
 	var pgErr *pgconn.PgError
 	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
 		switch pgErr.ConstraintName {
@@ -102,6 +107,8 @@ func (r *Repository) InsertUser(ctx context.Context, tx pgx.Tx, u User) error {
 			return ErrRootAlreadyInitialized
 		case "users_username_key":
 			return ErrUsernameTaken
+		case "users_email_unique":
+			return ErrEmailTaken
 		}
 	}
 	if err != nil {
@@ -131,7 +138,7 @@ func (r *Repository) SessionIdentityByTokenHash(ctx context.Context, q querier, 
 		FROM sessions s
 		JOIN users u ON u.id = s.user_id
 		LEFT JOIN platform_roles pr ON pr.user_id = u.id AND pr.role = 'platform_admin'
-		WHERE s.token_hash = $1 AND s.expires_at > now() AND s.revoked_at IS NULL`,
+		WHERE s.token_hash = $1 AND s.expires_at > now() AND s.revoked_at IS NULL AND u.is_active`,
 		tokenHash).Scan(&s.SessionID, &s.UserID, &s.Username, &s.DisplayName, &s.SystemRoot, &s.PlatformAdmin, &s.ExpiresAt)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return SessionIdentity{}, ErrNotFound
@@ -193,4 +200,75 @@ func (r *Repository) DeletePlatformRole(ctx context.Context, tx pgx.Tx, userID u
 		return false, fmt.Errorf("delete platform role: %w", err)
 	}
 	return tag.RowsAffected() > 0, nil
+}
+
+// ListUsers is the platform administration directory. The search term matches
+// username, display name and email; results include the platform role so the
+// administrator can see account state without a second round trip.
+func (r *Repository) ListUsers(ctx context.Context, q querier, search string, limit, offset int) ([]User, int64, error) {
+	pattern := "%" + strings.ToLower(strings.TrimSpace(search)) + "%"
+	var total int64
+	if err := q.QueryRow(ctx, `
+		SELECT count(*) FROM users
+		WHERE ($1 = '%%' OR lower(username) LIKE $1 OR lower(display_name) LIKE $1 OR lower(COALESCE(email, '')) LIKE $1)`,
+		pattern).Scan(&total); err != nil {
+		return nil, 0, fmt.Errorf("count users: %w", err)
+	}
+	rows, err := q.Query(ctx, `
+		SELECT `+userColumns+`, EXISTS (SELECT 1 FROM platform_roles pr WHERE pr.user_id = users.id AND pr.role = 'platform_admin')
+		FROM users
+		WHERE ($1 = '%%' OR lower(username) LIKE $1 OR lower(display_name) LIKE $1 OR lower(COALESCE(email, '')) LIKE $1)
+		ORDER BY system_root DESC, created_at, username
+		LIMIT $2 OFFSET $3`, pattern, limit, offset)
+	if err != nil {
+		return nil, 0, fmt.Errorf("list users: %w", err)
+	}
+	defer rows.Close()
+	var users []User
+	for rows.Next() {
+		var u User
+		if err := rows.Scan(&u.ID, &u.Username, &u.DisplayName, &u.Email, &u.PasswordHash, &u.SystemRoot, &u.IsActive, &u.CreatedAt, &u.PlatformAdmin); err != nil {
+			return nil, 0, fmt.Errorf("list users: %w", err)
+		}
+		users = append(users, u)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, 0, fmt.Errorf("list users: %w", err)
+	}
+	return users, total, nil
+}
+
+func mapEmailConflict(err error) error {
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "users_email_unique" {
+		return ErrEmailTaken
+	}
+	return err
+}
+
+func (r *Repository) UpdateProfile(ctx context.Context, tx pgx.Tx, id uuid.UUID, displayName, email string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE users SET display_name = $2, email = NULLIF($3, ''), updated_at = now() WHERE id = $1`,
+		id, displayName, email)
+	if err != nil {
+		return fmt.Errorf("update profile: %w", mapEmailConflict(err))
+	}
+	return nil
+}
+
+func (r *Repository) UpdatePassword(ctx context.Context, tx pgx.Tx, id uuid.UUID, passwordHash string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE users SET password_hash = $2, updated_at = now() WHERE id = $1`, id, passwordHash)
+	if err != nil {
+		return fmt.Errorf("update password: %w", err)
+	}
+	return nil
+}
+
+func (r *Repository) SetUserActive(ctx context.Context, tx pgx.Tx, id uuid.UUID, active bool) error {
+	_, err := tx.Exec(ctx, `UPDATE users SET is_active = $2, updated_at = now() WHERE id = $1`, id, active)
+	if err != nil {
+		return fmt.Errorf("update account status: %w", err)
+	}
+	return nil
 }

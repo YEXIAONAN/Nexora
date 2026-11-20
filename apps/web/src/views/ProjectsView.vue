@@ -44,6 +44,9 @@ async function load() {
     members.value = m
     confirmed.value = id
     teams.selectTeam(id)
+    if (route.query.create === '1' && ['owner', 'admin'].includes(t.my_role ?? '')) {
+      showCreate.value = true
+    }
   } catch (e) {
     if (generation === gen && id === teamId.value)
       error.value = e instanceof ApiError ? e.message : '项目加载失败'
@@ -100,6 +103,32 @@ onBeforeUnmount(() => {
         </button>
       </div>
     </div>
+    <nav
+      class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
+      aria-label="团队导航"
+    >
+      <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
+        >项目</span
+      >
+      <RouterLink
+        :to="`/teams/${teamId}/members`"
+        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+      >
+        成员
+      </RouterLink>
+      <RouterLink
+        :to="`/teams/${teamId}/contribution-results`"
+        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+      >
+        我的贡献
+      </RouterLink>
+      <RouterLink
+        to="/settings"
+        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
+      >
+        团队设置
+      </RouterLink>
+    </nav>
     <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
       {{ error }}
     </p>

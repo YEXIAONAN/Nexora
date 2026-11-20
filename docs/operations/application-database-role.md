@@ -4,7 +4,7 @@ Phase 05 M3 在生产 API 启动时只读检查数据库角色。迁移、初始
 
 当前开发 Compose 的 POSTGRES_USER 是开发初始化/迁移角色；此配置不等同于生产应用最小权限。M3 没有升级开发数据库、修改其角色或重启其服务。生产将普通 API 切换到受限凭据前，须由运维在目标 Nexora 专用数据库审核授权；迁移 CLI 使用单独受保护的凭据。无需将密码写入 SQL、仓库或日志。
 
-以下是 **v7–v8 专用数据库** 的审核清单，不由应用自动执行；替换 schema/app_role/database 为实际运维选择，不要向其他项目数据库应用。角色应独立 LOGIN、无其他角色成员资格、非数据库 owner，密码由受控凭据管理渠道设置。不要把初始 owner 角色降权来兼作应用角色。应用 v8 迁移后必须重新执行一次 SELECT 授权，否则只读奖金接口会因缺少新表权限返回 500。
+以下是 **v8–v9 专用数据库** 的审核清单，不由应用自动执行；替换 schema/app_role/database 为实际运维选择，不要向其他项目数据库应用。角色应独立 LOGIN、无其他角色成员资格、非数据库 owner，密码由受控凭据管理渠道设置。不要把初始 owner 角色降权来兼作应用角色。应用 v9 迁移后必须重新执行一次 SELECT 授权，否则只读奖金接口会因缺少新表权限返回 500。
 
 ```sql
 -- psql variables: schema, app_role, database. Run as the migration owner.
@@ -14,7 +14,7 @@ REVOKE CREATE ON SCHEMA :"schema" FROM PUBLIC;
 GRANT CONNECT ON DATABASE :"database" TO :"app_role";
 GRANT USAGE ON SCHEMA :"schema" TO :"app_role";
 GRANT SELECT ON ALL TABLES IN SCHEMA :"schema" TO :"app_role";
--- v8 Phase06 bonus read models remain SELECT-only in M3. No INSERT/UPDATE/DELETE
+-- v9 Phase06 bonus read models remain SELECT-only in M3. No INSERT/UPDATE/DELETE
 -- is granted until the approved write workflow and its audited migration exist.
 GRANT SELECT ON bonus_rounds,bonus_round_versions,bonus_round_sources,
  bonus_eligibility_decisions,bonus_allocation_lines,bonus_adjustments,

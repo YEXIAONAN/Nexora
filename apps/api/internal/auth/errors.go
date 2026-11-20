@@ -15,4 +15,8 @@ var (
 	ErrRootAlreadyInitialized = errors.New("auth: root already initialized")
 	// ErrRoleAlreadyGranted reports a duplicate platform role grant.
 	ErrRoleAlreadyGranted = errors.New("auth: platform role already granted")
+	// ErrEmailTaken reports a duplicate email address.
+	ErrEmailTaken = errors.New("auth: email already taken")
+	// ErrAccountDisabled reports a valid password on a disabled account.
+	ErrAccountDisabled = errors.New("auth: account disabled")
 )

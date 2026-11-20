@@ -327,7 +327,7 @@ func TestBonusHTTPRoundMetadataContract(t *testing.T) {
 	}
 }
 
-func TestBonusRoutesAreAbsentOnSchemaV7(t *testing.T) {
+func TestBonusRoutesAreAbsentOnSchemaV8(t *testing.T) {
 	f := &bonusHTTPFixture{t: t, db: testdb.New(t, os.Getenv), cookies: map[string]*http.Cookie{}}
 	var cancel context.CancelFunc
 	f.ctx, cancel = context.WithTimeout(context.Background(), 90*time.Second)
@@ -336,12 +336,14 @@ func TestBonusRoutesAreAbsentOnSchemaV7(t *testing.T) {
 	if err := database.Up(f.ctx, f.db.SQL, logger); err != nil {
 		t.Fatal(err)
 	}
+	// Roll the bonus foundation back so this fixture runs on the released
+	// Alpha P0 v8 schema.
 	if err := database.Down(f.ctx, f.db.SQL, 1, logger); err != nil {
 		t.Fatal(err)
 	}
 	version, err := database.Version(f.ctx, f.db.SQL)
-	if err != nil || version != 7 {
-		t.Fatalf("schema version = %d, err = %v; want 7", version, err)
+	if err != nil || version != 8 {
+		t.Fatalf("schema version = %d, err = %v; want 8", version, err)
 	}
 	as := auth.NewService(auth.NewRepository(f.db.Pool), audit.NewRepository(f.db.Pool), auth.NewLoginLimiter(1000, time.Minute), time.Hour, logger)
 	if _, err := as.BootstrapRoot(f.ctx, "root", bonusPassword); err != nil {
@@ -361,12 +363,12 @@ func TestBonusRoutesAreAbsentOnSchemaV7(t *testing.T) {
 		)
 	}
 	handler := httpapi.New(cfg, logger, system.NewRepository(f.db.Pool), as, auth.NewHandler(as, false, time.Hour, logger), nil, modules...).Handler()
-	// Phase05 diagnostics and public metadata keep working on a v7 database.
+	// Alpha P0 diagnostics and public metadata keep working on a v8 database.
 	for _, path := range []string{"/readyz", "/api/v1/meta"} {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, httptest.NewRequest("GET", path, nil))
 		if response.Code != http.StatusOK {
-			t.Fatalf("schema v7 baseline path %s: status = %d, want 200", path, response.Code)
+			t.Fatalf("schema v8 baseline path %s: status = %d, want 200", path, response.Code)
 		}
 	}
 	for _, path := range []string{
@@ -378,7 +380,7 @@ func TestBonusRoutesAreAbsentOnSchemaV7(t *testing.T) {
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
 		if response.Code != http.StatusNotFound {
-			t.Fatalf("schema v7 path %s: status = %d, want a safe 404 (never 500)", path, response.Code)
+			t.Fatalf("schema v8 path %s: status = %d, want a safe 404 (never 500)", path, response.Code)
 		}
 	}
 }

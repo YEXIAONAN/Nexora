@@ -226,12 +226,12 @@ func (r *Repository) ListAllTeams(ctx context.Context, q querier) ([]Team, error
 	return teams, nil
 }
 
-const invitationColumns = `i.id, i.team_id, t.name, i.invited_user_id, u.username, i.invited_by, i.role, i.status, i.expires_at, i.created_at`
+const invitationColumns = `i.id, i.team_id, t.name, COALESCE(i.invited_user_id, '00000000-0000-0000-0000-000000000000'::uuid), COALESCE(u.username, i.invited_username), i.invited_by, i.role, i.status, i.expires_at, i.created_at`
 
 const invitationFrom = `
 	FROM team_invitations i
 	JOIN teams t ON t.id = i.team_id
-	JOIN users u ON u.id = i.invited_user_id`
+	LEFT JOIN users u ON u.id = i.invited_user_id`
 
 func scanInvitation(row pgx.Row) (Invitation, error) {
 	var inv Invitation
@@ -248,11 +248,12 @@ func scanInvitation(row pgx.Row) (Invitation, error) {
 
 func (r *Repository) InsertInvitation(ctx context.Context, tx pgx.Tx, inv Invitation) error {
 	_, err := tx.Exec(ctx, `
-		INSERT INTO team_invitations (id, team_id, invited_user_id, invited_by, role, expires_at)
-		VALUES ($1, $2, $3, $4, $5, $6)`,
-		inv.ID, inv.TeamID, inv.InvitedUserID, inv.InvitedBy, inv.Role, inv.ExpiresAt)
+		INSERT INTO team_invitations (id, team_id, invited_user_id, invited_username, invited_by, role, expires_at)
+		VALUES ($1, $2, NULLIF($3, '00000000-0000-0000-0000-000000000000'::uuid), $4, $5, $6, $7)`,
+		inv.ID, inv.TeamID, inv.InvitedUserID, inv.InvitedUsername, inv.InvitedBy, inv.Role, inv.ExpiresAt)
 	var pgErr *pgconn.PgError
-	if errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "team_invitations_one_pending" {
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" &&
+		(pgErr.ConstraintName == "team_invitations_one_pending" || pgErr.ConstraintName == "team_invitations_one_pending_username") {
 		return ErrDuplicateInvitation
 	}
 	if err != nil {
@@ -281,6 +282,42 @@ func (r *Repository) SetInvitationStatus(ctx context.Context, tx pgx.Tx, id uuid
 	return nil
 }
 
+// ClaimInvitationUser binds a pre-registration invitation to the account that
+// registered with the invited username.
+func (r *Repository) ClaimInvitationUser(ctx context.Context, tx pgx.Tx, id, userID uuid.UUID) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE team_invitations SET invited_user_id = $2, updated_at = now()
+		WHERE id = $1 AND invited_user_id IS NULL`, id, userID)
+	if err != nil {
+		return fmt.Errorf("claim invitation: %w", err)
+	}
+	return nil
+}
+
+// HasPendingInvitationForUsername lets invite-only registration accept the
+// username an owner/admin already invited before the account existed.
+func (r *Repository) HasPendingInvitationForUsername(ctx context.Context, q querier, username string) (bool, error) {
+	var exists bool
+	err := q.QueryRow(ctx, `
+		SELECT EXISTS (SELECT 1 FROM team_invitations
+		WHERE status = 'pending' AND expires_at > now() AND lower(invited_username) = lower($1))`,
+		username).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check pending invitation: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *Repository) UpdateTeam(ctx context.Context, tx pgx.Tx, teamID uuid.UUID, name, description string) error {
+	_, err := tx.Exec(ctx, `
+		UPDATE teams SET name = $2, description = $3, updated_at = now() WHERE id = $1`,
+		teamID, name, description)
+	if err != nil {
+		return fmt.Errorf("update team: %w", err)
+	}
+	return nil
+}
+
 func (r *Repository) listInvitations(ctx context.Context, q querier, where string, args ...any) ([]Invitation, error) {
 	rows, err := q.Query(ctx, `SELECT `+invitationColumns+invitationFrom+` WHERE `+where+` ORDER BY i.created_at DESC`, args...)
 	if err != nil {
@@ -305,7 +342,8 @@ func (r *Repository) ListTeamInvitations(ctx context.Context, q querier, teamID 
 	return r.listInvitations(ctx, q, `i.team_id = $1`, teamID)
 }
 
-// ListMyInvitations returns only live pending invitations of the user.
-func (r *Repository) ListMyInvitations(ctx context.Context, q querier, userID uuid.UUID) ([]Invitation, error) {
-	return r.listInvitations(ctx, q, `i.invited_user_id = $1 AND i.status = 'pending' AND i.expires_at > now()`, userID)
+// ListMyInvitations returns only live pending invitations of the user,
+// including invitations addressed to their username before they registered.
+func (r *Repository) ListMyInvitations(ctx context.Context, q querier, userID uuid.UUID, username string) ([]Invitation, error) {
+	return r.listInvitations(ctx, q, `(i.invited_user_id = $1 OR (i.invited_user_id IS NULL AND lower(i.invited_username) = lower($2))) AND i.status = 'pending' AND i.expires_at > now()`, userID, username)
 }

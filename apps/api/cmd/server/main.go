@@ -94,8 +94,10 @@ func run() error {
 		cfg.SessionTTL,
 		logger,
 	)
+	authSvc.SetRegistrationMode(auth.RegistrationMode(cfg.RegistrationMode))
 	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
 	teamsSvc := teams.NewService(teams.NewRepository(pool), authSvc, auditRepo, logger)
+	authSvc.SetInvitationChecker(teamsSvc)
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
 	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
 	projectsHandler := projects.NewHandler(projectsSvc, logger)
@@ -131,9 +133,9 @@ func run() error {
 		submissions.NewHandler(submissionsSvc, logger),
 		contributions.NewHandler(contributionsSvc, logger),
 	}
-	// The Phase06 bonus relations only exist from schema v8. A v7 deployment
-	// keeps the Phase05 API set and must never expose a route that would query
-	// absent tables and turn a compatible startup into HTTP 500 responses.
+	// The Phase06 bonus relations only exist from schema v9. A v8 Alpha P0
+	// deployment keeps the P0 API set and must never expose a route that would
+	// query absent tables and turn a compatible startup into HTTP 500 responses.
 	if database.SupportsBonusSchema(schemaVersion) {
 		modules = append(modules,
 			bonusresults.NewHandler(bonusresults.NewService(bonusresults.NewRepository(pool)), logger),

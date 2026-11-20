@@ -1,7 +1,10 @@
 import { requestJSON } from './client'
 import type { components } from './schema'
 
-export type Meta = components['schemas']['Meta']
+export type Meta = components['schemas']['Meta'] & {
+  registration_mode?: 'open' | 'invite' | 'closed'
+  channel?: string
+}
 export type Readiness = components['schemas']['Readiness']
 
 interface MetaEnvelope {

@@ -22,6 +22,9 @@ test-results/
 # Local tool caches (sandboxed runs)
 .cache/
 
+# ./start runtime logs and PIDs
+.run/
+
 # Backups and database dumps
 backups/
 *.dump

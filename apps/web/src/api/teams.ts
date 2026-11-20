@@ -31,6 +31,14 @@ export async function getTeam(teamId: string, signal?: AbortSignal): Promise<Tea
   return payload.data
 }
 
+export async function updateTeam(teamId: string, name: string, description: string): Promise<Team> {
+  const payload = await requestJSON<components['schemas']['TeamEnvelope']>(
+    `/api/v1/teams/${teamId}`,
+    { method: 'PATCH', body: { name, description } },
+  )
+  return payload.data
+}
+
 export async function getTeamPermissions(
   teamId: string,
   signal?: AbortSignal,

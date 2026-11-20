@@ -1,11 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 
 import AppIcon from '@/components/ui/AppIcon.vue'
 import type { IconName } from '@/components/ui/icons'
 import { useAuthStore } from '@/stores/auth'
-import { useSystemStore } from '@/stores/system'
 import { useTeamsStore } from '@/stores/teams'
 import { useThemeStore } from '@/stores/theme'
 
@@ -14,24 +13,10 @@ defineEmits<{ 'open-nav': [] }>()
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const system = useSystemStore()
 const teams = useTeamsStore()
 const theme = useThemeStore()
 
 const title = computed(() => (typeof route.meta.title === 'string' ? route.meta.title : 'Nexora'))
-
-const environmentLabel = computed(() => {
-  if (system.loading) return '检查中'
-  if (!system.meta) return '未连接'
-  const labels = { production: '生产环境', test: '测试环境', development: '开发环境' }
-  return labels[system.meta.environment]
-})
-
-const environmentTone = computed(() => {
-  if (system.apiState === 'down') return 'bg-danger'
-  if (system.meta) return 'bg-accent'
-  return 'bg-ink-subtle'
-})
 
 const themeLabel = computed(() => {
   if (theme.preference === 'light') return '浅色'
@@ -45,6 +30,24 @@ const themeIcon = computed<IconName>(() => {
   return 'monitor'
 })
 
+const initials = computed(() => {
+  const name = auth.displayName.trim()
+  return name ? name.slice(0, 2) : 'N'
+})
+
+const userMenuOpen = ref(false)
+const userMenuRef = ref<HTMLElement | null>(null)
+
+function onDocumentClick(event: MouseEvent): void {
+  if (!userMenuOpen.value) return
+  if (userMenuRef.value && !userMenuRef.value.contains(event.target as Node)) {
+    userMenuOpen.value = false
+  }
+}
+
+onMounted(() => document.addEventListener('click', onDocumentClick))
+onBeforeUnmount(() => document.removeEventListener('click', onDocumentClick))
+
 function cycleTheme(): void {
   const next =
     theme.preference === 'system' ? 'light' : theme.preference === 'light' ? 'dark' : 'system'
@@ -54,23 +57,13 @@ function cycleTheme(): void {
 async function onTeamChange(event: Event): Promise<void> {
   const teamId = (event.target as HTMLSelectElement).value
   teams.selectTeam(teamId)
-  if (
-    [
-      'projects',
-      'project-detail',
-      'project-contributions',
-      'contribution-case',
-      'contribution-appraisal',
-    ].includes(String(route.name)) &&
-    teamId !== route.params.teamId
-  ) {
-    await router.push({ name: 'projects', params: { teamId } })
-  }
-  if (route.name === 'my-contribution-results' && teamId !== route.params.teamId) {
-    await router.push({ name: 'my-contribution-results', params: { teamId } })
-  }
-  if (route.name === 'team-members' && teamId !== route.params.teamId) {
-    await router.push({ name: 'team-members', params: { teamId } })
+  if (route.params.teamId && teamId !== route.params.teamId) {
+    const name = String(route.name ?? '')
+    if (['projects', 'team-members', 'my-contribution-results'].includes(name)) {
+      await router.push({ name, params: { teamId } })
+    } else if (name.startsWith('project-') || name === 'contribution-case') {
+      await router.push({ name: 'projects', params: { teamId } })
+    }
   }
 }
 
@@ -83,7 +76,7 @@ async function logout(): Promise<void> {
 
 <template>
   <header
-    class="sticky top-0 z-20 flex h-16 items-center gap-3 border-b border-line bg-canvas/90 px-4 backdrop-blur sm:px-6 lg:px-8"
+    class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-canvas/90 px-3 backdrop-blur sm:px-5"
   >
     <button
       type="button"
@@ -96,10 +89,10 @@ async function logout(): Promise<void> {
 
     <h1 class="truncate text-sm font-semibold text-ink">{{ title }}</h1>
 
-    <div class="ml-auto flex items-center gap-2">
+    <div class="ml-auto flex items-center gap-1.5">
       <select
         v-if="auth.isAuthenticated && teams.teams.length > 0"
-        class="hidden max-w-[180px] rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-accent focus:outline-none sm:block"
+        class="hidden h-8 max-w-[168px] rounded-lg border border-line bg-surface px-2 text-xs text-ink focus:border-accent focus:outline-none sm:block"
         :value="teams.currentTeamId ?? ''"
         aria-label="当前团队"
         @change="onTeamChange"
@@ -109,15 +102,16 @@ async function logout(): Promise<void> {
         </option>
       </select>
 
-      <span v-if="auth.isAuthenticated" class="badge hidden max-w-[200px] md:inline-flex">
-        <span class="truncate">{{ auth.displayName }}</span>
-        <span v-if="auth.user?.system_root" class="font-semibold text-accent-strong">ROOT</span>
-      </span>
+      <RouterLink
+        v-if="auth.isAuthenticated"
+        to="/invitations"
+        class="btn btn-ghost h-9 w-9 px-0"
+        aria-label="邀请收件箱"
+        title="邀请收件箱"
+      >
+        <AppIcon name="bell" :size="17" />
+      </RouterLink>
 
-      <span class="badge hidden sm:inline-flex">
-        <span class="h-1.5 w-1.5 rounded-full" :class="environmentTone" aria-hidden="true" />
-        {{ environmentLabel }}
-      </span>
       <button
         type="button"
         class="btn btn-ghost h-9 gap-2 px-2.5"
@@ -126,18 +120,82 @@ async function logout(): Promise<void> {
         @click="cycleTheme"
       >
         <AppIcon :name="themeIcon" :size="16" />
-        <span class="hidden text-xs sm:inline">{{ themeLabel }}</span>
+        <span class="hidden text-xs xl:inline">{{ themeLabel }}</span>
       </button>
+
+      <div v-if="auth.isAuthenticated" ref="userMenuRef" class="relative hidden sm:block">
+        <button
+          type="button"
+          class="flex items-center gap-2 rounded-lg border border-transparent py-1 pr-2 pl-1.5 transition-colors hover:border-line hover:bg-surface-muted"
+          aria-label="用户菜单"
+          :aria-expanded="userMenuOpen"
+          @click.stop="userMenuOpen = !userMenuOpen"
+        >
+          <span class="avatar h-7 w-7 text-[11px]" aria-hidden="true">{{ initials }}</span>
+          <div class="leading-tight">
+            <p class="max-w-[120px] truncate text-xs font-medium text-ink">
+              {{ auth.displayName }}
+            </p>
+            <p class="text-[10px] text-ink-subtle">
+              {{
+                auth.user?.system_root ? 'ROOT' : auth.user?.platform_admin ? '平台管理员' : '成员'
+              }}
+            </p>
+          </div>
+          <AppIcon name="chevron-down" :size="13" class="text-ink-subtle" />
+        </button>
+
+        <div
+          v-if="userMenuOpen"
+          class="absolute right-0 mt-1.5 w-52 overflow-hidden rounded-lg border border-line bg-surface shadow-lg"
+          role="menu"
+        >
+          <div class="border-b border-line px-3 py-2.5">
+            <p class="truncate text-xs font-medium text-ink">{{ auth.displayName }}</p>
+            <p class="truncate font-mono text-[11px] text-ink-subtle">@{{ auth.user?.username }}</p>
+          </div>
+          <div class="p-1">
+            <RouterLink
+              to="/settings"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-muted hover:text-ink"
+              role="menuitem"
+              @click="userMenuOpen = false"
+            >
+              <AppIcon name="settings" :size="14" />
+              个人设置
+            </RouterLink>
+            <RouterLink
+              to="/invitations"
+              class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-muted hover:text-ink"
+              role="menuitem"
+              @click="userMenuOpen = false"
+            >
+              <AppIcon name="inbox" :size="14" />
+              邀请收件箱
+            </RouterLink>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-danger hover:bg-danger-soft"
+              role="menuitem"
+              @click="logout"
+            >
+              <AppIcon name="logout" :size="14" />
+              退出登录
+            </button>
+          </div>
+        </div>
+      </div>
+
       <button
         v-if="auth.isAuthenticated"
         type="button"
-        class="btn btn-ghost h-9 gap-2 px-2.5"
+        class="btn btn-ghost h-9 gap-1.5 px-2.5"
         aria-label="退出登录"
         title="退出登录"
         @click="logout"
       >
         <AppIcon name="logout" :size="16" />
-        <span class="hidden text-xs sm:inline">退出</span>
+        <span class="hidden text-xs lg:inline">退出</span>
       </button>
     </div>
   </header>

@@ -1,9 +1,9 @@
 # Phase 06 M3 — 奖金只读 API 与工程验收报告
 
 - 阶段：**M3 Draft（依赖 M1/M2，未合并、未部署、未开放写入）**
-- 日期：2026-11-19
+- 日期：2026-11-20（Alpha 基线整合后）
 - 分支：`feature/phase06-m3-my-results-readonly`
-- 基线：M2 Schema v8 `c1d83f8`（[PR #11](https://github.com/YEXIAONAN/Nexora/pull/11)，Draft）；M1 设计 [PR #10](https://github.com/YEXIAONAN/Nexora/pull/10)，Draft；`develop` v7 `af3802b`
+- 基线：M2 Schema v9（`feature/phase06-m2-schema`，[PR #11](https://github.com/YEXIAONAN/Nexora/pull/11)，Draft）；M1 设计 [PR #10](https://github.com/YEXIAONAN/Nexora/pull/10)，Draft；`develop` `cc88b06`（Alpha `v0.1.0-alpha.1`，v8 P0）
 - 目标：修复 M3 半成品，交付可测试、可扩展的奖金只读基础能力，**不开放正式核定、预算、资格、调整或付款写入**
 
 ## 1. 本轮修复的半成品问题
@@ -12,7 +12,7 @@
 | --- | --- |
 | 本人结果只返回金额，未区分“已核定”和“已支付” | 响应新增 `status="confirmed"` 与 `payment_status="not_recorded"`，明确系统不执行/不记录付款 |
 | 仅校验 Team 成员，Team 成员但无任何 Project 成员关系时返回 200 空集合 | 访问快照同时要求活跃 Team 成员和至少一个活跃 Project 成员；每条结果仍要求该 Project 的活跃成员关系 |
-| v7/v8 路由开关硬编码 `>= 8` | 新增 `database.SupportsBonusSchema` / `BonusSchemaVersion`，启动与测试共用同一判定 |
+| v7/v8 路由开关硬编码 `>= 8` | 新增 `database.SupportsBonusSchema` / `BonusSchemaVersion`，启动与测试共用同一判定（现为 v9） |
 | OpenAPI 缺少方案版本、批次、派生状态字段 | 补充批次列表/详情契约，并重新生成 `schema.d.ts` |
 | 生成类型与 YAML 不一致导致 Frontend CI 失败 | `pnpm api:types` 重新生成，`pnpm api:check` 通过 |
 | 受限应用角色对新表的 SELECT 未在部署文档中明确 | 更新 `docs/operations/application-database-role.md`，仅授予 SELECT，明确无 INSERT/UPDATE/DELETE |
@@ -49,12 +49,12 @@
 
 所有访问判定与数据查询在**同一条 SQL 快照**中完成；会话撤销、成员移除在下一次请求立即生效。ROOT、Team Owner、Project Lead 身份本身不产生奖金权限。
 
-## 4. Schema v7 / v8 兼容
+## 4. Schema v8 / v9 兼容
 
-- 启动与 `/readyz` 接受 v7–v8；v6、v9 及未迁移数据库拒绝。
-- v7：Phase05 功能与诊断接口正常；奖金路由**不挂载**，请求得到安全 404，不会查询缺失表产生 500。
-- v8：挂载全部奖金只读路由。
-- v8 迁移、回滚和历史 Phase05 回归已在隔离 `testdb` schema 中验证；未修改 00001–00008 迁移。
+- 启动与 `/readyz` 接受 v8–v9；v7、v10 及未迁移数据库拒绝。
+- v8（Alpha P0）：P0 注册/登录、用户管理、邀请、Team/Project、任务与贡献功能正常；奖金路由**不挂载**，请求得到安全 404，不会查询缺失表产生 500。
+- v9：挂载全部奖金只读路由。
+- v8→v9 升级测试验证 P0 用户（email/is_active）、待接受邀请、Team、Project 数据保持不变；v9 迁移、空库回滚与历史 Phase05 回归均在隔离 `testdb` schema 中验证；未修改 00001–00008 迁移。
 
 ## 5. 验证结果
 
@@ -69,7 +69,7 @@
 | Frontend lint / format / typecheck / build | PASS |
 | Secret scan | PASS |
 
-新增 PostgreSQL 集成测试覆盖：归档项目可读、同项目两个独立批次、草稿不形成正式结果、跨 Team/Project、Team-only 成员、ROOT、过期/撤销会话、撤销 Project 成员、受限应用角色只读与写入拒绝、v7 路由缺失。
+新增 PostgreSQL 集成测试覆盖：归档项目可读、同项目两个独立批次、草稿不形成正式结果、跨 Team/Project、Team-only 成员、ROOT、过期/撤销会话、撤销 Project 成员、受限应用角色只读与写入拒绝、v8 路由缺失。
 
 ## 6. 明确未实现 / 待批准
 
@@ -78,7 +78,7 @@
 3. **奖金金额可见性授权未实现**：M2 的 `bonus_role_grants` 仍只能 `proposed`，当前没有任何角色可查看预算或成员金额；批次接口对所有项目成员统一隐藏金额。
 4. **付款状态不跟踪**：`payment_status="not_recorded"` 只表示本阶段不记录付款，不代表未付款或已付款事实。
 5. **同一批次多版本**：查询按 `bonus_rounds` 一行返回，不会把版本计为多笔奖金；但 M2 只允许单一草稿版本，无法构造多版本正向夹具。
-6. **生产授权重跑**：应用 v8 迁移后必须按更新后的部署文档重新执行 SELECT 授权，否则只读接口会因缺少新表权限返回 500。
+6. **生产授权重跑**：应用 v9 迁移后必须按更新后的部署文档重新执行 SELECT 授权，否则只读接口会因缺少新表权限返回 500。
 7. D2–D4、D6–D8、D10、A2–A5 等金额、资格、独立核定、离队送达与外部审计政策仍为 **Proposed**，未因本阶段代码推定批准。
 
 ## 7. 边界确认

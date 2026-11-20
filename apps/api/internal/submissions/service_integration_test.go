@@ -450,7 +450,7 @@ func TestPhase04RollbackRefusesBusinessEvidence(t *testing.T) {
 		t.Fatalf("could not read current migration version: %d, %v", current, e)
 	}
 	// Always try to cross the Phase04 v6->v5 boundary, regardless of
-	// later empty migrations (v7, v8, ...) already installed.
+	// later additive migrations (v7, v8, v9, ...) already installed.
 	if e := database.Down(f.ctx, f.sql, int(current-5), logger); e == nil {
 		t.Fatal("rollback deleted immutable evidence")
 	}
