@@ -233,13 +233,44 @@ func TestLoginRateLimitHTTP(t *testing.T) {
 	}
 }
 
-func TestNoPublicRegistrationRoute(t *testing.T) {
+func TestPublicRegistrationCreatesNormalAccount(t *testing.T) {
 	f := newAuthAPIFixture(t, config.EnvironmentTest, 10)
-	for _, path := range []string{"/api/v1/auth/register", "/api/v1/users", "/api/v1/register"} {
+	for _, path := range []string{"/api/v1/users", "/api/v1/register"} {
 		recorder := f.do(http.MethodPost, path, map[string]string{"username": "waiting", "password": "some-password-123"}, nil, true)
 		if recorder.Code != http.StatusNotFound {
-			t.Fatalf("%s status = %d, want 404 (no public registration)", path, recorder.Code)
+			t.Fatalf("%s status = %d, want 404", path, recorder.Code)
 		}
+	}
+
+	const password = "newcomer-password-123"
+	created := f.do(http.MethodPost, "/api/v1/auth/register", map[string]string{
+		"username": "newcomer", "display_name": "New Comer", "email": "newcomer@example.com", "password": password,
+	}, nil, true)
+	if created.Code != http.StatusCreated {
+		t.Fatalf("registration status = %d: %s", created.Code, created.Body.String())
+	}
+	var payload struct {
+		Data struct {
+			SystemRoot    bool   `json:"system_root"`
+			PlatformAdmin bool   `json:"platform_admin"`
+			IsActive      bool   `json:"is_active"`
+			Email         string `json:"email"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(created.Body.Bytes(), &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Data.SystemRoot || payload.Data.PlatformAdmin || !payload.Data.IsActive {
+		t.Fatalf("public registration granted elevated state: %+v", payload.Data)
+	}
+	if payload.Data.Email != "newcomer@example.com" {
+		t.Fatalf("email = %q", payload.Data.Email)
+	}
+
+	cookie, _ := f.login("newcomer", password)
+	denied := f.do(http.MethodGet, "/api/v1/admin/users", nil, cookie, false)
+	if denied.Code != http.StatusForbidden {
+		t.Fatalf("registered user admin access = %d, want 403", denied.Code)
 	}
 }
 

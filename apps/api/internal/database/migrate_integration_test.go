@@ -195,14 +195,14 @@ func TestPhase05SchemaInstallRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	v, e := Version(ctx, f.SQL)
-	if e != nil || v != 7 {
+	if e != nil || v != 8 {
 		t.Fatal(v, e)
 	}
 	if e = Down(ctx, f.SQL, 1, logger); e != nil {
 		t.Fatal(e)
 	}
 	v, e = Version(ctx, f.SQL)
-	if e != nil || v != 6 {
+	if e != nil || v != 7 {
 		t.Fatal(v, e)
 	}
 	if e = Down(ctx, f.SQL, 6, logger); e != nil {
@@ -212,7 +212,7 @@ func TestPhase05SchemaInstallRollback(t *testing.T) {
 		t.Fatal(e)
 	}
 	v, e = Version(ctx, f.SQL)
-	if e != nil || v != 7 {
+	if e != nil || v != 8 {
 		t.Fatal(v, e)
 	}
 }

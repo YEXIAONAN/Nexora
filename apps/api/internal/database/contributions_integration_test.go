@@ -55,6 +55,7 @@ type contributionFixture struct {
 	task                                       tasks.Task
 	submission                                 submissions.Version
 	review                                     submissions.Review
+	legacy                                     bool
 }
 
 func p05Must(t *testing.T, e error) {
@@ -75,7 +76,7 @@ func p05Denied(t *testing.T, e error) {
 }
 func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 	t.Helper()
-	f := &contributionFixture{t: t, db: testdb.New(t, os.Getenv), log: slog.New(slog.NewTextHandler(io.Discard, nil))}
+	f := &contributionFixture{t: t, db: testdb.New(t, os.Getenv), log: slog.New(slog.NewTextHandler(io.Discard, nil)), legacy: old}
 	var cancel context.CancelFunc
 	f.ctx, cancel = context.WithTimeout(context.Background(), 120*time.Second)
 	t.Cleanup(cancel)
@@ -88,8 +89,14 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 	}
 	ar := audit.NewRepository(f.db.Pool)
 	f.as = auth.NewService(auth.NewRepository(f.db.Pool), ar, auth.NewLoginLimiter(1000, time.Minute), time.Hour, f.log)
-	root, e := f.as.BootstrapRoot(f.ctx, "root", p05Password)
-	p05Must(t, e)
+	var root auth.User
+	if old {
+		root = f.legacyUser("root", true)
+	} else {
+		var e error
+		root, e = f.as.BootstrapRoot(f.ctx, "root", p05Password)
+		p05Must(t, e)
+	}
 	f.root = reqctx.Identity{UserID: root.ID, SystemRoot: true}
 	tr := teams.NewRepository(f.db.Pool)
 	f.ts = teams.NewService(tr, f.as, ar, f.log)
@@ -123,8 +130,31 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 	p05Must(t, e)
 	return f
 }
+func (f *contributionFixture) legacyUser(name string, root bool) auth.User {
+	f.t.Helper()
+	id := uuid.New()
+	hash, e := auth.HashPassword(p05Password)
+	p05Must(f.t, e)
+	_, e = f.db.Pool.Exec(f.ctx, `
+		INSERT INTO users (id, username, display_name, password_hash, system_root)
+		VALUES ($1, $2, $2, $3, $4)`, id, name, hash, root)
+	p05Must(f.t, e)
+	if !root {
+		_, e = f.db.Pool.Exec(f.ctx, `
+			INSERT INTO team_members (team_id, user_id, role) VALUES ($1, $2, 'member')`, f.team, id)
+		p05Must(f.t, e)
+		_, e = f.db.Pool.Exec(f.ctx, `
+			INSERT INTO project_members (team_id, project_id, user_id) VALUES ($1, $2, $3)`, f.team, f.project.ID, id)
+		p05Must(f.t, e)
+	}
+	return auth.User{ID: id, Username: name, DisplayName: name, SystemRoot: root, IsActive: true}
+}
+
 func (f *contributionFixture) user(name string, join bool) reqctx.Identity {
 	f.t.Helper()
+	if f.legacy {
+		return reqctx.Identity{UserID: f.legacyUser(name, false).ID}
+	}
 	u, e := f.as.CreateUser(f.ctx, f.root, name, name, p05Password)
 	p05Must(f.t, e)
 	a := reqctx.Identity{UserID: u.ID}
@@ -568,7 +598,7 @@ func TestContributionUpgradePreservesPhase04AndArchivedHistory(t *testing.T) {
 	f := newContributionFixture(t, true)
 	p05Must(t, f.archive())
 	before := f.snapshot(p05LegacyTables)
-	p05Must(t, database.Up(f.ctx, f.db.SQL, f.log))
+	p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 7))
 	after := f.snapshot(p05LegacyTables)
 	if !reflect.DeepEqual(before, after) {
 		t.Fatal("v7 changed preexisting Phase02-04 history")
@@ -593,6 +623,9 @@ func TestContributionRollbackRefusesFormalEvidence(t *testing.T) {
 	f.prepare(c)
 	_, e := f.confirm(c, f.appraiser)
 	p05Must(t, e)
+	// Remove the later P0 account schema first so this test exercises the
+	// Phase 05 contribution rollback guard directly.
+	p05Must(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
 	before := f.snapshot(p05BusinessTables)
 	p05Denied(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
 	v, e := database.Version(f.ctx, f.db.SQL)
