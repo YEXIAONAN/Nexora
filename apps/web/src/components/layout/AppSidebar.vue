@@ -52,6 +52,12 @@ const collaboration = computed<NavItem[]>(() => {
       icon: 'layers',
       match: id ? `/teams/${id}/contribution-results` : '/__no-team__/contributions',
     },
+    {
+      label: '我的奖金',
+      to: id ? `/teams/${id}/bonus-results` : '/teams',
+      icon: 'award',
+      match: id ? `/teams/${id}/bonus-results` : '/__no-team__/bonus',
+    },
     { label: '邀请收件箱', to: '/invitations', icon: 'inbox' },
   ]
 })
