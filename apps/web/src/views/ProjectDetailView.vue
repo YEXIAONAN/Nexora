@@ -319,6 +319,9 @@ onBeforeUnmount(() => {
         <RouterLink class="btn" :to="`/teams/${teamId}/projects/${projectId}/contributions`"
           >贡献核算</RouterLink
         >
+        <RouterLink class="btn" :to="`/teams/${teamId}/projects/${projectId}/bonus-rounds`"
+          >奖金批次</RouterLink
+        >
         <button
           v-for="item in [
             { id: 'overview', label: '项目概览' },
