@@ -55,7 +55,7 @@ func TestLiveness(t *testing.T) {
 }
 
 func TestReadinessReady(t *testing.T) {
-	recorder := performRequest(t, newTestServer(&fakeSystemStore{schemaVersion: 1}).Handler(), http.MethodGet, "/readyz")
+	recorder := performRequest(t, newTestServer(&fakeSystemStore{schemaVersion: 8}).Handler(), http.MethodGet, "/readyz")
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200: %s", recorder.Code, recorder.Body.String())
 	}
@@ -71,8 +71,35 @@ func TestReadinessReady(t *testing.T) {
 	}
 }
 
+func TestReadinessRequiresCompatibleSchemaVersion(t *testing.T) {
+	for _, tc := range []struct {
+		version          int64
+		wantStatus       int
+		wantSchemaStatus string
+	}{
+		{0, http.StatusServiceUnavailable, "down"},
+		{6, http.StatusServiceUnavailable, "down"},
+		{7, http.StatusServiceUnavailable, "down"},
+		{8, http.StatusOK, "up"},
+		{9, http.StatusOK, "up"},
+		{10, http.StatusServiceUnavailable, "down"},
+	} {
+		recorder := performRequest(t, newTestServer(&fakeSystemStore{schemaVersion: tc.version}).Handler(), http.MethodGet, "/readyz")
+		if recorder.Code != tc.wantStatus {
+			t.Errorf("schema v%d status %d, want %d", tc.version, recorder.Code, tc.wantStatus)
+		}
+		var payload readinessResponse
+		if err := json.Unmarshal(recorder.Body.Bytes(), &payload); err != nil {
+			t.Fatal(err)
+		}
+		if payload.Checks["schema"].Status != tc.wantSchemaStatus {
+			t.Errorf("schema v%d check = %q, want %q", tc.version, payload.Checks["schema"].Status, tc.wantSchemaStatus)
+		}
+	}
+}
+
 func TestReadinessUnavailableWhenDatabaseDown(t *testing.T) {
-	store := &fakeSystemStore{schemaVersion: 1, pingErr: errors.New("connection refused")}
+	store := &fakeSystemStore{schemaVersion: 8, pingErr: errors.New("connection refused")}
 	recorder := performRequest(t, newTestServer(store).Handler(), http.MethodGet, "/readyz")
 	if recorder.Code != http.StatusServiceUnavailable {
 		t.Fatalf("status = %d, want 503", recorder.Code)
@@ -184,7 +211,7 @@ func TestDiagnosticResponseContracts(t *testing.T) {
 		keys              []string
 	}{
 		{"liveness", "/healthz", "ok", fakeSystemStore{}, 200, []string{"checked_at", "status"}},
-		{"ready", "/readyz", "ready", fakeSystemStore{schemaVersion: 1}, 200, []string{"checked_at", "checks", "status"}},
+		{"ready", "/readyz", "ready", fakeSystemStore{schemaVersion: 8}, 200, []string{"checked_at", "checks", "status"}},
 		{"not migrated", "/readyz", "unavailable", fakeSystemStore{}, 503, []string{"checked_at", "checks", "status"}},
 		{"metadata", "/api/v1/meta", "", fakeSystemStore{installErr: errors.New("not initialized")}, 200, []string{"data"}},
 	} {

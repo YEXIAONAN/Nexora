@@ -132,7 +132,7 @@ make dev-web        # 终端 B，Vite 默认 5173
 | --- | --- |
 | `docker: command not found` / Docker 未启动 | 启动 Docker Desktop，或自行提供 PostgreSQL 并修改 `NEXORA_DATABASE_URL` |
 | 端口 3000 / 8080 被占用 | 修改 `.env` 中的 `NEXORA_WEB_PORT` / `NEXORA_API_PORT`，或停止占用进程 |
-| `API requires schema v7–v8` | 先运行 `make migrate-status` 与 `make migrate-up`，不要跳过迁移 |
+| `API requires schema v8–v9` | 先运行 `make migrate-status` 与 `make migrate-up`，不要跳过迁移 |
 | 数据库连接失败 | 确认 `docker compose ps` 中 postgres 为 healthy，并核对 `.env` 密码 |
 | 登录后立即回到登录页 | 清除站点 Cookie 后重试；确认 API 的 `/healthz` 正常 |
 | 注册提示需要邀请 | 当前为 `invite` 模式；先由团队 Owner/Admin 邀请该用户名，或改为 `open` |
@@ -170,7 +170,7 @@ make e2e            # Playwright 真实栈 E2E（按脚本要求提供测试库�
 
 ### 数据库与迁移
 
-迁移位于 `apps/api/internal/database/migrations/`，只允许追加，不修改历史迁移。API 启动时要求 schema v7–v8；迁移需显式执行（`./start` 会自动 `up`）。
+迁移位于 `apps/api/internal/database/migrations/`，只允许追加，不修改历史迁移。API 启动时要求 schema v8–v9（v8 为 Alpha P0，v9 增加 Phase 06 奖金基础结构）；迁移需显式执行（`./start` 会自动 `up`）。
 
 生产环境必须使用普通应用数据库角色，不使用迁移 owner 凭据，详见 [应用数据库角色](docs/operations/application-database-role.md)。
 
