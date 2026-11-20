@@ -1,15 +1,16 @@
-# Phase 06 M2 — Schema v8 基础迁移与约束验收报告
+# Phase 06 M2 — Schema v9 奖金基础迁移与约束验收报告
 
-- 阶段：**M2 · Draft / 正在复核最终 CI**（结构性数据库迁移已在前一提交经 PostgreSQL 17 与全量 Go -race 检查通过，不代表金额业务上线许可）
-- 日期：2026-11-19
-- 基线：`develop` `af3802b19749daccafff0589c1d7286782944aab`（v7）；M1 [PR #10](https://github.com/YEXIAONAN/Nexora/pull/10) 尚未合并。
-- 本分支：`feature/phase06-m2-schema`，独立从 develop 创建，**只向 develop 发 Draft PR**。不能在 M1 合并/产品完整审查前自动合并 M2。
+- 阶段：**M2 · Draft / 待产品审批**（结构性数据库迁移已在 PostgreSQL 17 与全量 Go -race 检查通过，不代表金额业务上线许可）
+- 日期：2026-11-20（v9 重排后）
+- 基线：`develop` `cc88b063cd4943fb7e65243b0f4526ef1a142345`（Alpha `v0.1.0-alpha.1`，v8 = `00008_p0_accounts_invitations.sql`）；M1 [PR #10](https://github.com/YEXIAONAN/Nexora/pull/10) 尚未合并。
+- 本分支：`feature/phase06-m2-schema`，已合入 Alpha P0 基线，Draft PR #11；不自动合并。
+- 迁移编号：原 `00008_bonus_foundation.sql` 与已发布 Alpha P0 的 `00008` 冲突，现顺延为 `00009_bonus_foundation.sql`。00001–00008 历史内容未修改，迁移链为唯一连续的 00001–00009。
 - 产品方向：仅 CNY/分；D9 改为 **B**（项目归档后允许独立奖金域续办，贡献历史冻结）；D1/A1 为**不同真实资金批次**，相同正式贡献可跨批次复用，但每批次同一贡献确认不能重复绑定。其余金额/资格/核定业务政策仍 Proposed。
-- 安全约束：未修改 v1–v7；未对开发/MVP/生产数据库运行迁移；未开放奖金金额 API、付款、核定或授权激活。
+- 安全约束：未修改 v1–v8；未对开发/MVP/生产数据库运行迁移；未开放奖金金额 API、付款、核定或授权激活。
 
 ## 1. 数据模型交付
 
-本次追加：`apps/api/internal/database/migrations/00008_bonus_foundation.sql`。
+本次追加：`apps/api/internal/database/migrations/00009_bonus_foundation.sql`。
 
 | 对象 | 作用与边界 |
 | --- | --- |
@@ -33,7 +34,7 @@
 5. 分配行必须绑定相同的 `case_version_id`、正式 `contribution_shares` 中真实 `user_id/share_bps` 和相同方案版本内的显式资格决定；ineligible 行的建议与最终金额必须为 0。
 6. 预算与各行金额非负、至多 `900000000000000` 个最小单位；仅允许 `currency_code='CNY'`、`minor_unit=2`。
 7. M2 **默认封锁**修改/删除、非 Draft 版本创建、授权激活及确认记录插入；M3 必须以新迁移 + 已批准权限模型有意识地解除封锁，不能误称当前 Schema 已有可操作的完整金额业务。
-8. v8 Down 只有在**无任何奖金批次**时可回滚；一旦出现真实批次证据，必须拒绝破坏性回退。
+8. v9 Down 只有在**无任何奖金批次**时可回滚到 v8；一旦出现真实批次证据，必须拒绝破坏性回退。
 
 ## 3. 明确未实现的约束与政策（后续门禁）
 
@@ -43,11 +44,11 @@
 - 已归档项目奖金域的授权与离队人身份尚需独立业务决策；绝不依靠 ROOT 自动绕过。
 - Bonus Dispute、Notice、Receipt 的最终 Schema 尚未创建：D8/A5 待批准后再追加，不得擅自直接复用贡献收件表。
 - 仅创建 Schema 的含义是“**可在隔离测试库验证约束**”，不是“真实用户现在可以填写/核定奖金”。
-- 当前迁移只创建新表/新视图/新函数/新触发器，不改 `contribution_archive_guard` 或任何 v1–v7 历史迁移。
+- 当前迁移只创建新表/新视图/新函数/新触发器，不改 `contribution_archive_guard` 或任何 v1–v8 历史迁移。
 
 ## 4. 回归测试
 
-- `apps/api/internal/database/phase06_m2_integration_test.go`：v7→v8→v7 空库回滚→v8、新表/视图、真实归档项目后创建学校/学院两个批次、同项目资金键防重、CNY/负数/上限、禁提前确认/授权、拒绝带业务数据回滚。
+- `apps/api/internal/database/phase06_m2_integration_test.go`：v8（Alpha P0）→v9→空库回滚到 v8→再 v9、新表/视图、真实归档项目后创建学校/学院两个批次、同项目资金键防重、CNY/负数/上限、禁提前确认/授权、拒绝带业务数据回滚。
 - `apps/api/internal/contributions/bonus_foundation_integration_test.go`：通过真实 Phase05 业务链生成被确认的贡献来源；两个奖金批次都可引用；同一版本重复来源/摘要篡改拒绝；显式资格、份额匹配与只读成员汇总。
 - 前一经验证版本的 Push CI [44546637262](https://github.com/YEXIAONAN/Nexora/actions/runs/44546637262) 已 **4/4 Success**，含 Go -race Integration、v8 迁移和迁移状态；本轮额外加强的内部授权 epoch NULL 检查仍须在更新后的 HEAD 上再次完成 CI。
 
@@ -67,6 +68,7 @@
 
 - **首次 CI 失败原因**：旧的 Phase 04/Phase 05 回滚集成测试把最新 Schema 错当为固定 v6/v7，新版本 v8 导致回滚目标发生偏移；不是 v8 安装 SQL 错误。
 - **整改**：Phase 05 专项测试固定在 v7；Phase 04 证据回滚测试按当前版本计算步数并实际尝试跨越 v6→v5 边界；没有跳过旧测试或修改历史迁移。
+- **Alpha 基线整合（2026-11-20）**：合入 `develop` `cc88b06` 后，奖金迁移顺延为 `00009_bonus_foundation.sql`；兼容范围改为 v8–v9，`BonusSchemaVersion=9`，v8 部署不挂载奖金路由。历史回滚测试继续按当前版本计算步数，因此 v9 不会让 Phase 04/05 测试错误回滚。
 - **整改后 CI（修订基础版）**：Push [44546637262](https://github.com/YEXIAONAN/Nexora/actions/runs/44546637262) 四项全部成功，真实 PostgreSQL 与 Go -race 已通过；最终 HEAD 的 CI 需要另行核实。
 - **NULL 约束安全加固**：内部 `bonus_role_grants.member_authorization_version` 必须显式 `IS NOT NULL` 且 > 0；增加有效用户、角色 proposed、但 epoch 缺失的回归用例。仅添加约束与测试，不激活任何真实业务核定权限。
 - 上述完整工作保留在 Draft PR #11；M1 PR #10 仍独立 Draft，均未自动合并、未部署或迁移 MVP 数据。

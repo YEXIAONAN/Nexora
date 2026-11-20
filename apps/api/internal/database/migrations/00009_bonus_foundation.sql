@@ -3,7 +3,7 @@
 -- IMPORTANT: M2 does NOT authorize confirmations, payments, active bonus grants,
 -- or money algorithm execution. The M3 policy/authorization migration must
 -- explicitly replace the conservative M2 write guards before those operations.
--- Never change the historical migrations 00001..00007.
+-- Never change the historical migrations 00001..00008.
 
 CREATE TABLE bonus_rounds (
  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),

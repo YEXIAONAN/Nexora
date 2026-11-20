@@ -29,6 +29,7 @@ func (h *Handler) AuthenticatedRoutes(r chi.Router) {
 	r.Get("/teams", h.HandleListMyTeams)
 	r.Post("/teams", h.HandleCreateTeam)
 	r.Get("/teams/{teamID}", h.HandleGetTeam)
+	r.Patch("/teams/{teamID}", h.HandleUpdateTeam)
 	r.Get("/teams/{teamID}/permissions", h.HandlePermissions)
 	r.Get("/teams/{teamID}/members", h.HandleListMembers)
 	r.Post("/teams/{teamID}/invitations", h.HandleInvite)
@@ -160,6 +161,29 @@ func (h *Handler) HandleGetTeam(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary, err := h.svc.GetTeam(r.Context(), identity, teamID)
+	if err != nil {
+		httpx.WriteError(w, r, h.logger, err)
+		return
+	}
+	item := toTeamJSON(summary.Team)
+	item.MyRole = summary.MyRole
+	httpx.Data(w, http.StatusOK, item)
+}
+
+func (h *Handler) HandleUpdateTeam(w http.ResponseWriter, r *http.Request) {
+	identity, ok := h.identity(w, r)
+	if !ok {
+		return
+	}
+	teamID, ok := h.teamID(w, r)
+	if !ok {
+		return
+	}
+	var req createTeamRequest
+	if !httpx.DecodeBody(w, r, h.logger, &req) {
+		return
+	}
+	summary, err := h.svc.UpdateTeam(r.Context(), identity, teamID, req.Name, req.Description)
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return

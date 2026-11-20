@@ -3,7 +3,7 @@ package version
 
 var (
 	// Version is the Semantic Version of the running build.
-	Version = "dev"
+	Version = "0.1.0-alpha.1"
 	// Commit is the Git commit SHA the binary was built from.
 	Commit = "none"
 	// BuildTime is the RFC3339 timestamp of the build.

@@ -78,14 +78,16 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 }
 
 type metaData struct {
-	Name            string    `json:"name"`
-	Version         string    `json:"version"`
-	Commit          string    `json:"commit"`
-	BuildTime       string    `json:"build_time"`
-	Environment     string    `json:"environment"`
-	InstanceID      *string   `json:"instance_id"`
-	RootInitialized *bool     `json:"root_initialized"`
-	ServerTime      time.Time `json:"server_time"`
+	Name             string    `json:"name"`
+	Version          string    `json:"version"`
+	Channel          string    `json:"channel"`
+	Commit           string    `json:"commit"`
+	BuildTime        string    `json:"build_time"`
+	Environment      string    `json:"environment"`
+	InstanceID       *string   `json:"instance_id"`
+	RootInitialized  *bool     `json:"root_initialized"`
+	RegistrationMode string    `json:"registration_mode"`
+	ServerTime       time.Time `json:"server_time"`
 }
 
 func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
@@ -94,12 +96,14 @@ func (s *Server) handleMeta(w http.ResponseWriter, r *http.Request) {
 
 	build := version.Get()
 	payload := metaData{
-		Name:        "Nexora",
-		Version:     build.Version,
-		Commit:      build.Commit,
-		BuildTime:   build.BuildTime,
-		Environment: string(s.cfg.Environment),
-		ServerTime:  time.Now().UTC(),
+		Name:             "Nexora",
+		Version:          build.Version,
+		Channel:          "alpha",
+		Commit:           build.Commit,
+		BuildTime:        build.BuildTime,
+		Environment:      string(s.cfg.Environment),
+		ServerTime:       time.Now().UTC(),
+		RegistrationMode: s.cfg.RegistrationMode,
 	}
 
 	installationID, err := s.system.InstallationID(ctx)

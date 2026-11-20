@@ -123,3 +123,32 @@ func DisplayNameFieldError(displayName string) string {
 	}
 	return ""
 }
+
+// normalizeEmail trims and lowercases an optional email address.
+func normalizeEmail(email string) string {
+	return strings.ToLower(strings.TrimSpace(email))
+}
+
+// EmailFieldError validates an optional email address. An empty value is
+// allowed; when present it must be a single well-formed address.
+func EmailFieldError(email string) string {
+	if email == "" {
+		return ""
+	}
+	if len(email) > 254 {
+		return "must be at most 254 characters"
+	}
+	at := strings.Index(email, "@")
+	if at < 1 || at != strings.LastIndex(email, "@") {
+		return "must be a valid email address"
+	}
+	local, domain := email[:at], email[at+1:]
+	if strings.ContainsAny(email, " \t\r\n") || !strings.Contains(domain, ".") ||
+		strings.HasPrefix(domain, ".") || strings.HasSuffix(domain, ".") {
+		return "must be a valid email address"
+	}
+	if local == "" || domain == "" {
+		return "must be a valid email address"
+	}
+	return ""
+}

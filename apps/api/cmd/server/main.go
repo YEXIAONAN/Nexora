@@ -92,8 +92,10 @@ func run() error {
 		cfg.SessionTTL,
 		logger,
 	)
+	authSvc.SetRegistrationMode(auth.RegistrationMode(cfg.RegistrationMode))
 	authHandler := auth.NewHandler(authSvc, cfg.CookieSecure(), cfg.SessionTTL, logger)
 	teamsSvc := teams.NewService(teams.NewRepository(pool), authSvc, auditRepo, logger)
+	authSvc.SetInvitationChecker(teamsSvc)
 	teamsHandler := teams.NewHandler(teamsSvc, logger)
 	projectsSvc := projects.NewService(projects.NewRepository(pool), teams.NewRepository(pool), auditRepo, logger)
 	projectsHandler := projects.NewHandler(projectsSvc, logger)

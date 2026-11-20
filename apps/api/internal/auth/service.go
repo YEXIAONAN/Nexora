@@ -28,20 +28,48 @@ const (
 	PlatformRoleAdmin = "platform_admin"
 )
 
+// RegistrationMode controls how new accounts can be created on this
+// installation. Development defaults to open; production defaults to invite,
+// where a pending team invitation is required for the chosen username.
+type RegistrationMode string
+
+const (
+	RegistrationOpen   RegistrationMode = "open"
+	RegistrationInvite RegistrationMode = "invite"
+	RegistrationClosed RegistrationMode = "closed"
+)
+
+// InvitationChecker is implemented by the teams module so registration can
+// honour invite-only mode without auth reading team tables directly.
+type InvitationChecker interface {
+	HasPendingInvitationForUsername(ctx context.Context, username string) (bool, error)
+}
+
 // Service implements authentication, session lifecycle, ROOT bootstrap and
 // platform role management. Authorization for team resources lives in the
 // teams module; this service never grants team access by itself.
 type Service struct {
-	repo       *Repository
-	audit      *audit.Repository
-	limiter    *LoginLimiter
-	sessionTTL time.Duration
-	logger     *slog.Logger
+	repo             *Repository
+	audit            *audit.Repository
+	limiter          *LoginLimiter
+	sessionTTL       time.Duration
+	logger           *slog.Logger
+	registrationMode RegistrationMode
+	invitations      InvitationChecker
 }
 
 func NewService(repo *Repository, auditRepo *audit.Repository, limiter *LoginLimiter, sessionTTL time.Duration, logger *slog.Logger) *Service {
-	return &Service{repo: repo, audit: auditRepo, limiter: limiter, sessionTTL: sessionTTL, logger: logger}
+	return &Service{repo: repo, audit: auditRepo, limiter: limiter, sessionTTL: sessionTTL, logger: logger, registrationMode: RegistrationOpen}
 }
+
+// SetRegistrationMode configures the public sign-up policy at startup.
+func (s *Service) SetRegistrationMode(mode RegistrationMode) { s.registrationMode = mode }
+
+// SetInvitationChecker enables invite-only registration.
+func (s *Service) SetInvitationChecker(checker InvitationChecker) { s.invitations = checker }
+
+// RegistrationMode exposes the effective policy to the meta endpoint.
+func (s *Service) RegistrationMode() RegistrationMode { return s.registrationMode }
 
 // LoginResult carries the raw token exactly once, for the Set-Cookie header.
 // It is never logged, audited or persisted.
@@ -119,6 +147,10 @@ func (s *Service) Login(ctx context.Context, username, password, userAgent, clie
 		s.limiter.RecordFailure(key)
 		s.recordLoginFailure(ctx, normalized, "invalid_credentials")
 		return LoginResult{}, ErrInvalidCredentials
+	}
+	if !user.IsActive {
+		s.recordLoginFailure(ctx, normalized, "account_disabled")
+		return LoginResult{}, ErrAccountDisabled
 	}
 	s.limiter.Reset(key)
 
@@ -202,7 +234,7 @@ func (s *Service) BootstrapRoot(ctx context.Context, username, password string) 
 	if err != nil {
 		return User{}, httpx.Internal(err)
 	}
-	user := User{ID: uuid.New(), Username: normalized, PasswordHash: hash, SystemRoot: true}
+	user := User{ID: uuid.New(), Username: normalized, DisplayName: normalized, PasswordHash: hash, SystemRoot: true, IsActive: true}
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		exists, err := s.repo.RootExists(ctx, tx)
 		if err != nil {
@@ -248,31 +280,266 @@ func (s *Service) RootInitialized(ctx context.Context) (bool, error) {
 // CreateUser is the authorized account-creation channel (ROOT or platform
 // admin). There is no public registration endpoint.
 func (s *Service) CreateUser(ctx context.Context, actor reqctx.Identity, username, displayName, password string) (User, error) {
+	return s.CreateUserAccount(ctx, actor, username, displayName, "", password)
+}
+
+// CreateUserAccount creates an active account with an optional email.
+func (s *Service) CreateUserAccount(ctx context.Context, actor reqctx.Identity, username, displayName, email, password string) (User, error) {
 	if !actor.SystemRoot && !actor.PlatformAdmin {
 		return User{}, httpx.Forbidden("only platform administrators may create accounts")
 	}
 	normalized := strings.ToLower(strings.TrimSpace(username))
+	email = normalizeEmail(email)
 	if fields := validateAccountFields(normalized, displayName, password); len(fields) > 0 {
 		return User{}, httpx.ValidationFailed(fields)
+	}
+	if msg := EmailFieldError(email); msg != "" {
+		return User{}, httpx.ValidationFailed(map[string]string{"email": msg})
 	}
 	hash, err := HashPassword(password)
 	if err != nil {
 		return User{}, httpx.Internal(err)
 	}
-	user := User{ID: uuid.New(), Username: normalized, DisplayName: displayName, PasswordHash: hash}
+	user := User{ID: uuid.New(), Username: normalized, DisplayName: displayName, Email: email, PasswordHash: hash, IsActive: true}
 	err = s.inTx(ctx, func(tx pgx.Tx) error {
 		if err := s.repo.InsertUser(ctx, tx, user); err != nil {
-			if errors.Is(err, ErrUsernameTaken) {
+			switch {
+			case errors.Is(err, ErrUsernameTaken):
 				return httpx.Conflict("the username is already taken")
+			case errors.Is(err, ErrEmailTaken):
+				return httpx.Conflict("the email is already in use")
 			}
 			return httpx.Internal(err)
 		}
+		stored, err := s.repo.UserByID(ctx, tx, user.ID)
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		user = stored
 		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "user.created", "user", &user.ID, map[string]any{"username": user.Username}))
 	})
 	if err != nil {
 		return User{}, err
 	}
 	return user, nil
+}
+
+// Register creates a normal account through the public sign-up policy. It
+// never grants platform or team authority; a pending invitation is claimed
+// later by username when the invitee opens the invitation inbox.
+func (s *Service) Register(ctx context.Context, username, displayName, email, password string) (User, error) {
+	if s.registrationMode == RegistrationClosed {
+		return User{}, httpx.Forbidden("public registration is disabled on this installation")
+	}
+	normalized := strings.ToLower(strings.TrimSpace(username))
+	if s.registrationMode == RegistrationInvite {
+		if s.invitations == nil {
+			return User{}, httpx.Forbidden("registration requires a team invitation")
+		}
+		allowed, err := s.invitations.HasPendingInvitationForUsername(ctx, normalized)
+		if err != nil {
+			return User{}, httpx.Internal(err)
+		}
+		if !allowed {
+			return User{}, httpx.Forbidden("registration requires a pending team invitation for this username")
+		}
+	}
+	email = normalizeEmail(email)
+	if fields := validateAccountFields(normalized, displayName, password); len(fields) > 0 {
+		return User{}, httpx.ValidationFailed(fields)
+	}
+	if msg := EmailFieldError(email); msg != "" {
+		return User{}, httpx.ValidationFailed(map[string]string{"email": msg})
+	}
+	hash, err := HashPassword(password)
+	if err != nil {
+		return User{}, httpx.Internal(err)
+	}
+	user := User{ID: uuid.New(), Username: normalized, DisplayName: displayName, Email: email, PasswordHash: hash, IsActive: true}
+	err = s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := s.repo.InsertUser(ctx, tx, user); err != nil {
+			switch {
+			case errors.Is(err, ErrUsernameTaken):
+				return httpx.Conflict("the username is already taken")
+			case errors.Is(err, ErrEmailTaken):
+				return httpx.Conflict("the email is already in use")
+			}
+			return httpx.Internal(err)
+		}
+		stored, err := s.repo.UserByID(ctx, tx, user.ID)
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		user = stored
+		return s.audit.Insert(ctx, tx, s.event(ctx, &user.ID, "user.registered", "user", &user.ID, map[string]any{"username": user.Username}))
+	})
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+// UpdateProfile lets an authenticated user change their own display name and
+// email. Username, roles and account status remain administrator-controlled.
+func (s *Service) UpdateProfile(ctx context.Context, actor reqctx.Identity, displayName, email string) (User, error) {
+	email = normalizeEmail(email)
+	displayName = strings.TrimSpace(displayName)
+	if msg := DisplayNameFieldError(displayName); msg != "" {
+		return User{}, httpx.ValidationFailed(map[string]string{"display_name": msg})
+	}
+	if msg := EmailFieldError(email); msg != "" {
+		return User{}, httpx.ValidationFailed(map[string]string{"email": msg})
+	}
+	var user User
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := s.repo.UpdateProfile(ctx, tx, actor.UserID, displayName, email); err != nil {
+			if errors.Is(err, ErrEmailTaken) {
+				return httpx.Conflict("the email is already in use")
+			}
+			return httpx.Internal(err)
+		}
+		var err error
+		user, err = s.repo.UserByID(ctx, tx, actor.UserID)
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "user.profile_updated", "user", &actor.UserID, nil))
+	})
+	if err != nil {
+		return User{}, err
+	}
+	return user, nil
+}
+
+// ChangePassword verifies the current password before rotating the hash and
+// revokes every other session of the account.
+func (s *Service) ChangePassword(ctx context.Context, actor reqctx.Identity, currentPassword, newPassword string) error {
+	fields := make(map[string]string)
+	if currentPassword == "" {
+		fields["current_password"] = "is required"
+	}
+	if msg := PasswordFieldError(actor.Username, newPassword); msg != "" {
+		fields["new_password"] = msg
+	}
+	if len(fields) > 0 {
+		return httpx.ValidationFailed(fields)
+	}
+	user, err := s.repo.UserByID(ctx, s.repo.pool, actor.UserID)
+	if errors.Is(err, ErrNotFound) {
+		return httpx.NotFound("the requested user does not exist")
+	}
+	if err != nil {
+		return httpx.Internal(err)
+	}
+	if !VerifyPassword(user.PasswordHash, currentPassword) {
+		return httpx.ValidationFailed(map[string]string{"current_password": "is incorrect"})
+	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return httpx.Internal(err)
+	}
+	return s.inTx(ctx, func(tx pgx.Tx) error {
+		if err := s.repo.UpdatePassword(ctx, tx, actor.UserID, hash); err != nil {
+			return httpx.Internal(err)
+		}
+		if _, err := s.repo.RevokeUserSessions(ctx, tx, actor.UserID); err != nil {
+			return httpx.Internal(err)
+		}
+		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "auth.password_changed", "user", &actor.UserID, nil))
+	})
+}
+
+// ListUsers is the platform administration directory (ROOT or platform admin).
+func (s *Service) ListUsers(ctx context.Context, actor reqctx.Identity, search string, limit, offset int) ([]User, int64, error) {
+	if !actor.SystemRoot && !actor.PlatformAdmin {
+		return nil, 0, httpx.Forbidden("only platform administrators may list accounts")
+	}
+	if limit < 1 || limit > 100 {
+		limit = 25
+	}
+	if offset < 0 {
+		offset = 0
+	}
+	users, total, err := s.repo.ListUsers(ctx, s.repo.pool, search, limit, offset)
+	if err != nil {
+		return nil, 0, httpx.Internal(err)
+	}
+	return users, total, nil
+}
+
+// AdminUserUpdate is the administrator-editable subset of an account.
+type AdminUserUpdate struct {
+	DisplayName *string
+	Email       *string
+	IsActive    *bool
+}
+
+// UpdateUser applies administrator edits. ROOT identity flags and the actor's
+// own status are protected against accidental lockout.
+func (s *Service) UpdateUser(ctx context.Context, actor reqctx.Identity, targetID uuid.UUID, update AdminUserUpdate) (User, error) {
+	if !actor.SystemRoot && !actor.PlatformAdmin {
+		return User{}, httpx.Forbidden("only platform administrators may edit accounts")
+	}
+	if targetID == actor.UserID && update.IsActive != nil && !*update.IsActive {
+		return User{}, httpx.Conflict("you cannot disable your own account")
+	}
+	var updated User
+	err := s.inTx(ctx, func(tx pgx.Tx) error {
+		target, err := s.repo.UserByID(ctx, tx, targetID)
+		if errors.Is(err, ErrNotFound) {
+			return httpx.NotFound("the requested user does not exist")
+		}
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		if target.SystemRoot && !actor.SystemRoot {
+			return httpx.Forbidden("only ROOT may edit the ROOT account")
+		}
+		displayName := target.DisplayName
+		if update.DisplayName != nil {
+			displayName = strings.TrimSpace(*update.DisplayName)
+			if msg := DisplayNameFieldError(displayName); msg != "" {
+				return httpx.ValidationFailed(map[string]string{"display_name": msg})
+			}
+		}
+		email := target.Email
+		if update.Email != nil {
+			email = normalizeEmail(*update.Email)
+			if msg := EmailFieldError(email); msg != "" {
+				return httpx.ValidationFailed(map[string]string{"email": msg})
+			}
+		}
+		if update.DisplayName != nil || update.Email != nil {
+			if err := s.repo.UpdateProfile(ctx, tx, targetID, displayName, email); err != nil {
+				if errors.Is(err, ErrEmailTaken) {
+					return httpx.Conflict("the email is already in use")
+				}
+				return httpx.Internal(err)
+			}
+		}
+		if update.IsActive != nil && *update.IsActive != target.IsActive {
+			if target.SystemRoot && !*update.IsActive {
+				return httpx.Conflict("the ROOT account cannot be disabled")
+			}
+			if err := s.repo.SetUserActive(ctx, tx, targetID, *update.IsActive); err != nil {
+				return httpx.Internal(err)
+			}
+			if !*update.IsActive {
+				if _, err := s.repo.RevokeUserSessions(ctx, tx, targetID); err != nil {
+					return httpx.Internal(err)
+				}
+			}
+		}
+		updated, err = s.repo.UserByID(ctx, tx, targetID)
+		if err != nil {
+			return httpx.Internal(err)
+		}
+		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "user.admin_updated", "user", &targetID, nil))
+	})
+	if err != nil {
+		return User{}, err
+	}
+	return updated, nil
 }
 
 // GrantPlatformRole is ROOT-only. ROOT itself can never receive platform

@@ -233,10 +233,16 @@ func (s *Service) Invite(ctx context.Context, actor reqctx.Identity, teamID uuid
 	}
 
 	account, err := s.accounts.AccountByUsername(ctx, username)
-	if errors.Is(err, auth.ErrNotFound) {
-		return Invitation{}, httpx.NotFound("the requested user does not exist")
-	}
-	if err != nil {
+	switch {
+	case errors.Is(err, auth.ErrNotFound):
+		// The person may not have registered yet. Keep the invitation bound to
+		// the normalized username; registration and the inbox claim it later.
+		normalized := strings.ToLower(strings.TrimSpace(username))
+		if msg := auth.UsernameFieldError(normalized); msg != "" {
+			return Invitation{}, httpx.ValidationFailed(map[string]string{"username": msg})
+		}
+		account = auth.Account{Username: normalized}
+	case err != nil:
 		return Invitation{}, httpx.Internal(err)
 	}
 
@@ -255,10 +261,12 @@ func (s *Service) Invite(ctx context.Context, actor reqctx.Identity, teamID uuid
 		if err := s.requireManager(actor, teamID, actorMember); err != nil {
 			return err
 		}
-		if _, err := s.repo.Membership(ctx, tx, teamID, account.ID); err == nil {
-			return httpx.Conflict("the user is already an active member of this team")
-		} else if !errors.Is(err, ErrNotFound) {
-			return httpx.Internal(err)
+		if account.ID != uuid.Nil {
+			if _, err := s.repo.Membership(ctx, tx, teamID, account.ID); err == nil {
+				return httpx.Conflict("the user is already an active member of this team")
+			} else if !errors.Is(err, ErrNotFound) {
+				return httpx.Internal(err)
+			}
 		}
 		if err := s.repo.InsertInvitation(ctx, tx, inv); err != nil {
 			if errors.Is(err, ErrDuplicateInvitation) {
@@ -402,11 +410,52 @@ func (s *Service) RemoveMember(ctx context.Context, actor reqctx.Identity, teamI
 }
 
 func (s *Service) ListMyInvitations(ctx context.Context, actor reqctx.Identity) ([]Invitation, error) {
-	invitations, err := s.repo.ListMyInvitations(ctx, s.repo.pool, actor.UserID)
+	invitations, err := s.repo.ListMyInvitations(ctx, s.repo.pool, actor.UserID, actor.Username)
 	if err != nil {
 		return nil, httpx.Internal(err)
 	}
 	return invitations, nil
+}
+
+// HasPendingInvitationForUsername supports invite-only registration.
+func (s *Service) HasPendingInvitationForUsername(ctx context.Context, username string) (bool, error) {
+	return s.repo.HasPendingInvitationForUsername(ctx, s.repo.pool, username)
+}
+
+// UpdateTeam changes the team name and description. Only owner/admin may edit.
+func (s *Service) UpdateTeam(ctx context.Context, actor reqctx.Identity, teamID uuid.UUID, name, description string) (TeamSummary, error) {
+	name = strings.TrimSpace(name)
+	fields := make(map[string]string)
+	if n := utf8.RuneCountInString(name); n < 1 || n > maxTeamNameRunes {
+		fields["name"] = fmt.Sprintf("must be between 1 and %d characters", maxTeamNameRunes)
+	}
+	if utf8.RuneCountInString(description) > maxTeamDescriptionRunes {
+		fields["description"] = fmt.Sprintf("must be at most %d characters", maxTeamDescriptionRunes)
+	}
+	if len(fields) > 0 {
+		return TeamSummary{}, httpx.ValidationFailed(fields)
+	}
+	err := s.mutate(ctx, actor, teamID, func(tx pgx.Tx, actorMember Member) error {
+		if err := s.requireManager(actor, teamID, actorMember); err != nil {
+			return err
+		}
+		if err := s.repo.UpdateTeam(ctx, tx, teamID, name, description); err != nil {
+			return httpx.Internal(err)
+		}
+		return s.audit.Insert(ctx, tx, s.event(ctx, &actor.UserID, "team.updated", "team", &teamID, &teamID, map[string]any{"name": name}))
+	})
+	if err != nil {
+		return TeamSummary{}, err
+	}
+	team, err := s.repo.TeamByID(ctx, s.repo.pool, teamID)
+	if err != nil {
+		return TeamSummary{}, httpx.Internal(err)
+	}
+	m, err := s.repo.Membership(ctx, s.repo.pool, teamID, actor.UserID)
+	if err != nil {
+		return TeamSummary{}, httpx.Internal(err)
+	}
+	return TeamSummary{Team: team, MyRole: m.Role}, nil
 }
 
 // AcceptInvitation joins the invitee to the invitation's team. Only the
@@ -433,7 +482,8 @@ func (s *Service) respondInvitation(ctx context.Context, actor reqctx.Identity, 
 	if err != nil {
 		return Invitation{}, httpx.Internal(err)
 	}
-	if preview.InvitedUserID != actor.UserID {
+	if preview.InvitedUserID != actor.UserID &&
+		!(preview.InvitedUserID == uuid.Nil && strings.EqualFold(preview.InvitedUsername, actor.Username)) {
 		return Invitation{}, httpx.NotFound("the requested invitation does not exist")
 	}
 
@@ -452,6 +502,15 @@ func (s *Service) respondInvitation(ctx context.Context, actor reqctx.Identity, 
 		if err != nil {
 			return httpx.Internal(err)
 		}
+		if locked.InvitedUserID == uuid.Nil && strings.EqualFold(locked.InvitedUsername, actor.Username) {
+			if err := s.repo.ClaimInvitationUser(ctx, tx, invitationID, actor.UserID); err != nil {
+				return httpx.Internal(err)
+			}
+			locked.InvitedUserID = actor.UserID
+		}
+		if locked.InvitedUserID != actor.UserID {
+			return httpx.NotFound("the requested invitation does not exist")
+		}
 		if locked.Status != InvitationPending {
 			return httpx.Conflict("the invitation is no longer pending")
 		}
@@ -466,6 +525,7 @@ func (s *Service) respondInvitation(ctx context.Context, actor reqctx.Identity, 
 		if err := s.repo.SetInvitationStatus(ctx, tx, invitationID, response); err != nil {
 			return httpx.Internal(err)
 		}
+		locked.Status = response
 		action := "team.invitation_declined"
 		if response == InvitationAccepted {
 			action = "team.invitation_accepted"

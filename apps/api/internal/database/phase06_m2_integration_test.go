@@ -39,15 +39,15 @@ func TestPhase06M2FreshUpgradeEmptyRollback(t *testing.T) {
 	if err := configure(logger); err != nil {
 		t.Fatal(err)
 	}
-	if err := goose.UpToContext(ctx, f.SQL, migrationsDir, 7); err != nil {
-		t.Fatal("v7 upgrade:", err)
+	if err := goose.UpToContext(ctx, f.SQL, migrationsDir, 8); err != nil {
+		t.Fatal("v8 (Alpha P0) upgrade:", err)
 	}
 	if err := Up(ctx, f.SQL, logger); err != nil {
-		t.Fatal("v8 upgrade:", err)
+		t.Fatal("v9 upgrade:", err)
 	}
 	ver, err := Version(ctx, f.SQL)
-	if err != nil || ver != 8 {
-		t.Fatalf("v8 install: %d, %v", ver, err)
+	if err != nil || ver != 9 {
+		t.Fatalf("v9 install: %d, %v", ver, err)
 	}
 	for _, name := range []string{
 		"bonus_rounds",
@@ -67,14 +67,14 @@ func TestPhase06M2FreshUpgradeEmptyRollback(t *testing.T) {
 		}
 	}
 	if err := Down(ctx, f.SQL, 1, logger); err != nil {
-		t.Fatal("empty v8 rollback:", err)
+		t.Fatal("empty v9 rollback:", err)
 	}
 	ver, err = Version(ctx, f.SQL)
-	if err != nil || ver != 7 {
-		t.Fatalf("expected v7 after empty rollback, got %d: %v", ver, err)
+	if err != nil || ver != 8 {
+		t.Fatalf("expected v8 after empty rollback, got %d: %v", ver, err)
 	}
 	if err := Up(ctx, f.SQL, logger); err != nil {
-		t.Fatal("reapply v8:", err)
+		t.Fatal("reapply v9:", err)
 	}
 }
 
@@ -132,7 +132,81 @@ func TestPhase06M2ArchivedCNYRoundsFailClosed(t *testing.T) {
 		t.Fatal("rollback with funding evidence must be rejected")
 	}
 	ver, err := Version(ctx, f.SQL)
-	if err != nil || ver != 8 {
+	if err != nil || ver != 9 {
 		t.Fatalf("blocked rollback changed version: %d, %v", ver, err)
+	}
+}
+
+// TestAlphaP0V8UpgradePreservesProductData proves the v8 -> v9 upgrade keeps
+// the released Alpha P0 accounts, invitations, teams and projects intact.
+func TestAlphaP0V8UpgradePreservesProductData(t *testing.T) {
+	f := testdb.New(t, os.Getenv)
+	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
+	defer cancel()
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if err := configure(logger); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, f.SQL, migrationsDir, 8); err != nil {
+		t.Fatalf("install Alpha P0 v8: %v", err)
+	}
+
+	root, member, team, project := uuid.New(), uuid.New(), uuid.New(), uuid.New()
+	m2Exec(t, ctx, f.SQL, "INSERT INTO users(id,username,display_name,email,password_hash,system_root,is_active) VALUES($1,'p0_root','P0 Root','root@example.com','not-a-login-hash',true,true)", root)
+	m2Exec(t, ctx, f.SQL, "INSERT INTO users(id,username,display_name,email,password_hash,is_active) VALUES($1,'p0_member','P0 Member','member@example.com','not-a-login-hash',true)", member)
+	m2Exec(t, ctx, f.SQL, "INSERT INTO teams(id,name,created_by) VALUES($1,'P0 Team',$2)", team, root)
+	m2Exec(t, ctx, f.SQL, "INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')", team, root)
+	m2Exec(t, ctx, f.SQL, "INSERT INTO projects(id,team_id,name,lead_id,created_by) VALUES($1,$2,'P0 Project',$3,$3)", project, team, root)
+	m2Exec(t, ctx, f.SQL, "INSERT INTO project_members(team_id,project_id,user_id) VALUES($1,$2,$3)", team, project, root)
+	m2Exec(t, ctx, f.SQL, `INSERT INTO team_invitations
+		(team_id,invited_user_id,invited_username,invited_by,role,status,expires_at)
+		VALUES($1,NULL,'p0_invitee',$2,'member','pending',clock_timestamp()+interval '7 days')`, team, root)
+
+	if err := Up(ctx, f.SQL, logger); err != nil {
+		t.Fatalf("upgrade v8 -> v9: %v", err)
+	}
+	ver, err := Version(ctx, f.SQL)
+	if err != nil || ver != 9 {
+		t.Fatalf("expected v9 after upgrade, got %d: %v", ver, err)
+	}
+
+	for _, tc := range []struct {
+		username, email string
+		root            bool
+		active          bool
+	}{
+		{"p0_root", "root@example.com", true, true},
+		{"p0_member", "member@example.com", false, true},
+	} {
+		var gotEmail string
+		var gotRoot, gotActive bool
+		if err := f.SQL.QueryRowContext(ctx,
+			`SELECT COALESCE(email,''), system_root, is_active FROM users WHERE username=$1`, tc.username).
+			Scan(&gotEmail, &gotRoot, &gotActive); err != nil {
+			t.Fatalf("user %s survived upgrade: %v", tc.username, err)
+		}
+		if gotEmail != tc.email || gotRoot != tc.root || gotActive != tc.active {
+			t.Fatalf("user %s changed during upgrade: %q %t %t", tc.username, gotEmail, gotRoot, gotActive)
+		}
+	}
+
+	var pendingUsername, invitationStatus string
+	if err := f.SQL.QueryRowContext(ctx,
+		`SELECT invited_username, status FROM team_invitations WHERE team_id=$1`, team).
+		Scan(&pendingUsername, &invitationStatus); err != nil {
+		t.Fatalf("pending invitation survived upgrade: %v", err)
+	}
+	if pendingUsername != "p0_invitee" || invitationStatus != "pending" {
+		t.Fatalf("invitation changed during upgrade: %q %q", pendingUsername, invitationStatus)
+	}
+
+	var projectName string
+	if err := f.SQL.QueryRowContext(ctx, `SELECT name FROM projects WHERE id=$1`, project).Scan(&projectName); err != nil || projectName != "P0 Project" {
+		t.Fatalf("project survived upgrade: %q %v", projectName, err)
+	}
+
+	var rounds int
+	if err := f.SQL.QueryRowContext(ctx, `SELECT count(*) FROM bonus_rounds`).Scan(&rounds); err != nil || rounds != 0 {
+		t.Fatalf("v9 should add empty bonus tables, got %d rows: %v", rounds, err)
 	}
 }
