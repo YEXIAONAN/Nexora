@@ -36,6 +36,10 @@ const me = {
   system_root: false,
   platform_admin: false,
 }
+const adminMe = { ...me, system_root: true }
+const others = [
+  { id: 'u2', username: 'alice', display_name: 'Alice', system_root: false, platform_admin: false },
+]
 
 const teamA = {
   id: '11111111-1111-4111-8111-111111111111',
@@ -61,6 +65,10 @@ async function mountAuthenticated() {
   setActivePinia(pinia)
   await useAuthStore().initialize()
   return mount(TeamsView, { global: { plugins: [pinia] } })
+}
+
+function usersPage() {
+  return { data: { items: [adminMe, ...others], total: 2, limit: 100, offset: 0 } }
 }
 
 describe('TeamsView', () => {
@@ -96,7 +104,8 @@ describe('TeamsView', () => {
     const calls: { input: string; init?: RequestInit }[] = []
     stubFetch((input, init) => {
       calls.push({ input, init })
-      if (input.includes('/auth/me')) return jsonResponse({ data: me })
+      if (input.includes('/auth/me')) return jsonResponse({ data: adminMe })
+      if (input.includes('/admin/users')) return jsonResponse(usersPage())
       if (init?.method === 'POST') {
         return jsonResponse(
           { data: { ...teamA, id: '33333333-3333-4333-8333-333333333333', name: '新团队' } },
@@ -108,13 +117,25 @@ describe('TeamsView', () => {
     const wrapper = await mountAuthenticated()
     await flushPromises()
     await wrapper.find('#team-name').setValue('新团队')
+    await wrapper.find('#team-owner').setValue('u2')
     await wrapper.find('form').trigger('submit')
     await flushPromises()
 
     const createCall = calls.find((c) => c.init?.method === 'POST')
     expect(createCall?.input).toContain('/api/v1/teams')
-    expect(JSON.parse(String(createCall?.init?.body))).toEqual({ name: '新团队' })
-    expect(wrapper.text()).toContain('团队「新团队」已创建')
+    expect(JSON.parse(String(createCall?.init?.body))).toEqual({ name: '新团队', owner_id: 'u2' })
+    expect(wrapper.text()).toContain('团队「新团队（负责人：Alice）」已创建')
     expect(wrapper.text()).toContain('新团队')
+  })
+
+  it('does not offer team creation to ordinary accounts', async () => {
+    stubFetch((input) =>
+      input.includes('/auth/me') ? jsonResponse({ data: me }) : jsonResponse({ data: [] }),
+    )
+    const wrapper = await mountAuthenticated()
+    await flushPromises()
+    expect(wrapper.find('#team-name').exists()).toBe(false)
+    expect(wrapper.text()).toContain('团队由平台管理员创建')
+    expect(wrapper.text()).toContain('普通账号不能自助创建团队')
   })
 })

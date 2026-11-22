@@ -72,7 +72,7 @@ func (r *Repository) load(ctx context.Context, tx pgx.Tx, teamID, projectID uuid
 	if err != nil {
 		return nil, err
 	}
-	rows, err = tx.Query(ctx, `SELECT DISTINCT task_id FROM task_progress_history WHERE team_id=$1 AND project_id=$2 AND event_type IN ('started','progress','cancelled')`, teamID, projectID)
+	rows, err = tx.Query(ctx, `SELECT DISTINCT task_id FROM task_progress_history WHERE team_id=$1 AND project_id=$2 AND event_type IN ('started','progress','progress_reported','cancelled')`, teamID, projectID)
 	if err != nil {
 		return nil, err
 	}

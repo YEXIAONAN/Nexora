@@ -107,6 +107,16 @@ func (r *Repository) InsertMember(ctx context.Context, tx pgx.Tx, teamID, userID
 	return nil
 }
 
+// ActiveUserExists validates a platform-level team owner assignment.
+func (r *Repository) ActiveUserExists(ctx context.Context, q querier, userID uuid.UUID) (bool, error) {
+	var exists bool
+	err := q.QueryRow(ctx, `SELECT EXISTS (SELECT 1 FROM users WHERE id = $1 AND is_active)`, userID).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check active account: %w", err)
+	}
+	return exists, nil
+}
+
 // ActivateMember inserts a membership or reactivates a removed one. The
 // composite primary key prevents duplicate memberships under concurrency.
 func (r *Repository) ActivateMember(ctx context.Context, tx pgx.Tx, teamID, userID uuid.UUID, role string) error {

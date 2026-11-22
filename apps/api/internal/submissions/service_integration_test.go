@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
@@ -44,11 +45,19 @@ type fixture struct {
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
+	return setupWithSchema(t, database.MaximumSupportedSchemaVersion)
+}
+
+func setupWithSchema(t *testing.T, version int64) *fixture {
+	t.Helper()
 	db := testdb.New(t, os.Getenv)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if e := database.Up(ctx, db.SQL, logger); e != nil {
+	if e := database.Status(ctx, db.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	if e := goose.UpToContext(ctx, db.SQL, "migrations", version); e != nil {
 		t.Fatal(e)
 	}
 	ar := audit.NewRepository(db.Pool)
@@ -60,7 +69,7 @@ func setup(t *testing.T) *fixture {
 	a := reqctx.Identity{UserID: u.ID, SystemRoot: true}
 	tr := teams.NewRepository(db.Pool)
 	ts := teams.NewService(tr, as, ar, logger)
-	tm, e := ts.CreateTeam(ctx, a, "Team A", "")
+	tm, e := ts.CreateTeam(ctx, a, teams.CreateTeamInput{Name: "Team A"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -442,15 +451,16 @@ func TestDefaultLeadCanReviewOtherAuthor(t *testing.T) {
 }
 
 func TestPhase04RollbackRefusesBusinessEvidence(t *testing.T) {
-	f := setup(t)
+	f := setupWithSchema(t, 8)
 	f.submit(f.start(f.create(nil, 1)))
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	// Drop the later P0 account schema first, then verify the Phase 04 evidence
-	// guard blocks the Phase 02/03 rollback.
-	if e := database.Down(f.ctx, f.sql, 1, logger); e != nil {
-		t.Fatal(e)
+	current, e := database.Version(f.ctx, f.sql)
+	if e != nil || current < 6 {
+		t.Fatalf("could not read current migration version: %d, %v", current, e)
 	}
-	if e := database.Down(f.ctx, f.sql, 2, logger); e == nil {
+	// Always try to cross the Phase04 v6->v5 boundary, regardless of later
+	// additive migrations already installed.
+	if e := database.Down(f.ctx, f.sql, int(current-5), logger); e == nil {
 		t.Fatal("rollback deleted immutable evidence")
 	}
 	v, e := database.Version(f.ctx, f.sql)

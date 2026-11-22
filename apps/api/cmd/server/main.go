@@ -14,6 +14,8 @@ import (
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusresults"
+	"github.com/YEXIAONAN/Nexora/apps/api/internal/bonusrounds"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/config"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/contributions"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/database"
@@ -71,9 +73,13 @@ func run() error {
 		}
 	}
 
-	var schemaVersion int
-	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil || schemaVersion < 7 || schemaVersion > 8 {
-		return fmt.Errorf("API requires schema v7–v8; apply reviewed migrations explicitly before startup")
+	var schemaVersion int64
+	if e := pool.QueryRow(rootCtx, `SELECT COALESCE(max(version_id),0) FROM goose_db_version WHERE is_applied`).Scan(&schemaVersion); e != nil {
+		return fmt.Errorf("read schema version before startup: %w", database.SafeError(e))
+	}
+	if !database.CompatibleSchemaVersion(schemaVersion) {
+		return fmt.Errorf("API requires schema v%d–v%d; current schema v%d; apply reviewed migrations explicitly before startup",
+			database.MinimumSupportedSchemaVersion, database.MaximumSupportedSchemaVersion, schemaVersion)
 	}
 	store, err := submissions.OpenStore(cfg.AttachmentDir)
 	if err != nil {
@@ -121,7 +127,20 @@ func run() error {
 			}
 		}
 	}()
-	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, projectsHandler, tasksHandler, submissions.NewHandler(submissionsSvc, logger), contributions.NewHandler(contributionsSvc, logger))
+	modules := []httpapi.RouteModule{
+		projectsHandler,
+		tasksHandler,
+		submissions.NewHandler(submissionsSvc, logger),
+		contributions.NewHandler(contributionsSvc, logger),
+	}
+	// Publication-aware bonus routes require the complete workflow schema.
+	if database.SupportsBonusSchema(schemaVersion) {
+		modules = append(modules,
+			bonusresults.NewHandler(bonusresults.NewService(bonusresults.NewRepository(pool)), logger),
+			bonusrounds.NewHandler(bonusrounds.NewService(bonusrounds.NewRepository(pool)), logger),
+		)
+	}
+	server := httpapi.New(cfg, logger, system.NewRepository(pool), authSvc, authHandler, teamsHandler, modules...)
 
 	httpServer := &http.Server{
 		Addr:              cfg.HTTPAddr,

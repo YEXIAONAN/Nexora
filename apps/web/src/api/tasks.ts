@@ -10,6 +10,8 @@ export type Snapshot = S['ProgressSnapshot']
 export type TaskHistory = S['TaskHistory']
 export type CreateTask = S['CreateTaskRequest']
 export type EditTask = S['EditTaskRequest']
+export type ProgressReport = S['ProgressReport']
+export type ProgressReportInput = S['ProgressReportRequest']
 const path = (team: string, project: string, task?: string) =>
   `${projectPath(team, project)}/tasks${task ? `/${encodeURIComponent(task)}` : ''}`
 export async function getTaskTree(
@@ -119,6 +121,34 @@ export async function getTaskHistory(
 ): Promise<TaskHistory[]> {
   return (await requestJSON<S['TaskHistoriesEnvelope']>(`${path(team, project, task)}/history`))
     .data
+}
+
+export async function reportTaskProgress(
+  team: string,
+  project: string,
+  task: Task,
+  input: ProgressReportInput,
+): Promise<Task> {
+  return (
+    await requestJSON<S['TaskEnvelope']>(`${path(team, project, task.id)}/progress-reports`, {
+      method: 'POST',
+      body: input,
+    })
+  ).data
+}
+
+export async function listTaskProgressReports(
+  team: string,
+  project: string,
+  task: string,
+  signal?: AbortSignal,
+): Promise<ProgressReport[]> {
+  return (
+    await requestJSON<S['ProgressReportsEnvelope']>(
+      `${path(team, project, task)}/progress-reports`,
+      { signal },
+    )
+  ).data
 }
 export async function getSnapshots(team: string, project: string): Promise<Snapshot[]> {
   return (

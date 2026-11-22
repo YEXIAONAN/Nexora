@@ -211,7 +211,7 @@ export interface paths {
         put?: never;
         /**
          * 创建团队
-         * @description 任何已认证用户可创建团队；创建者自动成为该团队 owner。团队角色不等于平台角色。
+         * @description 仅平台管理员（ROOT 或 platform_admin）可创建团队，并可通过 owner_id 指定团队负责人；普通注册用户不能自助创建团队。团队角色不等于平台角色。
          */
         post: operations["createTeam"];
         delete?: never;
@@ -711,6 +711,30 @@ export interface paths {
          */
         put: operations["recordTaskProgress"];
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/tasks/{taskID}/progress-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * 查询任务进展记录
+         * @description 按任务可见范围返回追加式进展记录，包含上报人、执行进度、工作说明与交付引用。
+         */
+        get: operations["listTaskProgressReports"];
+        put?: never;
+        /**
+         * 上报结构化工作进展（负责人/协作者）
+         * @description 记录工作内容、已完成、待完成与交付引用，同时更新执行进度。仅 in_progress 叶子且未阻塞；不会提交验收，也不会改变验收状态。证据链接为纯文本引用（URL、commit、PR 等），最多 20 条。
+         */
+        post: operations["reportTaskProgress"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1470,6 +1494,323 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/teams/{teamID}/bonus-results/mine": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List my effective and confirmed bonus amounts
+         * @description Only the signed-in subject's effective, independently confirmed and separately published amounts; requires a live session plus active Team and Project membership, excludes drafts and unpublished versions, and never bypasses membership for ROOT. Internal confirmation, publication and simulated payment recording are distinct; recorded never proves a real payment. Requires schema v11; compatible v9-v10 deployments do not mount this route (404).
+         */
+        get: operations["listMyBonusResults"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List funding-round metadata for one project
+         * @description Read-only funding-round metadata scoped to the exact Team and Project. Requires a live session plus active Team and Project membership. Archived projects remain readable because the bonus domain has its own lifecycle. Budgets and member amounts are never returned to project readers. Requires schema v11; compatible v9-v10 deployments do not mount this route (404).
+         */
+        get: operations["listBonusRounds"];
+        put?: never;
+        /**
+         * Create a funding round with separate allocation and review officers
+         * @description Requires current project management authority, not a platform role or implicit ROOT access.
+         *     Creates an unpublished draft without assigning a budget. manager_id receives editor, budget and
+         *     eligibility grants; reviewer_id receives confirmer and auditor grants. Both must be current
+         *     internal project members, distinct from each other and from the caller. Creation does not grant
+         *     the caller amount access. client_request_id and a nonblank reason are required; creation has no
+         *     expected_revision. An authorized identical retry returns the original result with HTTP 201;
+         *     reuse of the request ID for a different command or payload returns 409. Requires schema v11.
+         */
+        post: operations["createBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read one funding round with its version history
+         * @description Returns the requested round only when it belongs to the exact Team and Project. The round, plan versions and formal result are distinct fields; amounts are always withheld by this metadata endpoint. Read the separately authorized workspace for amounts; project membership and ROOT status alone do not grant amount access. Requires schema v11; compatible v9-v10 deployments do not mount this route (404).
+         */
+        get: operations["getBonusRound"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read project members and independent contribution sources for manual allocation
+         * @description Requires a live session, active Team and Project membership, and current project management
+         *     authority or an explicit current grant on a project bonus round. ROOT has no implicit access.
+         *     can_create is evaluated separately from amount access. Sources are current, formally confirmed
+         *     contribution evidence for accepted tasks, with complete official shares and no open disputes.
+         *     Each source remains independent; shares are evidence, not an automatic bonus allocation formula.
+         *     No budget or member amounts are returned. Requires schema v11.
+         */
+        get: operations["getBonusProjectWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/workspace": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Read an explicitly authorized manual bonus workspace
+         * @description Requires a live session, active Team and Project membership and an explicit current internal
+         *     bonus grant for this round. Project metadata access, management status and ROOT do not imply
+         *     amount access. Returns the latest plan, independent source budgets, every participant's explicit
+         *     eligibility, manual integer-fen amounts and reasons, permissions, current grants, events and
+         *     simulated payments. The latest plan and effective confirmed version are distinct. Confirmation
+         *     does not publish or pay; published_at is null until a separate publish command. Requires schema v11.
+         */
+        get: operations["getBonusWorkspace"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Save an immutable snapshot of a manually allocated draft
+         * @description Requires explicit current editor, budget and eligibility grants; ROOT has no implicit authority.
+         *     Saves a new snapshot, not an automatic calculation. Enter every amount as an exact integer in CNY
+         *     fen (0..900000000000000), never fractional yuan or floating-point currency arithmetic. Each selected
+         *     contribution source has its own budget, complete participant lines and explicit eligibility and
+         *     reasons. Source budgets must not exceed the total; line amounts must not exceed their source budget.
+         *     The server preserves the differences as unallocated amounts, without distributing or rounding them.
+         *     Only a draft may be saved. expected_revision, client_request_id and reason are required. Stale
+         *     revision, changed evidence/state or conflicting request-ID reuse returns 409. Requires schema v11.
+         */
+        put: operations["saveBonusPlan"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit a manual draft for independent review
+         * @description Requires explicit current editor, budget and eligibility grants, never implicit ROOT authority.
+         *     Validates a nonempty draft, current independent contribution sources, complete explicit eligibility
+         *     and exact budget conservation, then freezes submitted evidence for review. No automatic allocation,
+         *     formal confirmation, publication or payment occurs. Uses expected_revision and idempotent
+         *     client_request_id with a required reason; concurrency or idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["submitBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/return": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Return a pending plan to draft with a reason
+         * @description Requires an explicit current confirmer grant; ROOT has no implicit authority. Only a pending-review
+         *     plan can be returned. Prior formal results are not replaced. Uses expected_revision and idempotent
+         *     client_request_id with a required reason; concurrency or idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["returnBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Independently and formally confirm submitted manual allocations
+         * @description Requires an explicit current confirmer grant and independent review, with no editor, budget or
+         *     eligibility grant. The confirmer cannot be the round creator, a current or prior plan author,
+         *     allocation/eligibility decision maker, or an involved proposer, confirmer, participant or conflict
+         *     subject of the selected contribution sources. ROOT has no bypass. Revalidates pending-review
+         *     evidence and makes this the effective formal result, superseding the prior result. Confirmation
+         *     does not publish or record payment; a separate publish command is required. Uses expected_revision,
+         *     client_request_id and reason; concurrency or idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["confirmBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/publish": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Publish an already formally confirmed effective version
+         * @description Requires explicit current editor and budget grants; ROOT has no implicit authority. Publication is
+         *     a separate transition after independent formal confirmation and only accepts the current unpublished
+         *     effective confirmed plan. Sets published_at so recipients can read their own results. It neither
+         *     confirms a draft nor executes or records payment. Uses expected_revision, client_request_id and
+         *     reason; concurrency or idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["publishBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/revise": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Open a new manual draft without overwriting the formal result
+         * @description Requires explicit current editor, budget and eligibility grants, never implicit ROOT authority.
+         *     Only a confirmed round with no simulated payment records can be revised. Creates a new empty draft;
+         *     the prior effective confirmed version remains in force until independent confirmation of its
+         *     replacement. The replacement must be published separately. Uses expected_revision, client_request_id
+         *     and reason; concurrency, payment-state or idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["reviseBonusRound"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/grants": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Explicitly grant or revoke an internal bonus role
+         * @description Requires current project management authority; ROOT has no implicit authority or amount access.
+         *     The target must be a current internal project member other than the caller. Confirmer and allocation
+         *     roles must remain separate. revoke=false creates a new grant; revoke=true revokes an active grant.
+         *     Uses expected_revision, client_request_id and reason; concurrency, duplicate/incompatible grant or
+         *     idempotency conflicts return 409. Requires schema v11.
+         */
+        post: operations["changeBonusGrant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/teams/{teamID}/projects/{projectID}/bonus-rounds/{roundID}/payments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record a simulated payment, never execute real payment
+         * @description Requires explicit current editor and budget grants; ROOT has no implicit authority. The latest plan
+         *     must be the effective confirmed and separately published version, with no revision in progress.
+         *     The caller supplies only the recipient, reference and command fields, never an amount. The server
+         *     records the recipient's full current allocation in exact integer CNY fen. This append-only simulation
+         *     record is not proof of money transfer and prevents subsequent revision/replacement of the round.
+         *     Uses expected_revision, client_request_id and reason; concurrency, duplicate payment or idempotency
+         *     conflicts return 409. Requires schema v11.
+         */
+        post: operations["recordBonusPayment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -1679,6 +2020,11 @@ export interface components {
             name: string;
             /** @description 可选，最长 500 个字符。 */
             description?: string;
+            /**
+             * Format: uuid
+             * @description 团队负责人。仅平台管理员可创建团队；省略时默认为创建者本人。
+             */
+            owner_id?: string;
         };
         CreateInvitationRequest: {
             /** @description 已存在账号的用户名；不存在公开注册。 */
@@ -1902,6 +2248,39 @@ export interface components {
             actual_progress: number;
             expected_version: number;
         };
+        ProgressReportRequest: {
+            reported_progress: number;
+            work_summary: string;
+            completed_work?: string;
+            /** @description Next steps planned by the executor. */
+            pending_work?: string;
+            /** @description Current problems or help needed, separate from next steps. */
+            blockers?: string;
+            evidence_links?: string[];
+            expected_version: number;
+        };
+        ProgressReport: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            team_id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** Format: uuid */
+            task_id: string;
+            /** Format: uuid */
+            actor_id: string;
+            actor_display_name: string;
+            actor_username: string;
+            reported_progress: number;
+            work_summary: string;
+            completed_work: string;
+            pending_work: string;
+            blockers: string;
+            evidence_links: string[];
+            /** Format: date-time */
+            created_at: string;
+        };
         TaskWeightRequest: {
             weight: number;
             reason: string;
@@ -2009,6 +2388,9 @@ export interface components {
         };
         TaskHistoriesEnvelope: {
             data: components["schemas"]["TaskHistory"][];
+        };
+        ProgressReportsEnvelope: {
+            data: components["schemas"]["ProgressReport"][];
         };
         ProgressEnvelope: {
             data: components["schemas"]["Progress"];
@@ -2676,8 +3058,361 @@ export interface components {
         ContributionIdentityEvidenceEnvelope: {
             data: components["schemas"]["ContributionIdentityEvidence"];
         };
+        BonusResult: {
+            /** Format: uuid */
+            round_id: string;
+            /** Format: uuid */
+            project_id: string;
+            funding_label: string;
+            /** @enum {string} */
+            currency_code: "CNY";
+            /** @enum {integer} */
+            currency_minor_unit: 2;
+            /**
+             * Format: int64
+             * @description Subject-only internal amount in CNY fen, not a payment claim.
+             */
+            amount_minor: number;
+            /**
+             * @description Internal bonus result state. Confirmed does not mean paid.
+             * @enum {string}
+             */
+            status: "confirmed";
+            /**
+             * @description Whether a simulated payment record exists. Recorded is bookkeeping only, never proof of a real payment or an executed transfer.
+             * @enum {string}
+             */
+            payment_status: "not_recorded" | "recorded";
+            /** Format: date-time */
+            confirmed_at: string;
+            /**
+             * Format: date-time
+             * @description Separate publication time; only published effective confirmed results are returned.
+             */
+            published_at: string;
+        };
+        BonusResultsPage: {
+            items: components["schemas"]["BonusResult"][];
+            has_more: boolean;
+        };
+        BonusResultsPageEnvelope: {
+            data: components["schemas"]["BonusResultsPage"];
+        };
+        BonusRoundVersion: {
+            version: number;
+            /**
+             * @description Immutable plan-version status; not the derived funding-round workflow state.
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "superseded" | "overturned" | "abandoned";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            confirmed_at: string | null;
+            /** @description True only for the round's effective confirmed version. */
+            effective: boolean;
+        };
+        BonusRoundSummary: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            /** @description Project-scoped normalized identifier of one real funding round. */
+            funding_key: string;
+            funding_label: string;
+            funding_source: string;
+            /**
+             * @description Derived round workflow. A version status is never overwritten by this value.
+             * @enum {string}
+             */
+            status: "draft" | "pending_review" | "confirmed" | "revising" | "abandoned" | "unavailable";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            latest_version: components["schemas"]["BonusRoundVersion"] | null;
+            effective_confirmed_version: components["schemas"]["BonusRoundVersion"] | null;
+            /** @description False in metadata list/detail responses; true only inside an explicitly authorized workspace. Withheld amounts are not confirmed zero amounts. Project read access and ROOT status do not grant amount access. */
+            amounts_visible: boolean;
+        };
+        BonusRoundDetail: {
+            /** Format: uuid */
+            id: string;
+            /** Format: uuid */
+            project_id: string;
+            funding_key: string;
+            funding_label: string;
+            funding_source: string;
+            /** @enum {string} */
+            status: "draft" | "pending_review" | "confirmed" | "revising" | "abandoned" | "unavailable";
+            revision: number;
+            /** Format: date-time */
+            created_at: string;
+            latest_version: components["schemas"]["BonusRoundVersion"] | null;
+            effective_confirmed_version: components["schemas"]["BonusRoundVersion"] | null;
+            /** @enum {boolean} */
+            amounts_visible: false;
+            versions: components["schemas"]["BonusRoundVersion"][];
+        };
+        BonusRoundsPage: {
+            items: components["schemas"]["BonusRoundSummary"][];
+            has_more: boolean;
+        };
+        BonusRoundsPageEnvelope: {
+            data: components["schemas"]["BonusRoundsPage"];
+        };
+        BonusRoundDetailEnvelope: {
+            data: components["schemas"]["BonusRoundDetail"];
+        };
+        /**
+         * Format: int64
+         * @description Exact CNY fen (currency minor unit 2), within JavaScript's safe integer range. Use integer arithmetic or decimal-string conversion, never floating-point yuan arithmetic, rounding or an automatic allocation formula.
+         */
+        BonusAmountMinor: number;
+        /** @description Explicit human rationale, nonblank after trimming; at most 4000 Unicode characters after trimming. */
+        BonusReason: string;
+        /**
+         * Format: int32
+         * @description Round-level optimistic concurrency revision, distinct from the plan version number.
+         */
+        BonusRevision: number;
+        /**
+         * Format: uuid
+         * @description Nonzero idempotency key scoped to Team, Project and authenticated actor. An authorized retry with the same round, action and decoded payload returns the original receipt without repeating effects, even if its revision is now old. Reusing the key for different input returns 409. Current authority is rechecked before replay.
+         */
+        BonusClientRequestID: string;
+        BonusMember: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+        };
+        BonusSourceShare: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** @description Official contribution share in basis points, not an automatic bonus entitlement or allocation multiplier. */
+            share_bps: number;
+        };
+        /** @description An independent, currently effective confirmed contribution source. Do not merge different sources into a synthetic contribution score or automatic allocation. */
+        BonusSource: {
+            /** Format: uuid */
+            confirmation_id: string;
+            /** Format: uuid */
+            case_version_id: string;
+            task_title: string;
+            shares: components["schemas"]["BonusSourceShare"][];
+        };
+        BonusProjectWorkspace: {
+            /** @description Current project management authority to create a round; does not grant access to round amounts. */
+            can_create: boolean;
+            members: components["schemas"]["BonusMember"][];
+            sources: components["schemas"]["BonusSource"][];
+        };
+        /** @description One official source participant's explicit eligibility decision and manual amount. Eligibility is consistent across selected sources; ineligible lines have zero amount but remain visible with reasons. */
+        BonusPlanLine: {
+            /** Format: uuid */
+            user_id: string;
+            display_name: string;
+            /** @description Official source evidence, never an automatic money formula. */
+            share_bps: number;
+            eligible: boolean;
+            amount_minor: components["schemas"]["BonusAmountMinor"];
+            reason: string;
+        };
+        /** @description Independent source budget and complete per-person decisions. source_budget_minor equals the sum of line amounts plus source_unallocated_minor, using exact integer arithmetic. */
+        BonusPlanSource: {
+            /** Format: uuid */
+            confirmation_id: string;
+            task_title: string;
+            source_budget_minor: components["schemas"]["BonusAmountMinor"];
+            source_unallocated_minor: components["schemas"]["BonusAmountMinor"];
+            reason: string;
+            lines: components["schemas"]["BonusPlanLine"][];
+        };
+        /** @description Latest manual plan snapshot, distinct from the effective confirmed version. total_budget_minor equals all source budgets plus plan_unallocated_minor. Unallocated money remains unallocated; no automatic allocation algorithm is applied. */
+        BonusPlan: {
+            /** Format: uuid */
+            id: string;
+            version: number;
+            /** @enum {string} */
+            status: "draft" | "pending_review" | "confirmed" | "superseded" | "overturned" | "abandoned";
+            total_budget_minor: components["schemas"]["BonusAmountMinor"];
+            plan_unallocated_minor: components["schemas"]["BonusAmountMinor"];
+            rationale: string;
+            /**
+             * Format: date-time
+             * @description Null until separately published after independent formal confirmation. Publication is not payment.
+             */
+            published_at: string | null;
+            sources: components["schemas"]["BonusPlanSource"][];
+        };
+        /** @description Server-derived current action permissions, including authority and workflow state; all commands recheck them. No implicit ROOT bypass. These are not a guarantee against a subsequent concurrency conflict. */
+        BonusPermissions: {
+            edit: boolean;
+            submit: boolean;
+            return: boolean;
+            confirm: boolean;
+            publish: boolean;
+            revise: boolean;
+            record_payment: boolean;
+        };
+        /**
+         * @description Explicit internal bonus role. Confirmer authority cannot coexist with editor, budget or eligibility authority.
+         * @enum {string}
+         */
+        BonusGrantRole: "editor" | "budget" | "eligibility" | "confirmer" | "auditor";
+        /** @description Current active internal grant bound to current project membership authorization. */
+        BonusGrant: {
+            /** Format: uuid */
+            subject_id: string;
+            display_name: string;
+            role_code: string;
+        };
+        BonusEvent: {
+            event_type: string;
+            reason: string;
+            /** Format: uuid */
+            actor_id: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        /** @description Append-only simulated payment bookkeeping for the recipient's full published allocation; not an actual payment or proof of transfer. */
+        BonusPayment: {
+            /** Format: uuid */
+            user_id: string;
+            amount_minor: components["schemas"]["BonusAmountMinor"];
+            reference: string;
+            /** Format: date-time */
+            recorded_at: string;
+        };
+        BonusWorkspace: {
+            /** @description Authorized workspace summary with amounts_visible=true. Metadata endpoints still return amounts_visible=false. */
+            round: components["schemas"]["BonusRoundSummary"];
+            /** @description Latest plan, or null if no plan exists; never substitute a zero amount for an absent plan. */
+            version: components["schemas"]["BonusPlan"] | null;
+            permissions: components["schemas"]["BonusPermissions"];
+            grants: components["schemas"]["BonusGrant"][];
+            events: components["schemas"]["BonusEvent"][];
+            payments: components["schemas"]["BonusPayment"][];
+        };
+        BonusCommand: {
+            expected_revision: components["schemas"]["BonusRevision"];
+            client_request_id: components["schemas"]["BonusClientRequestID"];
+            reason: components["schemas"]["BonusReason"];
+        };
+        BonusCommandResult: {
+            /** Format: uuid */
+            round_id: string;
+            revision: components["schemas"]["BonusRevision"];
+        };
+        /** @description Create a draft for one real funding round with distinct non-self internal allocation and review officers. No expected_revision, budget, automatic allocation or implicit grant to the creator. */
+        CreateBonusRound: {
+            /** @description Normalized funding identity unique within this project. */
+            funding_key: string;
+            funding_label: string;
+            funding_source: string;
+            /**
+             * Format: uuid
+             * @description Current internal member receiving editor, budget and eligibility grants; not the caller or reviewer.
+             */
+            manager_id: string;
+            /**
+             * Format: uuid
+             * @description Current internal member receiving confirmer and auditor grants; not the caller or manager. Formal confirmation rechecks independence.
+             */
+            reviewer_id: string;
+            reason: components["schemas"]["BonusReason"];
+            client_request_id: components["schemas"]["BonusClientRequestID"];
+        };
+        /** @description Every official source participant must be included exactly once. The decision maker cannot be the recipient. Ineligible means amount_minor=0; eligible still requires an explicitly entered amount, including zero. Eligibility must agree for the same person across all selected sources. */
+        BonusPlanLineInput: {
+            /** Format: uuid */
+            user_id: string;
+            /** @description Required explicit human decision; omitted or null is invalid, not implicit ineligibility. */
+            eligible: boolean;
+            amount_minor: components["schemas"]["BonusAmountMinor"];
+            reason: components["schemas"]["BonusReason"];
+        };
+        /** @description One independently budgeted current contribution confirmation. Lines must cover its complete official shares; the sum of manual amounts cannot exceed its budget. The server preserves the exact difference as source_unallocated_minor. */
+        BonusPlanSourceInput: {
+            /** Format: uuid */
+            confirmation_id: string;
+            source_budget_minor: components["schemas"]["BonusAmountMinor"];
+            reason: components["schemas"]["BonusReason"];
+            lines: components["schemas"]["BonusPlanLineInput"][];
+        };
+        /** @description Manual draft snapshot. Each confirmation_id is unique; source budgets cannot exceed the total. The server preserves the exact difference as plan_unallocated_minor. An empty sources array can be saved but not submitted; null is invalid. Command reason becomes the plan rationale. */
+        BonusPlanInput: {
+            expected_revision: components["schemas"]["BonusRevision"];
+            client_request_id: components["schemas"]["BonusClientRequestID"];
+            reason: components["schemas"]["BonusReason"];
+            total_budget_minor: components["schemas"]["BonusAmountMinor"];
+            sources: components["schemas"]["BonusPlanSourceInput"][];
+        };
+        BonusGrantInput: {
+            expected_revision: components["schemas"]["BonusRevision"];
+            client_request_id: components["schemas"]["BonusClientRequestID"];
+            reason: components["schemas"]["BonusReason"];
+            /**
+             * Format: uuid
+             * @description Current internal project member other than the caller.
+             */
+            subject_id: string;
+            role_code: components["schemas"]["BonusGrantRole"];
+            /** @description Explicitly false to grant or true to revoke. */
+            revoke: boolean;
+        };
+        /** @description Simulated payment command only. No amount field is accepted; the server uses the full effective confirmed and published recipient amount. No real payment is executed. */
+        BonusPaymentInput: {
+            expected_revision: components["schemas"]["BonusRevision"];
+            client_request_id: components["schemas"]["BonusClientRequestID"];
+            reason: components["schemas"]["BonusReason"];
+            /** Format: uuid */
+            user_id: string;
+            reference: string;
+        };
+        BonusProjectWorkspaceEnvelope: {
+            data: components["schemas"]["BonusProjectWorkspace"];
+        };
+        BonusWorkspaceEnvelope: {
+            data: components["schemas"]["BonusWorkspace"];
+        };
+        BonusCommandResultEnvelope: {
+            data: components["schemas"]["BonusCommandResult"];
+        };
     };
     responses: {
+        /** @description Command applied atomically, or the original receipt returned for an authorized identical retry. Only creation uses HTTP 201; all other bonus commands use HTTP 200. Reload the workspace using the returned round revision. */
+        BonusCommandSuccess: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BonusCommandResultEnvelope"];
+            };
+        };
+        /** @description Stale expected_revision (concurrent change), client_request_id reused with a different round/action/payload, duplicate funding/grant/payment, or changed state, contribution evidence, eligibility or authorization. Refresh and review; never silently overwrite. An authorized identical retry returns its original receipt instead. */
+        BonusConflict: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
+        /** @description Bonus workflow storage is not configured. */
+        BonusUnavailable: {
+            headers: {
+                "X-Request-Id": components["headers"]["RequestId"];
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorEnvelope"];
+            };
+        };
         /** @description 请求体或路径参数非法 */
         BadRequest: {
             headers: {
@@ -2769,6 +3504,7 @@ export interface components {
         };
     };
     parameters: {
+        BonusRoundID: string;
         /** @description 变更请求必须携带值 1；缺失时返回 403。 */
         CSRFHeader: "1";
         UserID: string;
@@ -4171,6 +4907,74 @@ export interface operations {
         responses: {
             /** @description 操作成功 */
             200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            422: components["responses"]["ValidationFailed"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listTaskProgressReports: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description 进展记录 */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProgressReportsEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    reportTaskProgress: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                taskID: components["parameters"]["TaskID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ProgressReportRequest"];
+            };
+        };
+        responses: {
+            /** @description 进展已记录 */
+            201: {
                 headers: {
                     "X-Request-Id": components["headers"]["RequestId"];
                     [name: string]: unknown;
@@ -5881,6 +6685,418 @@ export interface operations {
             409: components["responses"]["Conflict"];
             422: components["responses"]["ValidationFailed"];
             500: components["responses"]["InternalError"];
+        };
+    };
+    listMyBonusResults: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Subject-only confirmed bonus results */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusResultsPageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    listBonusRounds: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-monetary funding-round metadata */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusRoundsPageEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    createBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateBonusRound"];
+            };
+        };
+        responses: {
+            201: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    getBonusRound: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: string;
+                roundID: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Non-monetary funding-round metadata and version history */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusRoundDetailEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+        };
+    };
+    getBonusProjectWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Current project members and available contribution sources */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusProjectWorkspaceEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    getBonusWorkspace: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Authorized round workspace including exact manual amounts */
+            200: {
+                headers: {
+                    "X-Request-Id": components["headers"]["RequestId"];
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BonusWorkspaceEnvelope"];
+                };
+            };
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            404: components["responses"]["NotFound"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    saveBonusPlan: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusPlanInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    submitBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    returnBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    confirmBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    publishBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    reviseBonusRound: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusCommand"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    changeBonusGrant: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusGrantInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
+        };
+    };
+    recordBonusPayment: {
+        parameters: {
+            query?: never;
+            header: {
+                /** @description 变更请求必须携带值 1；缺失时返回 403。 */
+                "X-Nexora-CSRF": components["parameters"]["CSRFHeader"];
+            };
+            path: {
+                teamID: components["parameters"]["TeamID"];
+                projectID: components["parameters"]["ProjectID"];
+                roundID: components["parameters"]["BonusRoundID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BonusPaymentInput"];
+            };
+        };
+        responses: {
+            200: components["responses"]["BonusCommandSuccess"];
+            400: components["responses"]["BadRequest"];
+            401: components["responses"]["Unauthorized"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["BonusConflict"];
+            500: components["responses"]["InternalError"];
+            503: components["responses"]["BonusUnavailable"];
         };
     };
 }

@@ -61,6 +61,9 @@ func (s *Server) handleReadiness(w http.ResponseWriter, r *http.Request) {
 	case schemaVersion == 0:
 		ready = false
 		checks["schema"] = checkResult{Status: "down", Detail: "not migrated"}
+	case !database.CompatibleSchemaVersion(schemaVersion):
+		ready = false
+		checks["schema"] = checkResult{Status: "down", Detail: fmt.Sprintf("version %d (requires v%d–v%d)", schemaVersion, database.MinimumSupportedSchemaVersion, database.MaximumSupportedSchemaVersion)}
 	default:
 		checks["schema"] = checkResult{Status: "up", Detail: fmt.Sprintf("version %d", schemaVersion)}
 	}

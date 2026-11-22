@@ -92,7 +92,7 @@ async function submit(): Promise<void> {
           加入团队，从第一个任务开始。
         </h2>
         <p class="mt-4 text-sm leading-7 text-ink-muted">
-          注册后即可创建自己的团队，或接受管理员通过用户名发出的邀请。不同团队之间的数据相互隔离。
+          注册后可接受团队管理员发出的邀请。团队由平台管理员创建并指定负责人，不同团队之间的数据相互隔离。
         </p>
         <div
           class="mt-8 rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-ink-muted"
@@ -134,7 +134,7 @@ async function submit(): Promise<void> {
               {{
                 registrationMode === 'invite'
                   ? '当前为邀请注册：请使用被邀请的用户名。'
-                  : '注册后即可创建团队或接受邀请。'
+                  : '注册后可在邀请收件箱加入团队。'
               }}
             </p>
           </div>

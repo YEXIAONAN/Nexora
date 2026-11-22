@@ -23,6 +23,8 @@ func (h *Handler) AuthenticatedRoutes(r chi.Router) {
 	for _, route := range []struct{ method, path, action string }{
 		{"GET", "/tasks", "tree"}, {"POST", "/tasks", "create"}, {"GET", "/tasks/{taskID}", "get"}, {"PUT", "/tasks/{taskID}", "edit"},
 		{"POST", "/tasks/{taskID}/move", "move"}, {"POST", "/tasks/{taskID}/transition", "transition"}, {"PUT", "/tasks/{taskID}/progress", "progress"},
+		{"POST", "/tasks/{taskID}/progress-reports", "report_progress"},
+		{"GET", "/tasks/{taskID}/progress-reports", "progress_reports"},
 		{"PUT", "/tasks/{taskID}/weight", "weight"},
 		{"POST", "/tasks/{taskID}/dependencies", "add_dependency"},
 		{"POST", "/tasks/{taskID}/dependencies/{dependencyID}/ignore", "ignore_dependency"},
@@ -123,6 +125,15 @@ func (h *Handler) handle(action string) http.HandlerFunc {
 				return
 			}
 			data, err = h.svc.Weight(r.Context(), a, team, pid, id, in.Weight, in.ExpectedVersion, in.Reason)
+		case "report_progress":
+			var in ProgressReportInput
+			if !httpx.DecodeBody(w, r, h.logger, &in) {
+				return
+			}
+			data, err = h.svc.ReportProgress(r.Context(), a, team, pid, id, in)
+			status = 201
+		case "progress_reports":
+			data, err = h.svc.ProgressReports(r.Context(), a, team, pid, id)
 		case "add_dependency":
 			var in struct {
 				PredecessorID   uuid.UUID `json:"predecessor_id"`

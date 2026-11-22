@@ -85,7 +85,12 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 		p05Must(t, goose.SetDialect("postgres"))
 		p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 6))
 	} else {
-		p05Must(t, database.Up(f.ctx, f.db.SQL, f.log))
+		// Pin Phase05-specific integration fixtures at v8 (the Alpha P0
+		// baseline) so account email/status columns exist without pulling the
+		// Phase06 bonus migration into these cases.
+		goose.SetBaseFS(p05MigrationFS)
+		p05Must(t, goose.SetDialect("postgres"))
+		p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 8))
 	}
 	ar := audit.NewRepository(f.db.Pool)
 	f.as = auth.NewService(auth.NewRepository(f.db.Pool), ar, auth.NewLoginLimiter(1000, time.Minute), time.Hour, f.log)
@@ -100,10 +105,21 @@ func newContributionFixture(t *testing.T, old bool) *contributionFixture {
 	f.root = reqctx.Identity{UserID: root.ID, SystemRoot: true}
 	tr := teams.NewRepository(f.db.Pool)
 	f.ts = teams.NewService(tr, f.as, ar, f.log)
-	tm, e := f.ts.CreateTeam(f.ctx, f.root, "Contribution tests", "")
-	p05Must(t, e)
-	f.team = tm.ID
+	if old {
+		// The v6 historical fixture cannot call the current teams service: it
+		// validates account status columns that only exist from v8.
+		f.team = uuid.New()
+		_, err := f.db.Pool.Exec(f.ctx, `INSERT INTO teams(id,name,created_by) VALUES($1,'Contribution tests',$2)`, f.team, f.root.UserID)
+		p05Must(t, err)
+		_, err = f.db.Pool.Exec(f.ctx, `INSERT INTO team_members(team_id,user_id,role) VALUES($1,$2,'owner')`, f.team, f.root.UserID)
+		p05Must(t, err)
+	} else {
+		tm, err := f.ts.CreateTeam(f.ctx, f.root, teams.CreateTeamInput{Name: "Contribution tests"})
+		p05Must(t, err)
+		f.team = tm.ID
+	}
 	f.ps = projects.NewService(projects.NewRepository(f.db.Pool), tr, ar, f.log)
+	var e error
 	f.project, e = f.ps.Create(f.ctx, f.root, f.team, projects.CreateInput{ProjectInput: projects.ProjectInput{Name: "Contribution project"}, LeadID: f.root.UserID})
 	p05Must(t, e)
 	f.worker = f.user("worker", true)
@@ -598,6 +614,9 @@ func TestContributionUpgradePreservesPhase04AndArchivedHistory(t *testing.T) {
 	f := newContributionFixture(t, true)
 	p05Must(t, f.archive())
 	before := f.snapshot(p05LegacyTables)
+	// This historical upgrade specifically tests the Phase05 v6->v7 boundary.
+	goose.SetBaseFS(p05MigrationFS)
+	p05Must(t, goose.SetDialect("postgres"))
 	p05Must(t, goose.UpToContext(f.ctx, f.db.SQL, "migrations", 7))
 	after := f.snapshot(p05LegacyTables)
 	if !reflect.DeepEqual(before, after) {
@@ -623,9 +642,13 @@ func TestContributionRollbackRefusesFormalEvidence(t *testing.T) {
 	f.prepare(c)
 	_, e := f.confirm(c, f.appraiser)
 	p05Must(t, e)
-	// Remove the later P0 account schema first so this test exercises the
-	// Phase 05 contribution rollback guard directly.
-	p05Must(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
+	// Drop only the later additive migrations actually installed by this
+	// historical fixture, then exercise the Phase05 v7 rollback guard directly.
+	current, e := database.Version(f.ctx, f.db.SQL)
+	p05Must(t, e)
+	if current > 7 {
+		p05Must(t, database.Down(f.ctx, f.db.SQL, int(current-7), f.log))
+	}
 	before := f.snapshot(p05BusinessTables)
 	p05Denied(t, database.Down(f.ctx, f.db.SQL, 1, f.log))
 	v, e := database.Version(f.ctx, f.db.SQL)

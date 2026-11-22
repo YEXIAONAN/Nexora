@@ -109,8 +109,9 @@ func (h *Handler) teamID(w http.ResponseWriter, r *http.Request) (uuid.UUID, boo
 }
 
 type createTeamRequest struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	OwnerID     *uuid.UUID `json:"owner_id"`
 }
 
 func (h *Handler) HandleCreateTeam(w http.ResponseWriter, r *http.Request) {
@@ -122,7 +123,7 @@ func (h *Handler) HandleCreateTeam(w http.ResponseWriter, r *http.Request) {
 	if !httpx.DecodeBody(w, r, h.logger, &req) {
 		return
 	}
-	summary, err := h.svc.CreateTeam(r.Context(), identity, req.Name, req.Description)
+	summary, err := h.svc.CreateTeam(r.Context(), identity, CreateTeamInput{Name: req.Name, Description: req.Description, OwnerID: req.OwnerID})
 	if err != nil {
 		httpx.WriteError(w, r, h.logger, err)
 		return

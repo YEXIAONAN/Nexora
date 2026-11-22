@@ -272,6 +272,10 @@ func TestPublicRegistrationCreatesNormalAccount(t *testing.T) {
 	if denied.Code != http.StatusForbidden {
 		t.Fatalf("registered user admin access = %d, want 403", denied.Code)
 	}
+	selfTeam := f.do(http.MethodPost, "/api/v1/teams", map[string]string{"name": "Self service"}, cookie, true)
+	if selfTeam.Code != http.StatusForbidden {
+		t.Fatalf("registered user create team = %d, want 403: %s", selfTeam.Code, selfTeam.Body.String())
+	}
 }
 
 func TestAdminEndpointsAuthorization(t *testing.T) {

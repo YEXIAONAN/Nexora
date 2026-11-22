@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
+import { listUsers, type User } from '@/api/auth'
 import { ApiError } from '@/api/client'
 import AppIcon from '@/components/ui/AppIcon.vue'
 import { useAuthStore } from '@/stores/auth'
@@ -12,28 +13,57 @@ const auth = useAuthStore()
 const teams = useTeamsStore()
 const router = useRouter()
 
+const isAdmin = computed(() => auth.isPlatformAdmin)
 const name = ref('')
 const description = ref('')
+const ownerId = ref('')
+const owners = ref<User[]>([])
+const ownersError = ref<string | null>(null)
 const creating = ref(false)
 const createError = ref<string | null>(null)
 const createdName = ref<string | null>(null)
 
-onMounted(() => {
+onMounted(async () => {
   if (auth.user) void teams.loadTeams(auth.user.id, true)
+  if (isAdmin.value) await loadOwners()
 })
 
+async function loadOwners(): Promise<void> {
+  ownersError.value = null
+  try {
+    const page = await listUsers('', 100)
+    owners.value = page.items.filter((user) => user.is_active !== false)
+    if (!ownerId.value) ownerId.value = auth.user?.id ?? owners.value[0]?.id ?? ''
+  } catch (reason) {
+    ownersError.value = reason instanceof ApiError ? reason.message : '无法加载用户列表'
+  }
+}
+
+function ownerName(id: string): string {
+  const user = owners.value.find((item) => item.id === id)
+  return user?.display_name || user?.username || '未选择'
+}
+
 async function submitCreate(): Promise<void> {
-  if (creating.value) return
+  if (creating.value || !ownerId.value) return
   creating.value = true
   createError.value = null
   createdName.value = null
   try {
-    const team = await teams.createTeam(name.value.trim(), description.value.trim() || undefined)
-    createdName.value = team.name
+    const team = await teams.createTeam(
+      name.value.trim(),
+      description.value.trim() || undefined,
+      ownerId.value,
+    )
+    createdName.value = `${team.name}（负责人：${ownerName(ownerId.value)}）`
     name.value = ''
     description.value = ''
   } catch (reason) {
-    createError.value = reason instanceof ApiError ? reason.message : '无法连接到 Nexora API'
+    if (reason instanceof ApiError && reason.fields) {
+      createError.value = Object.values(reason.fields).join('；')
+    } else {
+      createError.value = reason instanceof ApiError ? reason.message : '无法连接到 Nexora API'
+    }
   } finally {
     creating.value = false
   }
@@ -86,11 +116,13 @@ function enterTeam(teamId: string): void {
       </button>
     </div>
 
-    <section class="card">
+    <section v-if="isAdmin" class="card">
       <div class="card-header">
         <div>
           <h3 class="text-sm font-semibold text-ink">创建团队</h3>
-          <p class="mt-0.5 text-xs text-ink-muted">创建者自动成为该团队的所有者（owner）。</p>
+          <p class="mt-0.5 text-xs text-ink-muted">
+            只有平台管理员可以创建团队，并指定一名团队负责人（owner）。
+          </p>
         </div>
       </div>
       <form class="card-body space-y-3" @submit.prevent="submitCreate">
@@ -106,9 +138,17 @@ function enterTeam(teamId: string): void {
           class="rounded-lg border border-accent/30 bg-accent-soft px-3 py-2 text-sm text-accent-strong"
           role="status"
         >
-          团队「{{ createdName }}」已创建，你已成为所有者。
+          团队「{{ createdName }}」已创建。
         </div>
-        <div class="grid gap-3 sm:grid-cols-2">
+        <div
+          v-if="ownersError"
+          class="rounded-lg border border-danger/30 bg-danger-soft px-3 py-2 text-sm text-danger"
+          role="alert"
+        >
+          {{ ownersError }}
+          <button type="button" class="link ml-2" @click="loadOwners">重试</button>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-3">
           <div>
             <label for="team-name" class="field-label">团队名称（1-64 字符）</label>
             <input
@@ -117,7 +157,7 @@ function enterTeam(teamId: string): void {
               type="text"
               required
               maxlength="64"
-              class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              class="form-input mt-1"
             />
           </div>
           <div>
@@ -127,15 +167,43 @@ function enterTeam(teamId: string): void {
               v-model="description"
               type="text"
               maxlength="500"
-              class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+              class="form-input mt-1"
             />
           </div>
+          <div>
+            <label for="team-owner" class="field-label">团队负责人</label>
+            <select id="team-owner" v-model="ownerId" required class="form-input mt-1">
+              <option value="" disabled>请选择负责人</option>
+              <option v-for="user in owners" :key="user.id" :value="user.id">
+                {{ user.display_name || user.username }} @{{ user.username }}
+              </option>
+            </select>
+          </div>
         </div>
-        <button type="submit" class="btn btn-primary" :disabled="creating || !name.trim()">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          :disabled="creating || !name.trim() || !ownerId || owners.length === 0"
+        >
           <AppIcon name="plus" :size="15" />
           {{ creating ? '创建中' : '创建团队' }}
         </button>
       </form>
+    </section>
+
+    <section v-else class="card">
+      <div class="card-header">
+        <div>
+          <h3 class="text-sm font-semibold text-ink">团队由平台管理员创建</h3>
+          <p class="mt-0.5 text-xs text-ink-muted">
+            普通账号不能自助创建团队。请联系平台管理员创建团队并把你设为负责人，或邀请你加入已有团队。
+          </p>
+        </div>
+      </div>
+      <div class="card-body flex flex-wrap items-center justify-between gap-3">
+        <p class="text-sm text-ink-muted">已有邀请？打开邀请收件箱接受团队邀请后即可进入团队。</p>
+        <RouterLink to="/invitations" class="btn btn-sm">查看邀请</RouterLink>
+      </div>
     </section>
 
     <section class="card">

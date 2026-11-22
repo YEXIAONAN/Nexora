@@ -1,4 +1,10 @@
 import { expect, test, type Page } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
+
+const run = randomUUID().slice(0, 8)
+const alice = `alice_${run}`
+const firstTeamName = `ZERO_R ${run}`
+const secondTeamName = `Platform Ops ${run}`
 
 const rootPassword = process.env.E2E_ROOT_PASSWORD ?? ''
 const alicePassword = 'alice-e2e-password-1'
@@ -29,7 +35,8 @@ async function logout(page: Page): Promise<void> {
 
 async function openMembers(page: Page, id: string): Promise<void> {
   await page.goto(`/teams/${id}/members`)
-  await expect(page.locator('h2')).toContainText(/加载中…|ZERO_R|Platform Ops/)
+  await expect(page.locator('h2')).toContainText(id === teamId ? firstTeamName : secondTeamName)
+  await expect(page.getByRole('button', { name: '刷新', exact: true })).toBeEnabled()
 }
 
 test('unauthenticated visitors are redirected to the login page', async ({ page }) => {
@@ -44,12 +51,14 @@ test('ROOT logs in and creates the first team through the UI', async ({ page }) 
   await login(page, 'root', rootPassword)
   await expect(page.locator('header')).toContainText('ROOT')
 
-  await page.fill('#team-name', 'ZERO_R')
+  await page.fill('#team-name', firstTeamName)
   await page.fill('#team-description', '核心研发团队')
   await page.locator('form').first().locator('button[type="submit"]').click()
-  await expect(page.getByRole('status')).toContainText('团队「ZERO_R」已创建')
+  await expect(page.getByRole('status')).toContainText(
+    new RegExp(`团队「${firstTeamName}（负责人：.+）」已创建`),
+  )
 
-  const row = page.locator('li[data-team-id]', { hasText: 'ZERO_R' })
+  const row = page.locator('li[data-team-id]', { hasText: firstTeamName })
   await expect(row).toContainText('所有者')
   teamId = (await row.getAttribute('data-team-id')) ?? ''
   expect(teamId).not.toBe('')
@@ -62,7 +71,7 @@ test('ROOT creates a member account through the real admin API', async ({ page }
   await login(page, 'root', rootPassword)
   const response = await page.context().request.post('/api/v1/admin/users', {
     headers: { 'X-Nexora-CSRF': '1' },
-    data: { username: 'alice', password: alicePassword, display_name: 'Alice' },
+    data: { username: alice, password: alicePassword, display_name: 'Alice' },
   })
   expect(response.status()).toBe(201)
 })
@@ -70,31 +79,31 @@ test('ROOT creates a member account through the real admin API', async ({ page }
 test('ROOT invites alice through the members page', async ({ page }) => {
   await login(page, 'root', rootPassword)
   await openMembers(page, teamId)
-  await page.fill('#invite-username', 'alice')
+  await page.fill('#invite-username', alice)
   await page.selectOption('#invite-role', 'member')
   await page.getByRole('button', { name: '发出邀请' }).click()
-  await expect(page.getByRole('status')).toContainText('已向 alice 发出邀请')
-  const pendingRow = page.locator('li', { hasText: 'alice' }).first()
+  await expect(page.getByRole('status')).toContainText(`已向 ${alice} 发出邀请`)
+  const pendingRow = page.locator('li', { hasText: alice }).first()
   await expect(pendingRow).toContainText('有效期至')
   await expect(pendingRow.getByRole('button', { name: '取消邀请' })).toBeVisible()
 })
 
 test('alice accepts the invitation from her inbox', async ({ page }) => {
-  await login(page, 'alice', alicePassword)
-  await expect(page.getByText('你还没有加入任何团队')).toBeVisible()
+  await login(page, alice, alicePassword)
+  await expect(page.getByText(/你还没有加入任何团队[。；]/)).toBeVisible()
 
   await page.goto('/invitations')
-  const row = page.locator('li[data-invitation-id]', { hasText: 'ZERO_R' })
+  const row = page.locator('li[data-invitation-id]', { hasText: firstTeamName })
   await expect(row).toContainText('成员')
   await row.getByRole('button', { name: '接受' }).click()
-  await expect(page.getByRole('status')).toContainText('已加入团队「ZERO_R」')
+  await expect(page.getByRole('status')).toContainText(`已加入团队「${firstTeamName}」`)
 
   await page.goto('/teams')
-  await expect(page.locator('li[data-team-id]', { hasText: 'ZERO_R' })).toContainText('成员')
+  await expect(page.locator('li[data-team-id]', { hasText: firstTeamName })).toContainText('成员')
 })
 
 test('a plain member sees no management controls', async ({ page }) => {
-  await login(page, 'alice', alicePassword)
+  await login(page, alice, alicePassword)
   await openMembers(page, teamId)
   await expect(page.locator('#invite-username')).toHaveCount(0)
   await expect(page.locator('select[aria-label^="变更"]')).toHaveCount(0)
@@ -105,24 +114,24 @@ test('a plain member sees no management controls', async ({ page }) => {
 test('ROOT promotes alice to admin and the change is reflected', async ({ page }) => {
   await login(page, 'root', rootPassword)
   await openMembers(page, teamId)
-  await page.selectOption('select[aria-label="变更 alice 的角色"]', 'admin')
-  await expect(page.getByRole('status')).toContainText('已将 alice 的角色变更为管理员')
-  await expect(page.locator('li[data-user-id]', { hasText: 'alice' })).toContainText('管理员')
+  await page.getByLabel(`变更 ${alice} 的角色`, { exact: true }).selectOption('admin')
+  await expect(page.getByRole('status')).toContainText(`已将 ${alice} 的角色变更为管理员`)
+  await expect(page.locator('li[data-user-id]', { hasText: alice })).toContainText('管理员')
 })
 
 test('ROOT removes alice and her team access ends immediately', async ({ page }) => {
   await login(page, 'root', rootPassword)
   await openMembers(page, teamId)
   await page
-    .locator('li[data-user-id]', { hasText: 'alice' })
+    .locator('li[data-user-id]', { hasText: alice })
     .getByRole('button', { name: '移除' })
     .click()
-  await expect(page.getByRole('status')).toContainText('已移除成员 alice')
-  await expect(page.locator('li[data-user-id]', { hasText: 'alice' })).toHaveCount(0)
+  await expect(page.getByRole('status')).toContainText(`已移除成员 ${alice}`)
+  await expect(page.locator('li[data-user-id]', { hasText: alice })).toHaveCount(0)
 
   await logout(page)
-  await login(page, 'alice', alicePassword)
-  await expect(page.getByText('你还没有加入任何团队')).toBeVisible()
+  await login(page, alice, alicePassword)
+  await expect(page.getByText(/你还没有加入任何团队[。；]/)).toBeVisible()
   await page.goto(`/teams/${teamId}/members`)
   await expect(page.getByRole('alert')).toContainText('团队不存在，或你已不是该团队的成员')
 })
@@ -139,21 +148,28 @@ test('the last owner cannot leave the team', async ({ page }) => {
 
 test('the topbar switches between multiple teams', async ({ page }) => {
   await login(page, 'root', rootPassword)
-  await page.fill('#team-name', 'Platform Ops')
+  await page.fill('#team-name', secondTeamName)
   await page.locator('form').first().locator('button[type="submit"]').click()
-  await expect(page.getByRole('status')).toContainText('团队「Platform Ops」已创建')
-  const secondRow = page.locator('li[data-team-id]', { hasText: 'Platform Ops' })
+  await expect(page.getByRole('status')).toContainText(
+    new RegExp(`团队「${secondTeamName}（负责人：.+）」已创建`),
+  )
+  const secondRow = page.locator('li[data-team-id]', { hasText: secondTeamName })
   secondTeamId = (await secondRow.getAttribute('data-team-id')) ?? ''
   expect(secondTeamId).not.toBe('')
   expect(secondTeamId).not.toBe(teamId)
 
   const selector = page.locator('select[aria-label="当前团队"]')
-  await expect(selector.locator('option')).toHaveCount(2)
+  // Other suites share root, so assert both of this run's teams rather than a global total.
+  await expect(
+    selector.locator(`option[value="${teamId}"], option[value="${secondTeamId}"]`),
+  ).toHaveCount(2)
   await expect(selector).toHaveValue(secondTeamId)
   await expect(secondRow).toContainText('当前团队')
 
   await selector.selectOption(teamId)
-  await expect(page.locator('li[data-team-id]', { hasText: 'ZERO_R' })).toContainText('当前团队')
+  await expect(page.locator('li[data-team-id]', { hasText: firstTeamName })).toContainText(
+    '当前团队',
+  )
   await expect(secondRow).not.toContainText('当前团队')
 })
 

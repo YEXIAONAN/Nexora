@@ -14,12 +14,12 @@ cd "$ROOT_DIR"
 RUN_DIR="$ROOT_DIR/.run"
 API_LOG="$RUN_DIR/api.log"
 WEB_LOG="$RUN_DIR/web.log"
-mkdir -p "$RUN_DIR"
-
+API_BIN=""
 API_PID=""
 WEB_PID=""
 STARTED_API=0
 STARTED_WEB=0
+STARTED_POSTGRES=0
 
 log() { printf '\033[36m◇\033[0m %s\n' "$*"; }
 ok() { printf '\033[32m✓\033[0m %s\n' "$*"; }
@@ -40,12 +40,15 @@ cleanup() {
     wait "$WEB_PID" 2>/dev/null || true
     log "已停止前端进程（日志：.run/web.log）"
   fi
-  if [[ "$STARTED_API" == "1" || "$STARTED_WEB" == "1" ]]; then
+  if [[ -n "$API_BIN" ]]; then rm -f "$API_BIN"; fi
+  if [[ "$STARTED_POSTGRES" == "1" ]]; then
     log "PostgreSQL 容器保留运行，数据不会被清除。需要停止：docker compose stop postgres"
   fi
   exit "$status"
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+trap 'exit 130' INT
+trap 'exit 143' TERM
 
 port_in_use() {
   lsof -nP -iTCP:"$1" -sTCP:LISTEN >/dev/null 2>&1
@@ -54,42 +57,101 @@ port_in_use() {
 wait_for_http() {
   local url=$1
   local attempts=${2:-60}
+  local pid=${3:-}
   local i
   for ((i = 0; i < attempts; i++)); do
-    if curl -fsS --max-time 2 "$url" >/dev/null 2>&1; then return 0; fi
+    if [[ -n "$pid" ]] && ! kill -0 "$pid" 2>/dev/null; then return 1; fi
+    if curl -fsS --max-time 5 "$url" >/dev/null 2>&1; then return 0; fi
     sleep 1
   done
   return 1
 }
 
-if [[ ! -f .env ]]; then
-  cp .env.example .env
-  warn "未找到 .env，已从 .env.example 创建。请按需修改数据库密码等配置。"
+if [[ "${NEXORA_ENV_FILE+x}" == "x" ]]; then
+  ENV_FILE="$NEXORA_ENV_FILE"
+  if [[ -n "$ENV_FILE" && "$ENV_FILE" != /* ]]; then ENV_FILE="$ROOT_DIR/$ENV_FILE"; fi
+  if [[ ! -f "$ENV_FILE" ]]; then
+    fail "NEXORA_ENV_FILE 指定的环境文件不存在或不是普通文件。"
+    exit 1
+  fi
+else
+  ENV_FILE="$ROOT_DIR/.env"
+  if [[ ! -f "$ENV_FILE" ]]; then
+    cp "$ROOT_DIR/.env.example" "$ENV_FILE"
+    warn "未找到 .env，已从 .env.example 创建。请按需修改数据库密码等配置。"
+  fi
 fi
 
 set -a
-# shellcheck disable=SC1091
-source .env
+# shellcheck disable=SC1090
+source "$ENV_FILE"
 set +a
 
-API_PORT="${NEXORA_API_PORT:-8080}"
+valid_port() {
+  [[ "$1" =~ ^[0-9]{1,5}$ ]] && ((10#$1 >= 1 && 10#$1 <= 65535))
+}
+
+API_PORT="${NEXORA_API_PORT:-}"
+API_ADDR="${NEXORA_HTTP_ADDR:-}"
+if [[ -n "$API_ADDR" ]]; then
+  if [[ ! "$API_ADDR" =~ ^(\[[^][]+\]|[^:[:space:]]*):([0-9]+)$ ]]; then
+    fail "NEXORA_HTTP_ADDR 必须使用 host:port 格式（例如 127.0.0.1:8080 或 :8080）。"
+    exit 1
+  fi
+  ADDR_PORT="${BASH_REMATCH[2]}"
+  if ! valid_port "$ADDR_PORT"; then
+    fail "NEXORA_HTTP_ADDR 端口必须在 1–65535 之间。"
+    exit 1
+  fi
+  if [[ -n "$API_PORT" ]]; then
+    if ! valid_port "$API_PORT" || ((10#$API_PORT != 10#$ADDR_PORT)); then
+      fail "NEXORA_API_PORT 必须与 NEXORA_HTTP_ADDR 的端口一致。"
+      exit 1
+    fi
+  fi
+  API_PORT="$ADDR_PORT"
+else
+  API_PORT="${API_PORT:-8080}"
+  API_ADDR="127.0.0.1:$API_PORT"
+fi
 WEB_PORT="${NEXORA_WEB_PORT:-3000}"
-API_ADDR="${NEXORA_HTTP_ADDR:-127.0.0.1:$API_PORT}"
-# NEXORA_HTTP_ADDR may be ":8080"; derive a reachable health URL.
-HEALTH_HOST="127.0.0.1"
-HEALTH_URL="http://${HEALTH_HOST}:${API_PORT}/healthz"
+if ! valid_port "$API_PORT" || ! valid_port "$WEB_PORT"; then
+  fail "API 与前端端口必须在 1–65535 之间。"
+  exit 1
+fi
+API_PORT=$((10#$API_PORT))
+WEB_PORT=$((10#$WEB_PORT))
+export NEXORA_API_PORT="$API_PORT"
+export NEXORA_HTTP_ADDR="${API_ADDR%:*}:$API_PORT"
+export VITE_DEV_API_TARGET="http://127.0.0.1:$API_PORT"
+READY_URL="$VITE_DEV_API_TARGET/readyz"
 WEB_URL="http://127.0.0.1:${WEB_PORT}"
+
+case "${NEXORA_EXTERNAL_DATABASE:-0}" in
+  0) ;;
+  1)
+    if [[ -z "${NEXORA_DATABASE_URL:-}" ]]; then
+      fail "外部数据库模式必须显式配置 NEXORA_DATABASE_URL。"
+      exit 1
+    fi
+    ;;
+  *) fail "NEXORA_EXTERNAL_DATABASE 只能为 0 或 1。"; exit 1 ;;
+esac
+mkdir -p "$RUN_DIR"
 
 echo
 printf '\033[1mNexora\033[0m · 本地开发启动\n'
 echo "────────────────────────────────────────"
 
 # 1. PostgreSQL ---------------------------------------------------------------
-if docker info >/dev/null 2>&1; then
+if [[ "${NEXORA_EXTERNAL_DATABASE:-0}" == "1" ]]; then
+  log "使用已配置的外部 PostgreSQL，跳过 Docker Compose 操作。"
+elif docker info >/dev/null 2>&1; then
   log "启动 PostgreSQL 容器…"
-  docker compose up -d postgres >/dev/null
+  docker compose --env-file "$ENV_FILE" up -d postgres >/dev/null
+  STARTED_POSTGRES=1
   for i in $(seq 1 45); do
-    if docker compose exec -T postgres pg_isready -U "${NEXORA_POSTGRES_USER:-nexora}" -d "${NEXORA_POSTGRES_DB:-nexora}" >/dev/null 2>&1; then
+    if docker compose --env-file "$ENV_FILE" exec -T postgres pg_isready -U "${NEXORA_POSTGRES_USER:-nexora}" -d "${NEXORA_POSTGRES_DB:-nexora}" >/dev/null 2>&1; then
       ok "PostgreSQL 已就绪"
       break
     fi
@@ -100,7 +162,7 @@ if docker info >/dev/null 2>&1; then
     sleep 1
   done
 else
-  warn "Docker 不可用，假设已有 PostgreSQL 在 ${NEXORA_DATABASE_URL:-localhost:5432} 运行。"
+  warn "Docker 不可用，将使用当前配置的 PostgreSQL；请确认目标数据库允许迁移。"
 fi
 
 # 2. Migrations ---------------------------------------------------------------
@@ -112,53 +174,61 @@ else
   exit 1
 fi
 
-# 3. Root account -------------------------------------------------------------
-root_initialized="unknown"
-root_username=""
-if docker info >/dev/null 2>&1; then
-  root_initialized="$(docker compose exec -T postgres psql -U "${NEXORA_POSTGRES_USER:-nexora}" -d "${NEXORA_POSTGRES_DB:-nexora}" -tAc "SELECT count(*) FROM users WHERE system_root" 2>/dev/null | tr -d '[:space:]' || true)"
-  root_username="$(docker compose exec -T postgres psql -U "${NEXORA_POSTGRES_USER:-nexora}" -d "${NEXORA_POSTGRES_DB:-nexora}" -tAc "SELECT username FROM users WHERE system_root LIMIT 1" 2>/dev/null | tr -d '[:space:]' || true)"
-fi
-
-if [[ "$root_initialized" == "0" ]]; then
-  warn "检测到尚未初始化 ROOT 管理员账号。"
-  if [[ -t 0 ]]; then
-    log "即将运行安全初始化流程（不会创建默认密码）。"
-    if (cd apps/api && go run ./cmd/bootstrap -username "${NEXORA_ROOT_USERNAME:-admin}"); then
-      ok "ROOT 管理员已创建"
-      root_initialized="1"
-      root_username="${NEXORA_ROOT_USERNAME:-admin}"
-    else
-      fail "ROOT 初始化失败。稍后可单独执行：make bootstrap"
-      root_initialized="0"
-    fi
-  else
-    warn "当前不是交互终端，跳过 ROOT 初始化。请运行：make bootstrap"
-  fi
-elif [[ "$root_initialized" =~ ^[0-9]+$ ]] && [[ "$root_initialized" -gt 0 ]]; then
-  ok "管理员账号已存在，保留现有账号与密码"
-else
-  warn "无法直接读取账号状态；首次使用请运行 make bootstrap"
-fi
-
-# 4. API ----------------------------------------------------------------------
-if curl -fsS --max-time 2 "$HEALTH_URL" >/dev/null 2>&1; then
-  ok "API 已在 ${API_PORT} 端口运行，复用现有进程"
+# 3. API ----------------------------------------------------------------------
+if curl -fsS --max-time 5 "$READY_URL" >/dev/null 2>&1; then
+  ok "API 已在 ${API_PORT} 端口运行且 /readyz 就绪，复用现有进程"
 else
   if port_in_use "$API_PORT"; then
-    fail "端口 ${API_PORT} 已被其他进程占用。请设置 NEXORA_API_PORT 或停止占用进程。"
+    fail "端口 ${API_PORT} 已被占用且 /readyz 未就绪；请检查现有 API 的数据库/schema 或端口配置，不会启动替代进程。"
     exit 1
   fi
-  log "启动 Go API…"
-  (cd apps/api && exec go run ./cmd/server) >"$API_LOG" 2>&1 &
+  log "构建并启动 Go API…"
+  API_BIN="$(mktemp "$RUN_DIR/api.XXXXXX")"
+  (cd apps/api && go build -o "$API_BIN" ./cmd/server)
+  (cd apps/api && exec "$API_BIN") >"$API_LOG" 2>&1 &
   API_PID=$!
   STARTED_API=1
-  if ! wait_for_http "$HEALTH_URL" 90; then
-    fail "API 未能启动，最近日志："
+  if ! wait_for_http "$READY_URL" 90 "$API_PID"; then
+    fail "API /readyz 未就绪，请检查数据库/schema，最近日志："
     tail -30 "$API_LOG" >&2 || true
     exit 1
   fi
   ok "API 已就绪"
+fi
+
+# 4. Root account -------------------------------------------------------------
+read_root_state() {
+  curl -fsS --max-time 5 "$VITE_DEV_API_TARGET/api/v1/meta" 2>/dev/null | node -e '
+    let body = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", chunk => { body += chunk; });
+    process.stdin.on("end", () => {
+      try {
+        const value = JSON.parse(body).data?.root_initialized;
+        process.stdout.write(value === true ? "true" : value === false ? "false" : "unknown");
+      } catch { process.stdout.write("unknown"); }
+    });
+  ' 2>/dev/null
+}
+
+root_initialized="$(read_root_state)" || root_initialized="unknown"
+if [[ "$root_initialized" == "false" ]]; then
+  warn "检测到尚未初始化 ROOT 管理员账号。"
+  if [[ -t 0 ]]; then
+    log "即将运行安全初始化流程（不会创建默认密码）。"
+    if (cd apps/api && go run ./cmd/bootstrap -username "${NEXORA_ROOT_USERNAME:-admin}"); then
+      root_initialized="$(read_root_state)" || root_initialized="unknown"
+    else
+      fail "ROOT 初始化失败。稍后可用同一环境配置重新运行 ./start。"
+    fi
+  else
+    warn "当前不是交互终端，跳过 ROOT 初始化。请在交互终端用同一环境配置重新运行 ./start。"
+  fi
+elif [[ "$root_initialized" == "true" ]]; then
+  ok "管理员账号已存在，保留现有账号与密码"
+fi
+if [[ "$root_initialized" == "unknown" ]]; then
+  warn "ROOT 状态未知：/api/v1/meta 未返回有效的 root_initialized，未执行初始化。"
 fi
 
 # 5. Web ----------------------------------------------------------------------
@@ -176,10 +246,10 @@ if port_in_use "$WEB_PORT"; then
   fi
 else
   log "启动 Vite 前端…"
-  (cd apps/web && exec pnpm exec vite --host 127.0.0.1 --port "$WEB_PORT") >"$WEB_LOG" 2>&1 &
+  (cd apps/web && exec node node_modules/vite/bin/vite.js --host 127.0.0.1 --port "$WEB_PORT" --strictPort) >"$WEB_LOG" 2>&1 &
   WEB_PID=$!
   STARTED_WEB=1
-  if ! wait_for_http "$WEB_URL" 90; then
+  if ! wait_for_http "$WEB_URL" 90 "$WEB_PID"; then
     fail "前端未能启动，最近日志："
     tail -30 "$WEB_LOG" >&2 || true
     exit 1
@@ -206,13 +276,13 @@ printf '  后端 API   http://127.0.0.1:%s\n' "$API_PORT"
 printf '  运行模式   %s\n' "${NEXORA_ENV:-development}"
 printf '  注册策略   %s\n' "$reg_text"
 echo
-if [[ "$root_initialized" == "0" ]]; then
-  printf '  管理员     \033[33m尚未初始化\033[0m — 重新运行 ./start 或执行 make bootstrap\n'
-else
-  printf '  管理员     已初始化（用户名：%s），请使用你自己设置的密码登录\n' "${root_username:-${NEXORA_ROOT_USERNAME:-admin}}"
-fi
+case "$root_initialized" in
+  true) printf '  管理员     已初始化，请使用你自己设置的账号与密码登录\n' ;;
+  false) printf '  管理员     \033[33m尚未初始化\033[0m — 请在交互终端用同一环境配置重新运行 ./start\n' ;;
+  *) printf '  管理员     \033[33m状态未知\033[0m — 请检查 /api/v1/meta，不能确认已初始化\n' ;;
+esac
 echo
-printf '  首次使用   打开前端 → 登录或注册 → 创建 Team → 创建 Project → 添加任务\n'
+printf '  首次使用   平台管理员创建团队并指定 Owner → 负责人创建项目 → 邀请成员加入 → 添加任务\n'
 printf '  停止服务   \033[1mCtrl+C\033[0m（仅停止本次启动的 API 与前端）\n'
 printf '  日志       .run/api.log · .run/web.log\n'
 echo "────────────────────────────────────────"

@@ -99,7 +99,7 @@ func setup(t *testing.T) *fixture {
 	_, e = f.as.BootstrapRoot(f.ctx, "root", password)
 	must(t, e)
 	f.login("root")
-	tm, e := f.ts.CreateTeam(f.ctx, f.actors["root"], "M3 team", "")
+	tm, e := f.ts.CreateTeam(f.ctx, f.actors["root"], teams.CreateTeamInput{Name: "M3 team"})
 	must(t, e)
 	f.team = tm.ID
 	for _, name := range []string{"lead", "worker", "appraiser", "arbiter", "member", "outsider"} {

@@ -87,6 +87,24 @@ const router = createRouter({
       meta: { title: '项目工作区', requiresAuth: true },
     },
     {
+      path: '/teams/:teamId/projects/:projectId/bonus-rounds',
+      name: 'bonus-rounds',
+      component: () => import('@/views/BonusRoundsView.vue'),
+      meta: { title: '奖金批次', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/projects/:projectId/bonus-rounds/:roundId',
+      name: 'bonus-round-detail',
+      component: () => import('@/views/BonusRoundDetailView.vue'),
+      meta: { title: '奖金批次详情', requiresAuth: true },
+    },
+    {
+      path: '/teams/:teamId/bonus-results',
+      name: 'my-bonus-results',
+      component: () => import('@/views/MyBonusResultsView.vue'),
+      meta: { title: '我的奖金', requiresAuth: true },
+    },
+    {
       path: '/teams/:teamId/contribution-results',
       name: 'my-contribution-results',
       component: () => import('@/views/MyContributionResultsView.vue'),

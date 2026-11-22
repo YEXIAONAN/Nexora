@@ -52,9 +52,27 @@ func dataList(t *testing.T, recorder *httptest.ResponseRecorder) []any {
 	return envelope.Data
 }
 
-func (f *httpAPIFixture) createTeam(cookie *http.Cookie, name string) string {
+func (f *httpAPIFixture) currentUserID(cookie *http.Cookie) string {
 	f.t.Helper()
-	recorder := f.do(http.MethodPost, "/api/v1/teams", map[string]string{"name": name}, cookie, true)
+	recorder := f.do(http.MethodGet, "/api/v1/auth/me", nil, cookie, false)
+	if recorder.Code != http.StatusOK {
+		f.t.Fatalf("read current user status = %d: %s", recorder.Code, recorder.Body.String())
+	}
+	payload := dataMap(f.t, recorder)
+	id, ok := payload["id"].(string)
+	if !ok {
+		f.t.Fatalf("current user payload missing id: %v", payload)
+	}
+	return id
+}
+
+// createTeam provisions a team as the platform administrator and assigns the
+// cookie's account as owner. Ordinary accounts can no longer create teams.
+func (f *httpAPIFixture) createTeam(ownerCookie *http.Cookie, name string) string {
+	f.t.Helper()
+	rootCookie, _ := f.login("root", teamHTTPPassword)
+	recorder := f.do(http.MethodPost, "/api/v1/teams",
+		map[string]any{"name": name, "owner_id": f.currentUserID(ownerCookie)}, rootCookie, true)
 	if recorder.Code != http.StatusCreated {
 		f.t.Fatalf("create team status = %d: %s", recorder.Code, recorder.Body.String())
 	}
@@ -97,6 +115,23 @@ func TestTeamRoutesRequireSessionAndCSRF(t *testing.T) {
 		t.Fatalf("create team without CSRF = %d, want 403", noCSRF.Code)
 	}
 	f.createTeam(cookie, "With CSRF")
+}
+
+func TestCreateTeamRequiresPlatformAdmin(t *testing.T) {
+	f := newAuthAPIFixture(t, config.EnvironmentTest, 100)
+	f.bootstrapRoot("root")
+	f.createUser("alice")
+	aliceCookie, _ := f.login("alice", teamHTTPPassword)
+	recorder := f.do(http.MethodPost, "/api/v1/teams", map[string]string{"name": "Self service"}, aliceCookie, true)
+	if recorder.Code != http.StatusForbidden {
+		t.Fatalf("ordinary account create team = %d, want 403: %s", recorder.Code, recorder.Body.String())
+	}
+	rootCookie, _ := f.login("root", teamHTTPPassword)
+	provisioned := f.do(http.MethodPost, "/api/v1/teams",
+		map[string]any{"name": "Provisioned", "owner_id": f.currentUserID(aliceCookie)}, rootCookie, true)
+	if provisioned.Code != http.StatusCreated {
+		t.Fatalf("admin provisioned team = %d: %s", provisioned.Code, provisioned.Body.String())
+	}
 }
 
 // Security scenario 11 (HTTP layer): swapping the team_id in the URL never
