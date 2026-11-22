@@ -118,7 +118,13 @@ Phase 02 实施计划见 [phase-02-plan.md](phase-02-plan.md)。阶段代号不�
 - 备份恢复演练、部署验证、文档复核。
 - 仅报告真实执行结果。
 
-## 当前交付跟踪（2026-11-19，Phase 06 M1 设计评审完成）
+## Alpha.2 交付范围（2026-11-22）
+
+Phase 07 团队开通与结构化进展，以及 Phase 06 人工奖金完整流程已开发并通过本地真实栈验证，整合见 [PR #15](https://github.com/YEXIAONAN/Nexora/pull/15)；发布状态与实际验证证据以 [CHANGELOG](../../CHANGELOG.md) 为准。自动金额公式、真实付款、生产部署和真人团队试用不在已验收范围内。
+
+## 历史交付检查点（2026-11-19，Phase 06 M1 设计评审完成）
+
+以下保留当时的状态与授权边界，不作为 Alpha.2 当前交付跟踪。
 
 Phase 01–05 工程代码与验收已合并至 `develop`；Phase 05 M6 [PR #9](https://github.com/YEXIAONAN/Nexora/pull/9) Merge Commit 为 `af3802b19749daccafff0589c1d7286782944aab`，合并后 [CI 44522533362](https://github.com/YEXIAONAN/Nexora/actions/runs/44522533362) 四项 Success，具体证据见 [M6 报告](phase-05-m6-report.md)。V1.0/V1.1 尚未正式发布至 `main`，生产部署未验收。
 

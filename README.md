@@ -1,6 +1,6 @@
 # Nexora
 
-> **v0.1.0-alpha.2 · Alpha 预览版（待最终验证，尚未发布）**
+> **v0.1.0-alpha.2 · 内部 Alpha 预览版**
 > 面向内部 Alpha 试用，不建议用于生产环境。生产部署与真人团队试用尚未验收；真人试用待真实用户参与，不阻碍内部 Alpha。
 
 Nexora 是一个面向小型研发团队的 Web 协作应用：管理团队、项目与三级任务，分别记录工作进展、交付验收、贡献核定与奖金方案，保留各环节的独立权限和业务证据。
@@ -11,7 +11,7 @@ Alpha.2 在账号、邀请和项目协作基础上，加入 **Phase 07 团队开
 
 ## 1. 我需要安装什么
 
-`./start` 是 Bash 脚本，适用于 macOS/Linux；Windows 推荐使用 WSL。原生 Windows 可运行 Go 后端，但本仓库没有原生 PowerShell 一键启动脚本。Windows PR #13 尚未在本地合并，真实 Windows CI 尚未运行，不应视为已验证支持。
+`./start` 是 Bash 脚本，适用于 macOS/Linux；Windows 推荐使用 WSL。原生 Windows 可运行 Go 后端，但本仓库没有原生 PowerShell 一键启动脚本。Windows PR #13 已整合，真实 `windows-latest` 的 Go 后端构建和测试已通过，证据见 [CHANGELOG](CHANGELOG.md)；不据此承诺原生 Windows 一键启动或完整生产支持。
 
 | 依赖 | 版本 | 用途 |
 | --- | --- | --- |
@@ -212,7 +212,7 @@ make migrate-up     # 应用迁移
 make e2e            # Playwright 真实栈 E2E（按脚本要求提供测试库）
 ```
 
-以上是待执行的验证命令，不代表 Alpha.2 已通过本地门禁或远程 CI；最终发布记录需关联实际结果。
+本轮本地已通过全量 Go race/集成测试、前端 285 项测试及构建、37 项真实 Chrome E2E、空库交互启动与恢复演练；远程 CI 和发布状态以 [CHANGELOG 实际验证记录](CHANGELOG.md#实际验证记录2026-11-22) 为准，不以本地结果替代 Windows 或发布提交的 CI。
 
 ### 数据库与迁移
 

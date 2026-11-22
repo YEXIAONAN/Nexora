@@ -1,8 +1,8 @@
 # Changelog
 
-## [0.1.0-alpha.2] — 未发布
+## [0.1.0-alpha.2] — 2026-11-22
 
-- 拟定日期：**2026-11-22**；这是候选发布记录，不是已完成发布的日期。最终验证及远程发布完成后，再填写实际发布日期、发布提交、Release 链接和证据。
+- 本节记录版本内容与实际验收；标签对应提交、最终合并与预发布状态以 [GitHub Releases](https://github.com/YEXIAONAN/Nexora/releases) 的远程记录为准。
 - 定位：内部 Alpha 预览；生产部署和真人团队试用尚未验收。真人试用待真实用户参与，不阻碍内部 Alpha。
 - 当前 API 默认版本与 Web 包版本已设为 `0.1.0-alpha.2`；版本号更新不代表标签、镜像或远程 Release 已发布。
 
@@ -31,7 +31,7 @@
 - `NEXORA_EXTERNAL_DATABASE=1` 跳过全部 Compose 操作，但仍迁移指定数据库；运行前必须确认目标与备份。
 - `NEXORA_API_PORT` / `NEXORA_HTTP_ADDR` 端口必须一致；使用 `/readyz` 检查 API 复用条件，ROOT 初始化状态区分 `true` / `false` / 未知，不提供默认密码。
 - 可复用已有服务，`Ctrl+C` 仅停止本次启动的子进程。README 补齐管理员、第二用户、Owner 邀请、lead 成员管理与各奖金角色的操作入口。
-- `./start` 是 Bash 脚本，适用于 macOS/Linux，Windows 推荐 WSL；原生 Windows Go 后端可运行，但没有原生 PowerShell 一键脚本。PR #13 尚未在本地合并，真实 Windows CI 尚未运行。
+- `./start` 是 Bash 脚本，适用于 macOS/Linux，Windows 推荐 WSL；原生 Windows Go 后端可运行，但没有原生 PowerShell 一键脚本。PR #13 已整合，真实 Windows CI 结果见下方验证记录，不将后端构建测试等同于原生 Windows 一键启动。
 
 ### 升级与安全边界
 
@@ -41,15 +41,21 @@
 - 生产必须分离 migration owner 和 app 账号。先按[应用数据库角色](docs/operations/application-database-role.md)执行通用授权，再由 migration owner 执行 `bonus_configure_application_role`；配置后不能批量授予所有函数 EXECUTE。重跑通用授权须重新 configure 并核对有效权限。
 - app 凭据属于可信后端，当前不是 RLS，不保证数据库凭据完全泄露后仍能保持身份隔离；不向终端用户提供数据库凭据。
 
-### 发布前待最终验证
+### 实际验证记录（2026-11-22）
 
-以下均需当前发布候选的实际证据；本记录不把历史阶段报告或代码实现等同于测试通过：
+整合候选 `4067a50507c14b561930ce2b9ecf16e352eaa946` 保留 Phase 06 M1/M2/M3/M4、Windows 修复及 Phase 07 的提交祖先，见 [整合 PR #15](https://github.com/YEXIAONAN/Nexora/pull/15) 与 [Phase 07 PR #16](https://github.com/YEXIAONAN/Nexora/pull/16)。以下是本轮执行结果，不以历史阶段报告代替：
 
-- [ ] 最终发布提交的本地验证门禁、契约/类型检查、后端与前端测试、隔离 PostgreSQL 集成及真实栈 E2E。
-- [ ] 空环境启动、已有服务复用、指定配置文件与外部数据库模式、ROOT 三态和中断清理行为。
-- [ ] v8 升级的数据保留、v9/v10 奖金路由拒绝、v11 生产角色授权与完整奖金流程、独立性/隔离/并发/幂等及发放后禁止修订。
-- [ ] 当前 v11 数据库与附件备份恢复演练、实际构建产物和远程 CI 结果；Windows 相关变更及真实 Windows CI 单独核实。
-- [ ] 实际远程发布完成后填写日期、发布提交与 Release 链接；尚未发生的发布不得标记成功。
+- [x] 隔离 PostgreSQL 17 上的全量 `go test -race -tags integration ./... -count=1`；Go vet/build 通过，Windows 修复涉及的 config/submissions 本地回归通过。
+- [x] 前端 lint、format、typecheck、OpenAPI 生成类型一致性、32 个文件的 285 项 Vitest 测试与生产构建通过。
+- [x] 最终 schema v11 上全部 37 项真实 Chrome E2E 通过；覆盖管理员指定 Owner、成员邀请、lead 权限、三级任务、结构化进展、独立验收、贡献、完整奖金闭环和跨团队拒绝。移动端检查无横向溢出，导航开关与本人结果正常。
+- [x] v8→v11 升级与数据保留、v9/v10 奖金路由关闭、v11 普通应用角色及权限 epoch、临时表触发器攻击防护、独立性、预算、隔离、并发、幂等和发放后禁止修订回归通过；已发布 v1–v8 与 Alpha.1 标签逐字节一致。
+- [x] 指定配置与外部数据库模式的真实 `./start`、已有服务复用、Vite API 代理、已有 ROOT 检测与子进程退出清理通过；不删除数据库。
+- [x] 停止本次验收写入后，v11 数据库与附件恢复到独立新目标；46 张表 / 717 行完整逐行比对、13 个附件 SHA-256 一致。恢复后的 `/readyz` 为 v11，6 项 Alpha.2 浏览器闭环再次通过。原库与私有备份保留且未提交至 Git。
+- [x] secret scan（8 项扫描器回归及源码扫描）、恢复脚本安全测试（4 项）、Bash 语法与 Compose 配置检查通过。
+- [x] 全新空库由真实 `./start` 升级至 v11，终端交互设置并确认随机 ROOT 密码，公开状态由 false 变为 true，所设密码登录成功；再次启动保留账号，退出只停止本次进程，数据库保留。
+- [x] [远程 CI 45006884386](https://github.com/YEXIAONAN/Nexora/actions/runs/45006884386) 六项全绿：Linux 全量集成/race、真实 Windows/macOS 后端构建与测试、前端、密钥扫描、API/Web Docker 镜像构建。Windows 证据仅覆盖原生 Go 后端，不等于 PowerShell 一键脚本或生产部署验收。
+
+发布门禁：通过整合 PR 保留源分支祖先，不重写共享历史；develop/main 的最终提交 CI 通过后才创建 `v0.1.0-alpha.2` 标签和 prerelease。最终 PR、SHA、CI 与截图证据记录在远程 Release，不用候选 CI 代替发布提交核验。
 
 生产部署和真人团队试用仍是独立、未完成的验收事项，不用内部 Alpha 或自动化结果替代。
 

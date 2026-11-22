@@ -1,5 +1,7 @@
 # Phase 06 M1 独立设计评审报告（Proposed，待产品决策）
 
+> 本文记录 M1 历史设计评审；下文的阻塞项、候选算法与测试计划不是 Alpha.2 当前实现或验收结论。后续人工奖金闭环的范围和实际验证见 [CHANGELOG](../../CHANGELOG.md)，不以工程交付替代历史产品签署。
+
 - 日期：2026-11-19（Asia/Shanghai）
 - 分支：`feature/phase06-m1-bonus-design`
 - 基线：`develop` af3802b19749daccafff0589c1d7286782944aab（Phase 05 M6 PR #9 已合并）；Schema v7；`main` 未改动
