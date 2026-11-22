@@ -56,7 +56,7 @@ func setup(t *testing.T) *fixture {
 	a := reqctx.Identity{UserID: u.ID, SystemRoot: true}
 	tr := teams.NewRepository(db.Pool)
 	ts := teams.NewService(tr, as, ar, logger)
-	tm, e := ts.CreateTeam(ctx, a, "Team A", "")
+	tm, e := ts.CreateTeam(ctx, a, teams.CreateTeamInput{Name: "Team A"})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -158,7 +158,8 @@ func TestTaskIsolationAssignmentsAndParticipantAccess(t *testing.T) {
 	_, e = f.svc.Create(f.ctx, f.a, f.team, other.ID, CreateInput{TaskFields: one.TaskFields, ParentID: &one.ID, Weight: 1})
 	wantStatus(t, e, 404)
 	outsider := f.user("outsider", false)
-	b, e := f.ts.CreateTeam(f.ctx, outsider, "Team B", "")
+	outsiderID := outsider.UserID
+	b, e := f.ts.CreateTeam(f.ctx, f.a, teams.CreateTeamInput{Name: "Team B", OwnerID: &outsiderID})
 	if e != nil {
 		t.Fatal(e)
 	}
@@ -538,7 +539,7 @@ func TestDependenciesRejectCrossProjectAndCrossTeamReferences(t *testing.T) {
 	}
 	_, e = f.svc.AddDependency(f.ctx, f.a, f.team, f.p.ID, a.ID, b.ID, a.Version)
 	wantStatus(t, e, 404)
-	team, e := f.ts.CreateTeam(f.ctx, f.a, "Team B", "")
+	team, e := f.ts.CreateTeam(f.ctx, f.a, teams.CreateTeamInput{Name: "Team B"})
 	if e != nil {
 		t.Fatal(e)
 	}

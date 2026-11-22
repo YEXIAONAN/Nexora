@@ -83,10 +83,14 @@ export const useTeamsStore = defineStore('teams', () => {
     if (permissions.value && permissions.value.team_id !== teamId) permissions.value = null
   }
 
-  async function createTeam(name: string, description?: string): Promise<Team> {
-    const team = await apiCreateTeam(name, description)
-    teams.value = [...teams.value, team]
-    selectTeam(team.id)
+  async function createTeam(name: string, description?: string, ownerId?: string): Promise<Team> {
+    const team = await apiCreateTeam(name, description, ownerId)
+    // A platform administrator may provision a team for someone else; only
+    // merge it into "my teams" when the response confirms a role.
+    if (team.my_role) {
+      teams.value = [...teams.value, team]
+      selectTeam(team.id)
+    }
     return team
   }
 

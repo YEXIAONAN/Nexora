@@ -18,6 +18,7 @@ apps/web/coverage/
 # Playwright (E2E artifacts live under .cache/e2e-results)
 playwright-report/
 test-results/
+.screenshots/
 
 # Local tool caches (sandboxed runs)
 .cache/

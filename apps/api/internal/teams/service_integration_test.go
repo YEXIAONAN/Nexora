@@ -70,7 +70,8 @@ func (f *teamsFixture) account(username string) reqctx.Identity {
 
 func (f *teamsFixture) team(actor reqctx.Identity, name string) Team {
 	f.t.Helper()
-	summary, err := f.svc.CreateTeam(f.ctx, actor, name, "")
+	owner := actor.UserID
+	summary, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: name, OwnerID: &owner})
 	if err != nil {
 		f.t.Fatalf("create team %s: %v", name, err)
 	}
@@ -687,26 +688,54 @@ func TestInvitationLifecycleRules(t *testing.T) {
 func TestCreateTeamValidation(t *testing.T) {
 	f := newTeamsFixture(t)
 	alice := f.account("alice")
+	owner := alice.UserID
 
-	_, err := f.svc.CreateTeam(f.ctx, alice, "   ", "")
+	_, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "   ", OwnerID: &owner})
 	assertStatus(t, err, http.StatusUnprocessableEntity)
-	_, err = f.svc.CreateTeam(f.ctx, alice, strings.Repeat("名", 65), "")
+	_, err = f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: strings.Repeat("名", 65), OwnerID: &owner})
 	assertStatus(t, err, http.StatusUnprocessableEntity)
-	_, err = f.svc.CreateTeam(f.ctx, alice, "Valid", strings.Repeat("描", 501))
+	_, err = f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "Valid", Description: strings.Repeat("描", 501), OwnerID: &owner})
 	assertStatus(t, err, http.StatusUnprocessableEntity)
 
-	team, err := f.svc.CreateTeam(f.ctx, alice, strings.Repeat("名", 64), strings.Repeat("描", 500))
+	team, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: strings.Repeat("名", 64), Description: strings.Repeat("描", 500), OwnerID: &owner})
 	if err != nil {
 		t.Fatalf("boundary-length team must be accepted: %v", err)
 	}
 	if got := f.role(team.ID, alice.UserID); got != RoleOwner {
-		t.Errorf("creator role = %s, want owner", got)
+		t.Errorf("assigned owner role = %s, want owner", got)
 	}
-	if team.MyRole != RoleOwner {
-		t.Errorf("create response my_role = %q, want owner", team.MyRole)
+	if team.MyRole != "" {
+		t.Errorf("creating admin who is not the owner should have no team role, got %q", team.MyRole)
 	}
 	if team.CreatedAt.IsZero() || team.UpdatedAt.IsZero() {
 		t.Errorf("create response must carry real timestamps: %+v", team)
+	}
+}
+
+func TestOnlyPlatformAdminsCreateTeams(t *testing.T) {
+	f := newTeamsFixture(t)
+	alice := f.account("alice")
+	owner := alice.UserID
+	if _, err := f.svc.CreateTeam(f.ctx, alice, CreateTeamInput{Name: "Self service", OwnerID: &owner}); err == nil {
+		t.Fatal("ordinary accounts must not create teams")
+	} else {
+		assertStatus(t, err, http.StatusForbidden)
+	}
+	missing := uuid.New()
+	if _, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "No owner", OwnerID: &missing}); err == nil {
+		t.Fatal("a team must have an active owner")
+	} else {
+		assertStatus(t, err, http.StatusUnprocessableEntity)
+	}
+	team, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "Provisioned", OwnerID: &owner})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := f.role(team.ID, alice.UserID); got != RoleOwner {
+		t.Fatalf("assigned owner role = %s", got)
+	}
+	if _, err := f.svc.repo.Membership(f.ctx, f.pool, team.ID, f.root.UserID); err == nil {
+		t.Fatal("the creating platform administrator must not become a team member automatically")
 	}
 }
 
@@ -714,7 +743,7 @@ func TestPlatformAdminListsAllTeams(t *testing.T) {
 	f := newTeamsFixture(t)
 	alice := f.account("alice")
 	bob := f.account("bob")
-	f.team(alice, "Team One")
+	foreign := f.team(alice, "Team One")
 	f.team(bob, "Team Two")
 
 	if err := f.authSvc.GrantPlatformRole(f.ctx, f.root, bob.UserID); err != nil {
@@ -726,13 +755,7 @@ func TestPlatformAdminListsAllTeams(t *testing.T) {
 		t.Fatalf("platform admin list: %v (n=%d)", err, len(teams))
 	}
 	// Platform visibility still grants no team business capability.
-	var foreignTeam uuid.UUID
-	for _, tm := range teams {
-		if tm.CreatedBy != bob.UserID {
-			foreignTeam = tm.ID
-		}
-	}
-	_, err = f.svc.GetTeam(f.ctx, bob, foreignTeam)
+	_, err = f.svc.GetTeam(f.ctx, bob, foreign.ID)
 	assertStatus(t, err, http.StatusNotFound)
 }
 
@@ -856,10 +879,11 @@ func TestTeamNamesAreScopedPerTeamNotGlobal(t *testing.T) {
 	f := newTeamsFixture(t)
 	alice := f.account("alice")
 	bob := f.account("bob")
-	if _, err := f.svc.CreateTeam(f.ctx, alice, "Same Name", ""); err != nil {
+	aliceID, bobID := alice.UserID, bob.UserID
+	if _, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "Same Name", OwnerID: &aliceID}); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := f.svc.CreateTeam(f.ctx, bob, "Same Name", ""); err != nil {
+	if _, err := f.svc.CreateTeam(f.ctx, f.root, CreateTeamInput{Name: "Same Name", OwnerID: &bobID}); err != nil {
 		t.Fatalf("team names must not be globally unique: %v", err)
 	}
 }

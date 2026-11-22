@@ -337,7 +337,7 @@ func TestHTTPContributionRejectedReviewAndCrossTeamIDOR(t *testing.T) {
 	result := f.http("POST", f.base()+"/contributions", "lead", in, 201)
 	// The attacking user has a real valid relationship in the URL's other Team
 	// and Project. UUID substitution must still not reach this accepted source.
-	other, e := f.ts.CreateTeam(f.ctx, f.actors["root"], "Other real team", "")
+	other, e := f.ts.CreateTeam(f.ctx, f.actors["root"], teams.CreateTeamInput{Name: "Other real team"})
 	must(t, e)
 	invitation, e := f.ts.Invite(f.ctx, f.actors["root"], other.ID, "outsider", teams.RoleMember, 1)
 	must(t, e)

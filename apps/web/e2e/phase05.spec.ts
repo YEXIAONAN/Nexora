@@ -7,11 +7,12 @@ import type { components } from '../src/api/schema'
 type S = components['schemas']
 const password = process.env.E2E_ROOT_PASSWORD ?? ''
 const headers = { 'X-Nexora-CSRF': '1' }
+const run = randomUUID().slice(0, 8)
 const people = [
-  { username: 'phase05_worker', name: '成果贡献者', id: '', invitation: '' },
-  { username: 'phase05_reviewer', name: '成果验收人', id: '', invitation: '' },
-  { username: 'phase05_appraiser', name: '独立核定人', id: '', invitation: '' },
-  { username: 'phase05_arbiter', name: '独立裁定人', id: '', invitation: '' },
+  { username: `phase05_worker_${run}`, name: '成果贡献者', id: '', invitation: '' },
+  { username: `phase05_reviewer_${run}`, name: '成果验收人', id: '', invitation: '' },
+  { username: `phase05_appraiser_${run}`, name: '独立核定人', id: '', invitation: '' },
+  { username: `phase05_arbiter_${run}`, name: '独立裁定人', id: '', invitation: '' },
 ]
 let team = '',
   project = '',
@@ -118,7 +119,7 @@ test('real acceptance creates the immutable source for contribution accounting',
   const createdTeam = await data<S['Team']>(
     await page.request.post('/api/v1/teams', {
       headers,
-      data: { name: 'Phase05 真实贡献核算', description: '隔离真实业务 E2E' },
+      data: { name: `Phase05 真实贡献核算 ${run}`, description: '隔离真实业务 E2E' },
     }),
     201,
   )
@@ -190,6 +191,8 @@ test('real acceptance creates the immutable source for contribution accounting',
   await login(page, people[0]!.username)
   await page.goto(projectURL())
   await page.getByRole('button', { name: '开始任务', exact: true }).click()
+  await expect(page.getByRole('status')).toContainText('操作已保存，工作区已更新。')
+  await page.getByRole('button', { name: '交付与验收', exact: true }).click()
   await page.getByLabel('成果说明', { exact: true }).fill('正式验收的实现与证据，不自动计算贡献')
   await page.getByLabel('成果附件', { exact: true }).setInputFiles({
     name: 'contribution-evidence.txt',
@@ -201,6 +204,7 @@ test('real acceptance creates the immutable source for contribution accounting',
   await logout(page)
   await login(page, people[1]!.username)
   await page.goto(projectURL())
+  await page.getByRole('button', { name: '交付与验收', exact: true }).click()
   await page.getByLabel('审核意见', { exact: true }).fill('独立核验成果和实际附件')
   await page.getByRole('button', { name: '通过当前版本', exact: true }).click()
   await expect(page.getByTestId('project-progress')).toHaveText('100.00%')
@@ -629,7 +633,7 @@ test('departed members receive intake acknowledgment without ordinary Team data 
     .locator(`li[data-user-id="${people[0]!.id}"]`)
     .getByRole('button', { name: '移除', exact: true })
     .click()
-  await expect(page.getByRole('status')).toContainText('已移除成员 phase05_worker')
+  await expect(page.getByRole('status')).toContainText(`已移除成员 ${people[0]!.username}`)
   await logout(page)
   await login(page, people[0]!.username)
   expect((await page.request.get(`${base()}/contribution-results/mine`)).status()).toBe(404)
