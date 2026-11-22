@@ -1,4 +1,9 @@
 import { expect, test, type Page } from '@playwright/test'
+import { randomUUID } from 'node:crypto'
+
+const run = randomUUID().slice(0, 8)
+const memberUsername = `phase03_member_${run}`
+const teamName = `Phase03 ZERO_R ${run}`
 
 const password = process.env.E2E_ROOT_PASSWORD ?? ''
 let team = '',
@@ -30,6 +35,29 @@ async function selectTask(page: Page, title: string) {
   await page.getByRole('button', { name: new RegExp(title) }).click()
   await expect(page.getByRole('heading', { name: title, exact: true })).toBeVisible()
 }
+async function saveAction(page: Page, name: string) {
+  await page.getByRole('button', { name, exact: true }).click()
+  // A successful response is followed by a workspace reload and remounted task detail.
+  await expect(page.getByRole('status')).toContainText('操作已保存，工作区已更新。')
+  await expect(page.getByRole('button', { name: '刷新工作区', exact: true })).toBeEnabled()
+}
+async function taskTab(page: Page, name: string) {
+  await page
+    .getByRole('navigation', { name: '任务详情导航', exact: true })
+    .getByRole('button', { name, exact: true })
+    .click()
+}
+async function reportProgress(page: Page, progress: number, summary: string) {
+  await taskTab(page, '工作进展')
+  const slider = page.getByRole('slider', { name: '当前进度', exact: true })
+  await slider.focus()
+  await slider.press('Home')
+  for (let value = 0; value < progress; value++) await slider.press('ArrowRight')
+  await expect(slider).toHaveValue(String(progress))
+  await page.getByLabel('本次工作内容', { exact: true }).fill(summary)
+  await saveAction(page, '提交进展')
+  await expect(page.getByRole('region', { name: '工作进展', exact: true })).toContainText(summary)
+}
 async function createTask(
   page: Page,
   title: string,
@@ -45,7 +73,7 @@ async function createTask(
   const response = page.waitForResponse(
     (r) => r.request().method() === 'POST' && r.url().endsWith('/tasks'),
   )
-  await page.getByRole('button', { name: '保存新任务', exact: true }).click()
+  await saveAction(page, '创建任务')
   const result = await response
   expect(result.status()).toBe(201)
   const id = (await result.json()).data.id as string
@@ -58,10 +86,10 @@ test('real UI: login → select Team → create project', async ({ page }) => {
   await login(page)
   const me = await page.request.get('/api/v1/auth/me')
   root = (await me.json()).data.id
-  await page.fill('#team-name', 'Phase03 ZERO_R')
+  await page.fill('#team-name', teamName)
   await page.fill('#team-description', '项目与任务验收工作区')
   await page.locator('form').first().getByRole('button', { name: '创建团队', exact: true }).click()
-  const row = page.locator('li[data-team-id]', { hasText: 'Phase03 ZERO_R' })
+  const row = page.locator('li[data-team-id]', { hasText: teamName })
   await expect(row).toBeVisible()
   team = (await row.getAttribute('data-team-id')) ?? ''
   await row.getByRole('button', { name: '项目', exact: true }).click()
@@ -80,18 +108,18 @@ test('real API membership → UI project participation', async ({ page }) => {
   await login(page)
   const account = await page.request.post('/api/v1/admin/users', {
     headers: { 'X-Nexora-CSRF': '1' },
-    data: { username: 'phase03_member', display_name: 'Lin', password },
+    data: { username: memberUsername, display_name: 'Lin', password },
   })
   expect(account.status()).toBe(201)
   member = (await account.json()).data.id
   const invitation = await page.request.post(`/api/v1/teams/${team}/invitations`, {
     headers: { 'X-Nexora-CSRF': '1' },
-    data: { username: 'phase03_member', role: 'member' },
+    data: { username: memberUsername, role: 'member' },
   })
   expect(invitation.status()).toBe(201)
   const invitationID = (await invitation.json()).data.id
   await logout(page)
-  await login(page, 'phase03_member')
+  await login(page, memberUsername)
   const accepted = await page.request.post(`/api/v1/invitations/${invitationID}/accept`, {
     headers: { 'X-Nexora-CSRF': '1' },
   })
@@ -102,7 +130,7 @@ test('real API membership → UI project participation', async ({ page }) => {
   await page.getByRole('button', { name: '项目成员', exact: true }).click()
   await page.getByLabel('添加 Team 成员', { exact: true }).selectOption(member)
   await page.getByRole('button', { name: '添加成员', exact: true }).click()
-  await expect(page.getByText('@phase03_member', { exact: true })).toBeVisible()
+  await expect(page.getByText(`@${memberUsername}`, { exact: true })).toBeVisible()
 })
 
 test('real UI: create three levels and assign leaf owner and collaborator', async ({ page }) => {
@@ -113,8 +141,8 @@ test('real UI: create three levels and assign leaf owner and collaborator', asyn
   leaf = await createTask(page, '接口实现', middle, 3, member)
   await selectTask(page, '接口实现')
   await page.getByRole('button', { name: '编辑任务', exact: true }).click()
-  await page.getByLabel('协作者（可多选）', { exact: true }).selectOption(root)
-  await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  await page.getByRole('checkbox', { name: /@root$/, exact: true }).check()
+  await saveAction(page, '保存任务')
   await expect(page.getByRole('heading', { name: '接口实现', exact: true })).toBeVisible()
   const tree = await page.request.get(`/api/v1/teams/${team}/projects/${project}/tasks`)
   const data = (await tree.json()).data
@@ -126,15 +154,14 @@ test('real UI: create three levels and assign leaf owner and collaborator', asyn
 test('real participant: only assigned task is visible and progress is authoritative', async ({
   page,
 }) => {
-  await login(page, 'phase03_member')
+  await login(page, memberUsername)
   await workspace(page)
   await expect(page.getByRole('button', { name: /研发规划/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: /后端服务/ })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '新建任务', exact: true })).toHaveCount(0)
   await selectTask(page, '接口实现')
-  await page.getByRole('button', { name: '开始任务', exact: true }).click()
-  await page.getByLabel('实际进度（0–99%）', { exact: true }).fill('60')
-  await page.getByRole('button', { name: '记录进度', exact: true }).click()
+  await saveAction(page, '开始任务')
+  await reportProgress(page, 60, '完成接口主体实现，继续补齐回归验证')
   await expect(page.getByTestId('project-progress')).toHaveText('60.00%')
   await expect(page.getByRole('button', { name: '编辑任务', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '移除', exact: true })).toHaveCount(0)
@@ -145,13 +172,15 @@ test('real UI: an executing task group accepts new children and moved leaves', a
   await workspace(page)
   await createTask(page, '增量子任务', middle, 2, root)
   await selectTask(page, '增量子任务')
+  await taskTab(page, '设置')
   await page.getByLabel('取消原因', { exact: true }).fill('取消增量计划，保留验证历史')
-  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await saveAction(page, '取消任务')
   await expect(page.getByTestId('project-progress')).toHaveText('60.00%')
   await createTask(page, '待移入计划', '', 2, root)
   await selectTask(page, '待移入计划')
+  await taskTab(page, '设置')
   await page.getByLabel('移动到父任务', { exact: true }).selectOption(middle)
-  await page.getByRole('button', { name: '移动子树', exact: true }).click()
+  await saveAction(page, '移动子树')
   await expect(page.getByRole('heading', { name: '待移入计划', exact: true })).toBeVisible()
   const tree = await page.request.get(`/api/v1/teams/${team}/projects/${project}/tasks`)
   const moved = (await tree.json()).data.tasks.find(
@@ -159,8 +188,9 @@ test('real UI: an executing task group accepts new children and moved leaves', a
   )
   expect(moved.parent_id).toBe(middle)
   expect(moved.depth).toBe(3)
+  await taskTab(page, '设置')
   await page.getByLabel('取消原因', { exact: true }).fill('结束结构验证')
-  await page.getByRole('button', { name: '取消任务', exact: true }).click()
+  await saveAction(page, '取消任务')
   await expect(page.getByTestId('project-progress')).toHaveText('60.00%')
 })
 
@@ -168,22 +198,25 @@ test('real UI: 99% execution caps aggregation at 79% and dependencies block', as
   await login(page)
   await workspace(page)
   await selectTask(page, '接口实现')
-  await page.getByLabel('实际进度（0–99%）', { exact: true }).fill('99')
-  await page.getByRole('button', { name: '记录进度', exact: true }).click()
+  await reportProgress(page, 99, '接口实现与回归已完成，等待正式交付验收')
   await expect(page.getByTestId('project-progress')).toHaveText('79.00%')
   successor = await createTask(page, '集成验证', '', 1, root)
   await selectTask(page, '集成验证')
-  await page.getByLabel('选择前置任务', { exact: true }).selectOption(leaf)
-  await page.getByRole('button', { name: '添加依赖', exact: true }).click()
+  await taskTab(page, '关联')
+  await page.getByLabel('添加前置任务').selectOption(leaf)
+  await saveAction(page, '添加依赖')
+  await taskTab(page, '关联')
   await expect(page.getByText('依赖阻塞', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: '开始任务', exact: true })).toHaveCount(0)
   await expect(page.getByTestId('project-progress')).toHaveText('59.25%')
   await page.getByLabel('忽略原因', { exact: true }).fill('负责人批准并行验证')
-  await page.getByRole('button', { name: '忽略此依赖', exact: true }).click()
-  await expect(page.getByText('已显式忽略', { exact: true })).toBeVisible()
+  await saveAction(page, '忽略')
+  await taskTab(page, '关联')
+  await expect(page.getByText('已忽略', { exact: true })).toBeVisible()
+  await expect(page.getByText(/负责人批准并行验证/)).toBeVisible()
   await expect(page.getByRole('button', { name: '开始任务', exact: true })).toBeVisible()
-  await page.getByRole('button', { name: '开始任务', exact: true }).click()
-  await expect(page.getByLabel('实际进度（0–99%）', { exact: true })).toBeVisible()
+  await saveAction(page, '开始任务')
+  await expect(page.getByRole('slider', { name: '当前进度', exact: true })).toBeVisible()
   await page.screenshot({
     path: '../../.cache/phase03-workspace-desktop.png',
     fullPage: true,
@@ -217,11 +250,11 @@ test('real UI: an inactive collaborator can be explicitly removed and the task s
   await selectTask(page, '接口实现')
   await page.getByRole('button', { name: '编辑任务', exact: true }).click()
   await page.getByLabel('任务负责人', { exact: true }).selectOption(root)
-  await page.getByLabel('协作者（可多选）', { exact: true }).selectOption(member)
+  await page.getByRole('checkbox', { name: `Lin @${memberUsername}`, exact: true }).check()
   const saved = page.waitForResponse(
     (r) => r.request().method() === 'PUT' && r.url().endsWith(`/tasks/${leaf}`),
   )
-  await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  await saveAction(page, '保存任务')
   expect((await saved).status()).toBe(200)
   await expect(page.getByRole('button', { name: '保存任务', exact: true })).toHaveCount(0)
   await expect(page.getByRole('heading', { name: '接口实现', exact: true })).toBeVisible()
@@ -230,13 +263,13 @@ test('real UI: an inactive collaborator can be explicitly removed and the task s
     .locator(`li[data-user-id="${member}"]`)
     .getByRole('button', { name: '移除', exact: true })
     .click()
-  await expect(page.getByRole('status')).toContainText('已移除成员 phase03_member')
+  await expect(page.getByRole('status')).toContainText(`已移除成员 ${memberUsername}`)
   await workspace(page)
   await selectTask(page, '接口实现')
   await page.getByRole('button', { name: '编辑任务', exact: true }).click()
   await page.getByRole('button', { name: '移除失效协作者 Lin', exact: true }).click()
   await page.getByLabel('任务描述', { exact: true }).fill('成员离队后显式修复任务分配')
-  await page.getByRole('button', { name: '保存任务', exact: true }).click()
+  await saveAction(page, '保存任务')
   await expect(page.getByText('成员离队后显式修复任务分配', { exact: true })).toBeVisible()
   const response = await page.request.get(`/api/v1/teams/${team}/projects/${project}/tasks/${leaf}`)
   expect((await response.json()).data.collaborator_ids).toEqual([])
@@ -248,9 +281,10 @@ test('real UI: weight history, milestone plan, edit project and archive read-onl
   await login(page)
   await workspace(page)
   await selectTask(page, '接口实现')
+  await taskTab(page, '设置')
   await page.getByLabel('新权重', { exact: true }).fill('1')
   await page.getByLabel('权重修改原因', { exact: true }).fill('重新估算工作量')
-  await page.getByRole('button', { name: '变更权重并保留快照', exact: true }).click()
+  await saveAction(page, '变更权重并保留快照')
   await expect(page.getByTestId('project-progress')).toHaveText('39.50%')
   await page.getByRole('button', { name: '进度历史', exact: true }).click()
   await expect(page.getByText('weight_changed', { exact: true })).toBeVisible()
@@ -268,7 +302,7 @@ test('real UI: weight history, milestone plan, edit project and archive read-onl
   await expect(page.getByText('已归档 · 只读', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: '任务树', exact: true }).click()
   await selectTask(page, '接口实现')
-  await expect(page.getByRole('button', { name: '记录进度', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: '提交进展', exact: true })).toHaveCount(0)
   await expect(page.getByRole('button', { name: '新建任务', exact: true })).toHaveCount(0)
   const write = await page.request.post(
     `/api/v1/teams/${team}/projects/${project}/tasks/${successor}/transition`,

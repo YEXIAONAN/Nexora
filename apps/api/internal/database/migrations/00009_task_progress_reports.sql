@@ -14,6 +14,7 @@ CREATE TABLE task_progress_reports (
     work_summary text NOT NULL CHECK (length(btrim(work_summary)) BETWEEN 1 AND 4000),
     completed_work text NOT NULL DEFAULT '' CHECK (length(completed_work) <= 4000),
     pending_work text NOT NULL DEFAULT '' CHECK (length(pending_work) <= 4000),
+    blockers text NOT NULL DEFAULT '' CHECK (length(blockers) <= 4000),
     evidence_links jsonb NOT NULL DEFAULT '[]'
         CHECK (jsonb_typeof(evidence_links) = 'array' AND jsonb_array_length(evidence_links) <= 20),
     created_at timestamptz NOT NULL DEFAULT clock_timestamp(),
@@ -27,6 +28,16 @@ CREATE INDEX task_progress_reports_task_idx
 COMMENT ON TABLE task_progress_reports IS
     'Append-only member progress reports; a report is execution evidence, never formal task acceptance.';
 
+-- +goose StatementBegin
+CREATE FUNCTION task_progress_report_immutable() RETURNS trigger AS $$
+BEGIN
+    RAISE EXCEPTION 'progress reports are append-only' USING ERRCODE='23514';
+END;
+$$ LANGUAGE plpgsql;
+-- +goose StatementEnd
+CREATE TRIGGER task_progress_report_immutable BEFORE UPDATE OR DELETE ON task_progress_reports
+    FOR EACH ROW EXECUTE FUNCTION task_progress_report_immutable();
+
 -- +goose Down
 -- Progress reports are business evidence. Refuse to remove them silently.
 -- +goose StatementBegin
@@ -38,3 +49,4 @@ BEGIN
 END $$;
 -- +goose StatementEnd
 DROP TABLE IF EXISTS task_progress_reports;
+DROP FUNCTION task_progress_report_immutable();

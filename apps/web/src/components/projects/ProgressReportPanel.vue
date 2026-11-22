@@ -17,6 +17,7 @@ const form = reactive({
   summary: '',
   completed: '',
   pending: '',
+  blockers: '',
   links: '',
 })
 const localError = ref('')
@@ -28,6 +29,7 @@ watch(
     form.summary = ''
     form.completed = ''
     form.pending = ''
+    form.blockers = ''
     form.links = ''
     localError.value = ''
   },
@@ -64,6 +66,7 @@ function submit() {
     work_summary: form.summary.trim(),
     completed_work: form.completed.trim(),
     pending_work: form.pending.trim(),
+    blockers: form.blockers.trim(),
     evidence_links: links,
     expected_version: props.task.version,
   })
@@ -126,13 +129,23 @@ function actorName(report: ProgressReport): string {
             />
           </label>
           <label class="form-label">
-            待完成 / 遇到的问题（可选）
+            下一步计划（可选）
             <textarea
               v-model="form.pending"
               maxlength="4000"
               rows="2"
               class="form-input"
-              placeholder="剩余工作、风险或需要协助的事项"
+              placeholder="接下来要完成的工作和验证安排"
+            />
+          </label>
+          <label class="form-label sm:col-span-2">
+            当前问题（可选）
+            <textarea
+              v-model="form.blockers"
+              maxlength="4000"
+              rows="2"
+              class="form-input"
+              placeholder="阻碍进展的问题或需要协助的事项"
             />
           </label>
         </div>
@@ -209,7 +222,7 @@ function actorName(report: ProgressReport): string {
           {{ report.work_summary }}
         </p>
         <dl
-          v-if="report.completed_work || report.pending_work"
+          v-if="report.completed_work || report.pending_work || report.blockers"
           class="mt-3 grid gap-3 sm:grid-cols-2"
         >
           <div v-if="report.completed_work">
@@ -219,9 +232,15 @@ function actorName(report: ProgressReport): string {
             </dd>
           </div>
           <div v-if="report.pending_work">
-            <dt class="field-label">待完成 / 问题</dt>
+            <dt class="field-label">下一步计划</dt>
             <dd class="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink-muted">
               {{ report.pending_work }}
+            </dd>
+          </div>
+          <div v-if="report.blockers" class="sm:col-span-2">
+            <dt class="field-label">当前问题</dt>
+            <dd class="mt-1 whitespace-pre-wrap text-xs leading-5 text-ink-muted">
+              {{ report.blockers }}
             </dd>
           </div>
         </dl>

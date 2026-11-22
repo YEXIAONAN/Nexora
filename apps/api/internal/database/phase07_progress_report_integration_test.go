@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pressly/goose/v3"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/testdb"
 )
@@ -20,7 +21,12 @@ func TestTaskProgressReportMigrationUpgradeAndRollback(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	defer cancel()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if err := Up(ctx, f.SQL, logger); err != nil {
+	// Pin this migration test at v9 so Down exercises progress reports, not
+	// the later additive bonus foundation.
+	if err := configure(logger); err != nil {
+		t.Fatal(err)
+	}
+	if err := goose.UpToContext(ctx, f.SQL, migrationsDir, 9); err != nil {
 		t.Fatal(err)
 	}
 	version, err := Version(ctx, f.SQL)
@@ -52,17 +58,22 @@ func TestTaskProgressReportMigrationUpgradeAndRollback(t *testing.T) {
 		t.Fatalf("blocked rollback changed schema to %d", v)
 	}
 
-	exec("DELETE FROM task_progress_reports WHERE team_id=$1", team)
-	if err := Down(ctx, f.SQL, 1, logger); err != nil {
+	// Exercise empty rollback in a separate fixture; never delete append-only
+	// business evidence or disable its guards just to make a rollback succeed.
+	empty := testdb.New(t, os.Getenv)
+	if err := goose.UpToContext(ctx, empty.SQL, migrationsDir, 9); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := Version(ctx, f.SQL); v != 8 {
+	if err := Down(ctx, empty.SQL, 1, logger); err != nil {
+		t.Fatal(err)
+	}
+	if v, _ := Version(ctx, empty.SQL); v != 8 {
 		t.Fatalf("empty rollback left schema at %d", v)
 	}
-	if err := Up(ctx, f.SQL, logger); err != nil {
+	if err := goose.UpToContext(ctx, empty.SQL, migrationsDir, 9); err != nil {
 		t.Fatal(err)
 	}
-	if v, _ := Version(ctx, f.SQL); v != 9 {
+	if v, _ := Version(ctx, empty.SQL); v != 9 {
 		t.Fatalf("reapply left schema at %d", v)
 	}
 }

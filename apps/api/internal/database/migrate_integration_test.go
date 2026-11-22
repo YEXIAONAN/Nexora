@@ -33,8 +33,8 @@ func TestMigrationsApplyIdempotently(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read version: %v", err)
 	}
-	if version < 1 {
-		t.Fatalf("schema version = %d, want at least 1", version)
+	if version != MaximumSupportedSchemaVersion {
+		t.Fatalf("schema version = %d, want %d", version, MaximumSupportedSchemaVersion)
 	}
 
 	if err := Up(ctx, db, logger); err != nil {
@@ -58,6 +58,9 @@ func TestPhase03FreshUpgradeAndRollback(t *testing.T) {
 	f := testdb.New(t, os.Getenv)
 	ctx := context.Background()
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	if err := configure(logger); err != nil {
+		t.Fatal(err)
+	}
 	check := func(want int64) {
 		t.Helper()
 		got, e := Version(ctx, f.SQL)
@@ -191,28 +194,29 @@ func TestPhase05SchemaInstallRollback(t *testing.T) {
 	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 6); e != nil {
 		t.Fatal(e)
 	}
-	if e := Up(ctx, f.SQL, logger); e != nil {
+	// Pin this historical test at v7 even when newer migrations exist.
+	if e := goose.UpToContext(ctx, f.SQL, migrationsDir, 7); e != nil {
 		t.Fatal(e)
 	}
 	v, e := Version(ctx, f.SQL)
-	if e != nil || v != MaximumSupportedSchemaVersion {
+	if e != nil || v != 7 {
 		t.Fatal(v, e)
 	}
 	if e = Down(ctx, f.SQL, 1, logger); e != nil {
 		t.Fatal(e)
 	}
 	v, e = Version(ctx, f.SQL)
-	if e != nil || v != MaximumSupportedSchemaVersion-1 {
+	if e != nil || v != 6 {
 		t.Fatal(v, e)
 	}
 	if e = Down(ctx, f.SQL, 6, logger); e != nil {
 		t.Fatal(e)
 	}
-	if e = Up(ctx, f.SQL, logger); e != nil {
+	if e = goose.UpToContext(ctx, f.SQL, migrationsDir, 7); e != nil {
 		t.Fatal(e)
 	}
 	v, e = Version(ctx, f.SQL)
-	if e != nil || v != MaximumSupportedSchemaVersion {
+	if e != nil || v != 7 {
 		t.Fatal(v, e)
 	}
 }

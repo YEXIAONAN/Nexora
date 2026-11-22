@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pressly/goose/v3"
 
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/audit"
 	"github.com/YEXIAONAN/Nexora/apps/api/internal/auth"
@@ -44,11 +45,19 @@ type fixture struct {
 
 func setup(t *testing.T) *fixture {
 	t.Helper()
+	return setupWithSchema(t, database.MaximumSupportedSchemaVersion)
+}
+
+func setupWithSchema(t *testing.T, version int64) *fixture {
+	t.Helper()
 	db := testdb.New(t, os.Getenv)
 	ctx, cancel := context.WithTimeout(context.Background(), 90*time.Second)
 	t.Cleanup(cancel)
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
-	if e := database.Up(ctx, db.SQL, logger); e != nil {
+	if e := database.Status(ctx, db.SQL, logger); e != nil {
+		t.Fatal(e)
+	}
+	if e := goose.UpToContext(ctx, db.SQL, "migrations", version); e != nil {
 		t.Fatal(e)
 	}
 	ar := audit.NewRepository(db.Pool)
@@ -442,7 +451,7 @@ func TestDefaultLeadCanReviewOtherAuthor(t *testing.T) {
 }
 
 func TestPhase04RollbackRefusesBusinessEvidence(t *testing.T) {
-	f := setup(t)
+	f := setupWithSchema(t, 8)
 	f.submit(f.start(f.create(nil, 1)))
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 	current, e := database.Version(f.ctx, f.sql)

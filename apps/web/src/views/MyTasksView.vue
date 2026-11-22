@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
@@ -82,30 +82,37 @@ function openTask(row: Row): void {
 }
 
 async function load(): Promise<void> {
-  const currentTeamId = teamId.value
-  if (!currentTeamId) {
-    loading.value = false
-    rows.value = []
-    return
-  }
   const current = ++generation
   controller?.abort()
-  controller = new AbortController()
-  loading.value = true
+  controller = null
+  projects.value = []
+  members.value = []
+  rows.value = []
+  projectFilter.value = ''
   error.value = null
+  const currentTeamId = teamId.value
+  loading.value = !!currentTeamId
+  if (!currentTeamId) return
+  controller = new AbortController()
+  const { signal } = controller
   try {
     const [projectList, memberList] = await Promise.all([
-      listProjects(currentTeamId, controller.signal),
-      listTeamMembers(currentTeamId, controller.signal).catch(() => []),
+      listProjects(currentTeamId, signal),
+      listTeamMembers(currentTeamId, signal).catch(() => []),
     ])
     if (current !== generation) return
     projects.value = projectList
     members.value = memberList
     const trees = await Promise.all(
       projectList.map((project) =>
-        getTaskTree(currentTeamId, project.id, controller!.signal)
+        getTaskTree(currentTeamId, project.id, signal)
           .then((tree) => ({ project, tree }))
-          .catch(() => null),
+          .catch((reason: unknown) => {
+            if (reason instanceof ApiError && (reason.status === 403 || reason.status === 404)) {
+              return null
+            }
+            throw reason
+          }),
       ),
     )
     if (current !== generation) return
@@ -136,11 +143,16 @@ async function load(): Promise<void> {
 }
 
 onMounted(async () => {
+  const current = generation
   if (auth.user) await teams.loadTeams(auth.user.id)
-  await load()
+  if (current === generation) await load()
 })
 
 watch(teamId, load)
+onBeforeUnmount(() => {
+  generation++
+  controller?.abort()
+})
 </script>
 
 <template>
@@ -151,9 +163,7 @@ watch(teamId, load)
         <h2 class="page-title mt-1">分配给我的工作</h2>
         <p class="page-subtitle">
           {{
-            teams.currentTeam
-              ? `当前团队：${teams.currentTeam.name}`
-              : '选择或创建一个团队后查看任务。'
+            teams.currentTeam ? `当前团队：${teams.currentTeam.name}` : '加入并选择团队后查看任务。'
           }}
         </p>
       </div>
@@ -219,14 +229,14 @@ watch(teamId, load)
       />
     </div>
 
-    <div v-if="error" class="card border-danger/30">
+    <div v-if="error" role="alert" class="card border-danger/30">
       <div class="card-body flex items-center justify-between">
         <p class="text-sm text-danger">{{ error }}</p>
         <button type="button" class="btn btn-sm" @click="load">重试</button>
       </div>
     </div>
 
-    <div v-if="loading" class="card divide-y divide-line">
+    <div v-else-if="loading" class="card divide-y divide-line">
       <div v-for="i in 5" :key="i" class="h-16 animate-pulse bg-surface-muted/60" />
     </div>
 
@@ -234,7 +244,9 @@ watch(teamId, load)
       <div class="empty-state">
         <AppIcon name="users" :size="22" class="text-ink-subtle" />
         <p class="mt-3 text-sm font-medium text-ink">还没有团队</p>
-        <p class="mt-1 text-xs text-ink-muted">创建或加入团队后，这里会显示分配给你的任务。</p>
+        <p class="mt-1 text-xs text-ink-muted">
+          请联系团队管理员发送邀请，加入团队后，这里会显示分配给你的任务。
+        </p>
         <RouterLink to="/teams" class="btn btn-primary btn-sm mt-4">前往团队</RouterLink>
       </div>
     </div>

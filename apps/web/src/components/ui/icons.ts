@@ -30,6 +30,7 @@ export type IconName =
   | 'target'
   | 'alert'
   | 'sliders'
+  | 'award'
   | 'external'
 
 export const iconPaths: Record<IconName, string[]> = {
@@ -112,4 +113,5 @@ export const iconPaths: Record<IconName, string[]> = {
     'M15 3h6v6',
     'M10 14 21 3',
   ],
+  award: ['M12 15a6 6 0 1 0 0-12 6 6 0 0 0 0 12z', 'M8.2 13.9 7 22l5-3 5 3-1.2-8.1'],
 }

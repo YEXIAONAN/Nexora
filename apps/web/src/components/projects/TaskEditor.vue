@@ -106,7 +106,7 @@ function save() {
       <div class="grid gap-4 sm:grid-cols-2">
         <label class="form-label">
           负责人
-          <select v-model="form.owner" required class="form-input">
+          <select v-model="form.owner" aria-label="任务负责人" required class="form-input">
             <option value="" disabled>请选择</option>
             <option v-for="m in activeMembers" :key="m.user_id" :value="m.user_id">
               {{ m.display_name || m.username }}
@@ -115,7 +115,7 @@ function save() {
         </label>
         <label class="form-label">
           优先级
-          <select v-model="form.priority" class="form-input">
+          <select v-model="form.priority" aria-label="优先级" class="form-input">
             <option value="low">低</option>
             <option value="normal">普通</option>
             <option value="high">高</option>

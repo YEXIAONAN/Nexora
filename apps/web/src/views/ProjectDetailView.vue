@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { ApiError } from '@/api/client'
 import * as projectsAPI from '@/api/projects'
 import * as tasksAPI from '@/api/tasks'
@@ -14,6 +14,7 @@ import { formatDateTime } from '@/utils/format'
 const taskActions = { ...tasksAPI }
 const projectActions = { ...projectsAPI }
 const route = useRoute(),
+  router = useRouter(),
   teams = useTeamsStore()
 const teamId = computed(() => String(route.params.teamId ?? '')),
   projectId = computed(() => String(route.params.projectId ?? ''))
@@ -29,6 +30,7 @@ const tree = ref<tasksAPI.TaskTree | null>(null),
 const loading = ref(false),
   busy = ref(false),
   error = ref(''),
+  success = ref(''),
   confirmed = ref(''),
   historyLoading = ref(false),
   reportsLoading = ref(false)
@@ -111,13 +113,17 @@ async function load() {
     snapshots.value = ss
     confirmed.value = key
     teams.selectTeam(team)
-    if (typeof route.query.task === 'string' && tr.tasks.some((t) => t.id === route.query.task))
-      selectedId.value = route.query.task
-    else if (!tr.tasks.some((t) => t.id === selectedId.value))
-      selectedId.value = tr.tasks[0]?.id ?? ''
+    if (!tr.tasks.some((t) => t.id === selectedId.value))
+      selectedId.value =
+        typeof route.query.task === 'string' && tr.tasks.some((t) => t.id === route.query.task)
+          ? route.query.task
+          : (tr.tasks[0]?.id ?? '')
     if (route.query.createTask === '1' && p.can_manage) {
       tab.value = 'tasks'
       creatingTask.value = true
+      const query = { ...route.query }
+      delete query.createTask
+      await router.replace({ query, hash: route.hash })
     }
   } catch (e) {
     if (gen === generation && key === contextKey.value) {
@@ -140,12 +146,15 @@ async function run(action: (team: string, project: string) => Promise<unknown>) 
     mutation = ++mutationGeneration
   busy.value = true
   error.value = ''
+  success.value = ''
   try {
     await action(team, id)
     if (key !== contextKey.value || mutation !== mutationGeneration) return
     creatingTask.value = false
     editingTask.value = false
     await load()
+    if (key === contextKey.value && mutation === mutationGeneration && ready.value)
+      success.value = '操作已保存，工作区已更新。'
   } catch (e) {
     if (key === contextKey.value && mutation === mutationGeneration) error.value = errorText(e)
   } finally {
@@ -190,7 +199,11 @@ function saveTask(input: tasksAPI.CreateTask) {
     void run((t, id) =>
       tasksAPI.editTask(t, id, task.id, { ...fields, expected_version: task.version }),
     )
-  } else void run((t, id) => tasksAPI.createTask(t, id, input))
+  } else
+    void run(async (t, id) => {
+      const created = await tasksAPI.createTask(t, id, input)
+      if (`${t}/${id}` === contextKey.value) selectedId.value = created.id
+    })
 }
 function saveMilestone() {
   const existing = editingMilestone.value,
@@ -335,12 +348,26 @@ watch(selectedId, () => {
   if (ready.value) void loadTaskReports()
 })
 watch(
+  () => route.query.task,
+  (taskId) => {
+    if (
+      ready.value &&
+      typeof taskId === 'string' &&
+      tree.value?.tasks.some((task) => task.id === taskId)
+    ) {
+      selectedId.value = taskId
+      tab.value = 'tasks'
+    }
+  },
+)
+watch(
   contextKey,
   () => {
     mutationGeneration++
     project.value = null
     tree.value = null
     selectedId.value = ''
+    success.value = ''
     busy.value = false
     tab.value = 'tasks'
     creatingTask.value = false
@@ -357,6 +384,7 @@ onBeforeUnmount(() => {
   generation++
   historyGeneration++
   mutationGeneration++
+  reportsGeneration++
 })
 </script>
 <template>
@@ -370,6 +398,13 @@ onBeforeUnmount(() => {
       class="rounded-lg border border-danger/30 bg-danger-soft p-3 text-sm text-danger"
     >
       {{ error }}
+    </p>
+    <p
+      v-if="success && !error"
+      role="status"
+      class="rounded-lg border border-line bg-surface-muted p-3 text-sm text-ink"
+    >
+      {{ success }}
     </p>
     <p v-if="loading" role="status" class="card p-8 text-sm text-ink-muted">正在加载项目工作区…</p>
     <button v-if="!loading && !ready" class="btn" @click="load">重新加载项目</button>
@@ -411,6 +446,9 @@ onBeforeUnmount(() => {
       <div class="flex flex-wrap gap-2 border-b border-line pb-3">
         <RouterLink class="btn" :to="`/teams/${teamId}/projects/${projectId}/contributions`"
           >贡献核算</RouterLink
+        >
+        <RouterLink class="btn" :to="`/teams/${teamId}/projects/${projectId}/bonus-rounds`"
+          >奖金批次</RouterLink
         >
         <button
           v-for="item in [

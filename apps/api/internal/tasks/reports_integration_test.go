@@ -16,7 +16,8 @@ func reportInput(progress, version int) ProgressReportInput {
 		ReportedProgress: &progress,
 		WorkSummary:      "完成接口联调与错误处理",
 		CompletedWork:    "登录接口、错误提示",
-		PendingWork:      "等待设计走查",
+		PendingWork:      "安排设计走查",
+		Blockers:         "等待联调环境开放",
 		EvidenceLinks:    []string{"https://github.com/YEXIAONAN/Nexora/pull/42", "commit 1a2b3c4"},
 		ExpectedVersion:  version,
 	}
@@ -62,6 +63,12 @@ func TestProgressReportBuildsExecutionHistoryWithoutAcceptance(t *testing.T) {
 	}
 	if reports[0].WorkSummary != "完成接口联调与错误处理" || len(reports[0].EvidenceLinks) != 2 {
 		t.Fatalf("report content lost: %+v", reports[0])
+	}
+	if reports[0].PendingWork != "安排设计走查" || reports[0].Blockers != "等待联调环境开放" {
+		t.Fatalf("report plan and blockers lost: %+v", reports[0])
+	}
+	if _, err := f.pool.Exec(f.ctx, `UPDATE task_progress_reports SET work_summary='overwritten' WHERE id=$1`, reports[0].ID); err == nil {
+		t.Fatal("historical report was overwritten")
 	}
 	if reports[0].ActorID != worker.UserID {
 		t.Fatalf("report actor = %s", reports[0].ActorID)

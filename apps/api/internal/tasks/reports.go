@@ -30,6 +30,7 @@ type ProgressReport struct {
 	WorkSummary      string    `json:"work_summary"`
 	CompletedWork    string    `json:"completed_work"`
 	PendingWork      string    `json:"pending_work"`
+	Blockers         string    `json:"blockers"`
 	EvidenceLinks    []string  `json:"evidence_links"`
 	CreatedAt        time.Time `json:"created_at"`
 }
@@ -41,6 +42,7 @@ type ProgressReportInput struct {
 	WorkSummary      string   `json:"work_summary"`
 	CompletedWork    string   `json:"completed_work"`
 	PendingWork      string   `json:"pending_work"`
+	Blockers         string   `json:"blockers"`
 	EvidenceLinks    []string `json:"evidence_links"`
 	ExpectedVersion  int      `json:"expected_version"`
 }
@@ -84,6 +86,7 @@ func (in *ProgressReportInput) normalize() ([]string, error) {
 	in.WorkSummary = strings.TrimSpace(in.WorkSummary)
 	in.CompletedWork = strings.TrimSpace(in.CompletedWork)
 	in.PendingWork = strings.TrimSpace(in.PendingWork)
+	in.Blockers = strings.TrimSpace(in.Blockers)
 	fields := map[string]string{}
 	if n := utf8.RuneCountInString(in.WorkSummary); n < 1 || n > maxReportTextRunes {
 		fields["work_summary"] = "must be between 1 and 4000 characters"
@@ -93,6 +96,9 @@ func (in *ProgressReportInput) normalize() ([]string, error) {
 	}
 	if utf8.RuneCountInString(in.PendingWork) > maxReportTextRunes {
 		fields["pending_work"] = "must be at most 4000 characters"
+	}
+	if utf8.RuneCountInString(in.Blockers) > maxReportTextRunes {
+		fields["blockers"] = "must be at most 4000 characters"
 	}
 	if len(fields) > 0 {
 		return nil, httpx.ValidationFailed(fields)
@@ -153,6 +159,7 @@ func (s *Service) ReportProgress(ctx context.Context, a reqctx.Identity, teamID,
 			WorkSummary:      in.WorkSummary,
 			CompletedWork:    in.CompletedWork,
 			PendingWork:      in.PendingWork,
+			Blockers:         in.Blockers,
 			EvidenceLinks:    links,
 		}); e != nil {
 			return e
@@ -203,10 +210,10 @@ func (r *Repository) insertReport(ctx context.Context, tx pgx.Tx, report Progres
 	}
 	_, err = tx.Exec(ctx, `
 		INSERT INTO task_progress_reports
-			(id, team_id, project_id, task_id, actor_id, reported_progress, work_summary, completed_work, pending_work, evidence_links)
-		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb)`,
+			(id, team_id, project_id, task_id, actor_id, reported_progress, work_summary, completed_work, pending_work, evidence_links, blockers)
+		VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10::jsonb,$11)`,
 		report.ID, report.TeamID, report.ProjectID, report.TaskID, report.ActorID,
-		report.ReportedProgress, report.WorkSummary, report.CompletedWork, report.PendingWork, links)
+		report.ReportedProgress, report.WorkSummary, report.CompletedWork, report.PendingWork, links, report.Blockers)
 	if err != nil {
 		return fmt.Errorf("insert progress report: %w", err)
 	}
@@ -217,7 +224,7 @@ func (r *Repository) listReports(ctx context.Context, tx pgx.Tx, teamID, pid, ta
 	rows, err := tx.Query(ctx, `
 		SELECT r.id, r.team_id, r.project_id, r.task_id, r.actor_id,
 		       u.display_name, u.username, r.reported_progress,
-		       r.work_summary, r.completed_work, r.pending_work, r.evidence_links, r.created_at
+		       r.work_summary, r.completed_work, r.pending_work, r.evidence_links, r.created_at, r.blockers
 		FROM task_progress_reports r
 		JOIN users u ON u.id = r.actor_id
 		WHERE r.team_id=$1 AND r.project_id=$2 AND r.task_id=$3
@@ -232,7 +239,7 @@ func (r *Repository) listReports(ctx context.Context, tx pgx.Tx, teamID, pid, ta
 		var links []byte
 		if err := rows.Scan(&report.ID, &report.TeamID, &report.ProjectID, &report.TaskID, &report.ActorID,
 			&report.ActorDisplayName, &report.ActorUsername, &report.ReportedProgress,
-			&report.WorkSummary, &report.CompletedWork, &report.PendingWork, &links, &report.CreatedAt); err != nil {
+			&report.WorkSummary, &report.CompletedWork, &report.PendingWork, &links, &report.CreatedAt, &report.Blockers); err != nil {
 			return nil, fmt.Errorf("scan progress report: %w", err)
 		}
 		report.EvidenceLinks = []string{}
