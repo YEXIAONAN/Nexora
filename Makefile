@@ -6,7 +6,7 @@ PSQL_ENV = set -a; [ -f .env ] && source .env; set +a;
 .PHONY: help env dev-db dev-api dev-web migrate-up migrate-down migrate-status bootstrap \
 	test test-api test-web lint lint-api lint-web build build-api build-web \
 	compose-up compose-down compose-logs backup verify-backup secret-scan secret-scan-test api-check e2e verify \
-	script-safety-test
+	source-hygiene source-hygiene-test script-safety-test
 
 help: ## Show available targets
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*?## "}; {printf "  \033[36m%-18s\033[0m %s\n", $$1, $$2}'
@@ -86,6 +86,12 @@ secret-scan-test: ## Check scanner detection, exact exceptions and nonzero failu
 secret-scan: secret-scan-test ## Scan tracked and nonignored new source without printing values
 	infra/scripts/check-secrets.sh
 
+source-hygiene-test: ## Prove the duplicate-source detector fails on fixtures and passes on clean trees
+	python3 -B -m unittest discover -s infra/scripts -p 'test_source_hygiene.py'
+
+source-hygiene: source-hygiene-test ## Reject duplicate '* 2.go' Go sources that break the API build
+	infra/scripts/check-source-hygiene.sh
+
 script-safety-test: ## Prove the destructive restore drill refuses unsafe targets
 	python3 -B -m unittest discover -s infra/scripts -p 'test_m6_split_restore_safety.py'
 
@@ -95,4 +101,4 @@ api-check: ## Check generated API types without writing source files
 e2e: ## Run browser E2E on a disposable stack (devtest PG 5433, never the dev DB)
 	bash infra/scripts/e2e.sh
 
-verify: lint test build api-check secret-scan script-safety-test ## Run the full local verification gate
+verify: lint test build api-check secret-scan source-hygiene script-safety-test ## Run the full local verification gate

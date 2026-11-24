@@ -143,6 +143,14 @@ echo
 printf '\033[1mNexora\033[0m · 本地开发启动\n'
 echo "────────────────────────────────────────"
 
+# 0. Source hygiene -----------------------------------------------------------
+if bash "$ROOT_DIR/infra/scripts/check-source-hygiene.sh"; then
+  ok "源码卫生检查通过"
+else
+  fail "存在重复 Go 源码副本（如 \" 2.go\"），Go 编译会因符号重复声明失败；请核对副本内容后删除并重试。"
+  exit 1
+fi
+
 # 1. PostgreSQL ---------------------------------------------------------------
 if [[ "${NEXORA_EXTERNAL_DATABASE:-0}" == "1" ]]; then
   log "使用已配置的外部 PostgreSQL，跳过 Docker Compose 操作。"
