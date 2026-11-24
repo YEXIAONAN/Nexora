@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.1.0-alpha.3] — 2026-11-24
+
+- 本节记录版本内容与实际验收；标签对应提交、最终合并与预发布状态以 [GitHub Releases](https://github.com/YEXIAONAN/Nexora/releases) 的远程记录为准。
+- 定位：内部 Alpha 预览；生产部署和真人团队试用尚未验收。本版本不含业务功能与数据库迁移变更，为文档、发布治理与版本标识更新。
+- 当前 API 默认版本与 Web 包版本已设为 `0.1.0-alpha.3`。
+
+### 文档与工程改进
+
+- README 由运维长文重构为项目总览：核心功能（团队与项目、任务与交付、贡献与奖金、权限与安全）、技术栈、项目结构、快速开始、权限设计、文档导航与开发验证命令。保留内部 Alpha 与生产未验收声明；移除指向不存在的 `docs/user-guide/` 的失效链接，其余内部链接全部指向真实文件。
+- 归档 [Alpha.2 发布收尾审计报告](docs/development/alpha2-release-cleanup-report.md)：记录 main/develop/tag 一致性核验、17 个已合并 PR 分支的安全清理、隔离干净检出的启动冒烟与 `make verify`/`test`/`build` 结果，及本地重复副本的隔离与处置结论。
+- 工作区遗留的 25 个 Finder 式 `" 2"` 重复文件逐项比对确认：22 份与已跟踪文件字节一致，3 份为旧版本快照；全部排除出版本库并保留在本地。验证期间实测其中 `.go` 副本会触发 Go 重复符号编译错误，因此全部本地验证在移除副本后的干净工作区执行。
+
+### 迁移与兼容性
+
+- 无新增迁移：迁移链保持 **v1–v11**，已发布迁移文件字节不变，无需升级动作；v9/v10 奖金路由仍不挂载，完整奖金功能仍要求 v11。
+
+### 实际验证记录（2026-11-24）
+
+以下为本轮在真实提交上的执行结果，不以历史阶段报告代替：
+
+- [x] 本地 `make verify` 通过：gofmt/go vet、13 个 Go 包单元测试、前端 lint/format/typecheck、OpenAPI 生成类型一致、32 个文件 285 项 Vitest 测试、生产构建、secret scan（扫描器 8 项回归与源码扫描）、恢复脚本安全测试（4 项）。
+- [x] `make e2e` 在一次性测试栈（127.0.0.1:5433 专用库）通过全部 37 项真实 Chrome 回归；不触碰开发数据库。
+- [x] [main CI 45422464429](https://github.com/YEXIAONAN/Nexora/actions/runs/45422464429) 与 [develop CI 45422488136](https://github.com/YEXIAONAN/Nexora/actions/runs/45422488136) 六项 Job 全部成功（Backend Go、Windows/macOS 后端构建测试、前端、Secret scan、Containers）。
+
+发布门禁：develop/main 同步至同一最终提交且两分支 CI 全部通过后，才创建 `v0.1.0-alpha.3` 标签与 prerelease；最终提交对应的 CI 以远程 Release 记录为准，不用先前提交的 CI 代替。
+
+生产部署和真人团队试用仍是独立、未完成的验收事项，不用内部 Alpha 或自动化结果替代。
+
+使用与部署：[README](README.md) · [部署说明](docs/operations/deployment.md)。
+
 ## [0.1.0-alpha.2] — 2026-11-22
 
 - 本节记录版本内容与实际验收；标签对应提交、最终合并与预发布状态以 [GitHub Releases](https://github.com/YEXIAONAN/Nexora/releases) 的远程记录为准。
