@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.1.0-alpha.4] — 2026-11-25
+
+- 本节记录版本内容与实际验收；标签对应提交、最终合并与预发布状态以 [GitHub Releases](https://github.com/YEXIAONAN/Nexora/releases) 的远程记录为准。
+- 定位：内部 Alpha 预览；生产部署和真人团队试用尚未验收。本版本为启动可靠性与工程维护版本，无业务功能代码变更，无新增数据库迁移。
+- 当前 API 默认版本与 Web 包版本已设为 `0.1.0-alpha.4`。
+
+### 修复：重复源码副本导致的启动失败
+
+- 修复 `./start` 在迁移与 API 构建阶段的 Go 编译失败：本地工作区残留 25 个 Finder 式 `" 2"` 副本文件，其中 6 个 `* 2.go` 参与 Go 编译，`internal/database`、`internal/tasks`、`internal/contributions` 出现 `ProgressReport`、`MinimumSupportedSchemaVersion` 等符号重复声明。
+- 25 个副本逐项审计后全部移除：22 份与当前已跟踪文件字节一致；`CHANGELOG 2.md` 与 `ProjectDetailView.spec 2.ts` 分别与 Git 历史版本（`1f2918c`、`f970630`）一致；`MyTasksView 2.vue`、`ProjectDetailView 2.vue` 为无独有内容的旧开发快照（差异均为当前实现的旧弱版本）。移除前已在仓库外完成三重备份（备份目录 tar、`git bundle --all`、系统回收站）。
+
+### 工程改进：启动前源码卫生检查
+
+- 新增 `infra/scripts/check-source-hygiene.sh`：API 构建前检测 `apps/api` 中 `* 2.go` 形态的重复源码，发现即输出文件清单与处理建议并以非零退出终止。Git 忽略状态不能阻止此类文件参与 Go 编译（不以 `.` / `_` 开头的 `.go` 文件都会被编译），检查在迁移与构建之前执行。
+- 接入 `./start` 第 0 步与 `make verify`（新增 `source-hygiene` 目标：先运行 4 项检测器单测，再执行真实扫描），此类启动失败将直接给出可读错误而非编译器重复声明信息。不影响 CI 工作流定义。
+
+### 启动与本地环境（运维验证）
+
+- Docker Compose orphan 容器排查：移除 7 个历史拓扑遗留容器（backend/frontend/storage/db/api/web/migrate），`docker compose up` 孤儿警告消除。旧 `nexora-db-1` 数据卷经隔离副本启动检查，确认为早期 Spring/Flyway 原型残留（6 个测试用户、无当前架构表），与当前 Go/goose schema 无关联；4 个旧数据卷均已 tar 备份至仓库外，且全部保留未删除。
+- 真实开发库验证：v8 → v9 → v10 → v11 前向迁移成功（迁移前已 `pg_dump` 备份）；`./start` 首次启动（迁移、API 就绪、`/readyz` schema v11、ROOT 状态读取、前端启动）与第二次启动（复用既有进程、不重复迁移、不重复初始化管理员、无端口冲突）均通过；既有账号、团队、项目、任务数据完整保留。
+
+### 迁移与兼容性
+
+- 无新增迁移文件：迁移链保持 **v1–v11**，已发布迁移字节不变。仍在 v8 的部署执行 `./start` 或 `make migrate-up` 即可前向升级至 v11（本版本已在真实开发库验证该路径）。
+
+### 实际验证记录（2026-11-25）
+
+以下为本轮在真实执行环境上的结果，不以历史阶段报告代替：
+
+- [x] 本地 `make verify` 通过：gofmt/go vet、13 个 Go 包单元测试、前端 lint/format/typecheck、OpenAPI 生成类型一致、32 个文件 285 项 Vitest 测试、生产构建、secret scan（8 项扫描器回归）、源码卫生检测（4 项检测器回归 + 真实扫描）、恢复脚本安全测试（4 项）。
+- [x] 一次性测试库（127.0.0.1:5433 专用库）上 `go test -race -count=1 -tags=integration ./...` 16 个包全部通过；不触碰开发数据库。
+- [x] `make e2e` 37 项真实 Chrome 回归：首跑 35 通过、1 项登录页偶发失败（登录请求未到达 API，失败时机器处于 race 测试后的高负载状态）、1 项因串行模式跳过；立即复跑 37/37 全部通过。
+- [x] 真实 `./start` 双次启动验证：`/healthz`、`/readyz`（schema v11）、`/api/v1/meta`、前端 HTTP 200 全部通过；业务数据（2 用户 / 1 团队 / 2 项目 / 3 任务）迁移前后一致。
+- [x] 远程 CI：main 与 develop 各六项 Job 全部 `completed / success` 后创建标签与发布（Run 链接以远程 Release 记录为准）。
+
+发布门禁：本地启动、测试与两分支 CI 全部通过后，才创建 `v0.1.0-alpha.4` 标签与 prerelease；最终提交 CI 以远程 Release 记录为准，不用先前提交的 CI 代替。
+
+生产部署和真人团队试用仍是独立、未完成的验收事项，不用内部 Alpha 或自动化结果替代。
+
+使用与部署：[README](README.md) · [部署说明](docs/operations/deployment.md)。
+
 ## [0.1.0-alpha.3] — 2026-11-24
 
 - 本节记录版本内容与实际验收；标签对应提交、最终合并与预发布状态以 [GitHub Releases](https://github.com/YEXIAONAN/Nexora/releases) 的远程记录为准。
