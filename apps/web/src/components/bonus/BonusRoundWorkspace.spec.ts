@@ -8,6 +8,7 @@ import type {
   BonusWorkspace,
 } from '@/api/bonus'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import BonusRoundWorkspace from './BonusRoundWorkspace.vue'
 
 const at = '2026-11-20T02:00:00Z'
@@ -204,6 +205,11 @@ describe('real bonus workspace command wiring', () => {
       await field(wrapper, '授权变更理由', '职责调整')
       await wrapper.find('form').trigger('submit')
       await flushPromises()
+      if (revoke) {
+        expect(writes()).toHaveLength(0)
+        useUiStore().resolveConfirm(true)
+        await flushPromises()
+      }
       expect(writes()[0]!.path).toContain('/grants')
       expect(writes()[0]!.body).toMatchObject({
         expected_revision: 7,

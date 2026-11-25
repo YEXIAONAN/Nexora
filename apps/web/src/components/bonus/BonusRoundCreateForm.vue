@@ -54,9 +54,10 @@ function submit() {
   <section class="card">
     <div class="card-header">
       <div>
-        <h3 class="section-title">创建独立资金批次</h3>
-        <p class="mt-1 text-xs leading-5 text-ink-muted">
-          每个标识代表一笔独立真实资金，不用于复制同一资金。初始预算为 0，由选定金额负责人后续填写。
+        <h3 class="card-title">创建独立奖金批次</h3>
+        <p class="card-description">
+          每个标识代表一笔独立真实资金，不用于复制同一资金。初始预算为
+          0，由选定金额负责人后续填写。创建批次不需要项目归档。
         </p>
       </div>
     </div>
@@ -77,7 +78,7 @@ function submit() {
         <label class="form-label"
           >真实资金来源<textarea
             v-model="fields.funding_source"
-            class="form-input"
+            class="form-textarea"
             rows="2"
             required
             placeholder="说明资金提供方、来源与独立性"
@@ -85,7 +86,7 @@ function submit() {
         </label>
         <div class="grid gap-4 sm:grid-cols-2">
           <label class="form-label"
-            >金额负责人<select v-model="fields.manager_id" class="form-input" required>
+            >金额负责人<select v-model="fields.manager_id" class="form-select" required>
               <option value="">请选择成员</option>
               <option v-for="m in candidates" :key="m.user_id" :value="m.user_id">
                 {{ m.display_name }}
@@ -93,7 +94,7 @@ function submit() {
             </select></label
           >
           <label class="form-label"
-            >独立核定人<select v-model="fields.reviewer_id" class="form-input" required>
+            >独立核定人<select v-model="fields.reviewer_id" class="form-select" required>
               <option value="">请选择另一位成员</option>
               <option
                 v-for="m in candidates.filter((m) => m.user_id !== fields.manager_id)"
@@ -105,16 +106,16 @@ function submit() {
             </select></label
           >
         </div>
-        <p class="text-xs leading-5 text-ink-muted">
+        <p class="text-caption leading-5 text-ink-muted">
           不可自我授权：负责人、核定人互不相同，且均不能是创建者。创建者不会自动获得金额查看或编辑权；核定人还需满足利益冲突检查。
         </p>
-        <p v-if="candidates.length < 2" class="text-xs text-danger">
+        <p v-if="candidates.length < 2" class="text-caption text-danger">
           至少需要两位其他活跃项目成员，请先在项目工作区补齐成员。
         </p>
         <label class="form-label"
-          >创建理由<textarea v-model="fields.reason" class="form-input" rows="2" required />
+          >创建理由<textarea v-model="fields.reason" class="form-textarea" rows="2" required />
         </label>
-        <p v-if="error" role="alert" class="text-sm text-danger">{{ error }}</p>
+        <p v-if="error" role="alert" class="text-caption text-danger">{{ error }}</p>
         <button type="submit" class="btn btn-primary">{{ busy ? '正在创建…' : '创建批次' }}</button>
       </fieldset>
     </form>

@@ -4,6 +4,10 @@ import { RouterLink, useRoute } from 'vue-router'
 import * as bonusAPI from '@/api/bonus'
 import { ApiError } from '@/api/client'
 import { getProject, type Project } from '@/api/projects'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import PageTabs from '@/components/ui/PageTabs.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import BonusRoundWorkspace from '@/components/bonus/BonusRoundWorkspace.vue'
 import {
@@ -106,79 +110,74 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="page-header">
-      <div>
-        <RouterLink
-          :to="{ name: 'bonus-rounds', params: { teamId, projectId } }"
-          class="text-xs text-ink-subtle hover:text-ink"
-          >← 奖金批次列表</RouterLink
-        >
-        <div class="mt-2 flex flex-wrap items-center gap-3">
-          <h2 class="page-title">{{ round?.funding_label || '奖金批次' }}</h2>
-          <StatusBadge
-            v-if="round"
-            :label="bonusRoundStatusLabel(round.status)"
-            :tone="bonusRoundStatusTone(round.status)"
-            dot
-          />
-        </div>
-        <p class="page-subtitle">
-          {{ project?.name || '项目' }}
-          的独立资金批次。人工方案、独立核定、发布与模拟发放分步办理，修订保留原正式结果。
-        </p>
-      </div>
-      <button class="btn" :disabled="loading" @click="load">刷新</button>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="项目资金"
+      :title="round?.funding_label || '奖金批次'"
+      :description="`${project?.name || '项目'}的独立资金批次。人工方案、独立核定、发布与模拟发放分步办理，修订保留原正式结果。`"
+      :crumbs="[
+        { label: '项目', to: `/teams/${teamId}/projects` },
+        { label: project?.name || '项目', to: `/teams/${teamId}/projects/${projectId}` },
+        { label: '奖金管理', to: `/teams/${teamId}/projects/${projectId}/bonus-rounds` },
+        { label: round?.funding_label || '批次详情' },
+      ]"
+    >
+      <template #actions>
+        <StatusBadge
+          v-if="round"
+          :label="bonusRoundStatusLabel(round.status)"
+          :tone="bonusRoundStatusTone(round.status)"
+          dot
+        />
+        <button class="btn" :disabled="loading" @click="load">刷新</button>
+      </template>
+    </PageHeader>
+
+    <PageTabs
+      aria-label="项目导航"
+      :items="[
+        {
+          label: '项目工作区',
+          to: { name: 'project-detail', params: { teamId, projectId } },
+        },
+        {
+          label: '贡献核算',
+          to: `/teams/${teamId}/projects/${projectId}/contributions`,
+        },
+        {
+          label: '奖金管理',
+          to: `/teams/${teamId}/projects/${projectId}/bonus-rounds`,
+        },
+        { label: '批次详情', active: true },
+        { label: '我的奖金', to: `/teams/${teamId}/bonus-results` },
+      ]"
+    />
+
+    <div v-if="notFound" class="card">
+      <AlertBanner
+        tone="warning"
+        title="无法查看该奖金批次"
+        message="该批次可能不存在，或它不属于当前 Team 与 Project，或你不是项目成员。奖金数据不会因平台管理员身份自动开放。"
+      >
+        <template #action>
+          <RouterLink
+            :to="{ name: 'bonus-rounds', params: { teamId, projectId } }"
+            class="btn btn-sm"
+            >返回奖金管理</RouterLink
+          >
+        </template>
+      </AlertBanner>
+    </div>
+    <AlertBanner v-else-if="error" tone="danger" :message="error" />
+    <div v-else-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
     </div>
 
-    <nav
-      class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
-      aria-label="项目导航"
-    >
-      <RouterLink
-        :to="{ name: 'project-detail', params: { teamId, projectId } }"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >项目工作区</RouterLink
-      >
-      <RouterLink
-        :to="{ name: 'bonus-rounds', params: { teamId, projectId } }"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >奖金批次</RouterLink
-      >
-      <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
-        >批次详情</span
-      >
-      <RouterLink
-        :to="{ name: 'my-bonus-results', params: { teamId } }"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >我的奖金</RouterLink
-      >
-    </nav>
-
-    <p v-if="notFound" role="alert" class="card empty-state">
-      <strong class="text-sm text-ink">无法查看该奖金批次</strong>
-      <span class="mt-2 max-w-md text-sm text-ink-muted"
-        >该批次可能不存在，或它不属于当前 Team 与
-        Project，或你不是项目成员。奖金数据不会因平台管理员身份自动开放。</span
-      >
-      <RouterLink
-        :to="{ name: 'bonus-rounds', params: { teamId, projectId } }"
-        class="btn btn-sm mt-4"
-        >返回批次列表</RouterLink
-      >
-    </p>
-    <p v-else-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-else-if="loading" role="status" class="card p-8 text-sm text-ink-muted">
-      正在加载批次详情…
-    </p>
-
     <template v-else-if="ready && round">
-      <section class="grid gap-5 lg:grid-cols-3">
+      <section class="grid grid-cols-1 gap-5 lg:grid-cols-3">
         <div class="card lg:col-span-2">
           <div class="card-header">
-            <h3 class="section-title">批次信息</h3>
+            <h3 class="card-title">批次信息</h3>
             <span class="badge">{{ round.funding_key }}</span>
           </div>
           <dl class="divide-y divide-line">
@@ -208,14 +207,14 @@ onBeforeUnmount(() => {
         </div>
 
         <div class="card">
-          <div class="card-header"><h3 class="section-title">核定状态</h3></div>
+          <div class="card-header"><h3 class="card-title">核定状态</h3></div>
           <div class="space-y-4 px-5 py-4">
             <div>
               <p class="field-label">当前方案版本</p>
               <p class="field-value">
                 {{ round.latest_version ? `v${round.latest_version.version}` : '尚无版本' }}
               </p>
-              <p v-if="round.latest_version" class="mt-1 text-[11px] text-ink-subtle">
+              <p v-if="round.latest_version" class="mt-1 text-meta text-ink-subtle">
                 {{ bonusVersionStatusLabel(round.latest_version.status) }} ·
                 {{ formatDateTime(round.latest_version.created_at) }}
               </p>
@@ -224,14 +223,14 @@ onBeforeUnmount(() => {
               <p class="field-label">正式核定版本</p>
               <p v-if="effectiveVersion" class="field-value">
                 v{{ effectiveVersion.version }}
-                <span class="ml-1 text-[11px] font-normal text-accent-strong">当前有效</span>
+                <span class="ml-1 text-meta font-normal text-accent-strong">当前有效</span>
               </p>
               <p v-else class="field-value text-ink-muted">尚未核定</p>
-              <p v-if="effectiveVersion" class="mt-1 text-[11px] text-ink-subtle">
+              <p v-if="effectiveVersion" class="mt-1 text-meta text-ink-subtle">
                 核定于 {{ formatDateTime(effectiveVersion.confirmed_at) }}
               </p>
             </div>
-            <p class="rounded-lg bg-surface-muted px-3 py-2.5 text-[11px] leading-5 text-ink-muted">
+            <p class="rounded-lg bg-surface-muted px-3 py-2.5 text-meta leading-5 text-ink-muted">
               项目读取权限仅包含元数据。预算与成员金额需显式授权；核定不等于发布或实际付款。
             </p>
           </div>
@@ -251,8 +250,8 @@ onBeforeUnmount(() => {
       <section class="card">
         <div class="card-header">
           <div>
-            <h3 class="section-title">版本历史</h3>
-            <p class="mt-1 text-xs text-ink-muted">
+            <h3 class="card-title">版本历史</h3>
+            <p class="card-description">
               修订会创建新版本，原历史记录不覆盖；新版本独立核定后替换正式版本，另行发布后成员才可查看新结果。
             </p>
           </div>
@@ -289,7 +288,7 @@ onBeforeUnmount(() => {
                             : 'neutral'
                     "
                   />
-                  <span v-if="version.effective" class="text-[11px] font-medium text-accent-strong"
+                  <span v-if="version.effective" class="text-meta font-medium text-accent-strong"
                     >当前有效</span
                   >
                 </div>
@@ -307,10 +306,12 @@ onBeforeUnmount(() => {
             <span v-if="version.effective" class="badge">正式结果来源</span>
           </li>
         </ol>
-        <div v-else class="empty-state">
-          <strong class="text-sm text-ink">尚无方案版本</strong>
-          <p class="mt-2 text-sm text-ink-muted">批次已建立，但还没有提交任何版本方案。</p>
-        </div>
+        <EmptyState
+          v-else
+          icon="layers"
+          title="尚无方案版本"
+          description="批次已建立，但还没有提交任何版本方案。"
+        />
       </section>
     </template>
   </div>

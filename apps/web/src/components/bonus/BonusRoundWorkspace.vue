@@ -2,7 +2,10 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import * as api from '@/api/bonus'
 import { ApiError } from '@/api/client'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
 import { useAuthStore } from '@/stores/auth'
+import { useUiStore } from '@/stores/ui'
 import { formatDateTime } from '@/utils/format'
 import BonusPlanEditor from './BonusPlanEditor.vue'
 import { bonusPlanStatusLabel, formatBonusAmount } from './bonusPresentation'
@@ -10,6 +13,7 @@ import { bonusPlanStatusLabel, formatBonusAmount } from './bonusPresentation'
 const props = defineProps<{ teamId: string; projectId: string; roundId: string }>()
 const emit = defineEmits<{ changed: [] }>()
 const auth = useAuthStore()
+const ui = useUiStore()
 const workspace = ref<api.BonusWorkspace | null>(null)
 const projectWorkspace = ref<api.BonusProjectWorkspace | null>(null)
 const revision = ref<number | null>(null)
@@ -97,6 +101,54 @@ const totals = computed(() => {
 })
 const recorded = computed(() => new Set(workspace.value?.payments.map((p) => p.user_id) ?? []))
 const chosenPayment = computed(() => totals.value.find((m) => m.user_id === paymentUser.value))
+
+type StepState = 'done' | 'current' | 'todo'
+const steps = computed<{ label: string; hint: string; state: StepState }[]>(() => {
+  const current = plan.value
+  const published = Boolean(current?.published_at)
+  const paid = (workspace.value?.payments.length ?? 0) > 0
+  const status = current?.status
+  const reviewDone = status === 'confirmed' || status === 'superseded'
+  const submitted = status === 'pending_review' || reviewDone
+  return [
+    { label: '批次创建', hint: '独立资金来源', state: 'done' },
+    {
+      label: '方案编制',
+      hint: '人工预算与资格',
+      state: reviewDone || submitted ? 'done' : 'current',
+    },
+    {
+      label: '提交核定',
+      hint: '冻结提交版本',
+      state: reviewDone ? 'done' : submitted ? 'current' : 'todo',
+    },
+    {
+      label: '独立核定',
+      hint: '利益冲突检查',
+      state: reviewDone ? (published ? 'done' : 'current') : 'todo',
+    },
+    {
+      label: '发布结果',
+      hint: '成员可查看本人金额',
+      state: published ? 'done' : 'todo',
+    },
+    {
+      label: '模拟发放',
+      hint: '记录非实际转账',
+      state: paid ? 'done' : published ? 'current' : 'todo',
+    },
+  ]
+})
+function stepClass(state: StepState): string {
+  if (state === 'done') return 'border-accent/30 bg-accent-soft text-accent-strong'
+  if (state === 'current') return 'border-warning/30 bg-warning-soft text-warning'
+  return 'border-line bg-surface text-ink-subtle'
+}
+function stepDotClass(state: StepState): string {
+  if (state === 'done') return 'bg-accent text-accent-contrast'
+  if (state === 'current') return 'bg-warning text-white'
+  return 'bg-surface-muted text-ink-subtle'
+}
 function memberName(id: string) {
   return (
     projectWorkspace.value?.members.find((m) => m.user_id === id)?.display_name ??
@@ -240,11 +292,21 @@ function transition() {
     api.transitionBonusRound(teamId, projectId, roundId, selected, command, signal),
   )
 }
-function changeGrant() {
+async function changeGrant() {
   if (!canGrant.value) return
   if (!auth.user?.id || !members.value.some((m) => m.user_id === grant.subject_id)) {
     error.value = '请选择其他活跃项目成员，不可自我授权或撤销自己的授权。'
     return
+  }
+  if (grant.revoke) {
+    const target = members.value.find((m) => m.user_id === grant.subject_id)
+    const ok = await ui.confirm({
+      title: '撤销奖金授权',
+      message: `确认撤销 ${target?.display_name ?? '该成员'} 的「${roleLabels[grant.role_code]}」角色？撤销后其相关操作权限立即失效，历史记录保留。`,
+      confirmLabel: '确认撤销授权',
+      tone: 'danger',
+    })
+    if (!ok) return
   }
   const { teamId, projectId, roundId } = props
   const input = { subject_id: grant.subject_id, role_code: grant.role_code, revoke: grant.revoke }
@@ -295,48 +357,73 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="space-y-4" aria-label="奖金管理工作区">
-    <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="flex flex-wrap items-end justify-between gap-3">
       <div>
-        <h3 class="section-title">奖金方案工作区</h3>
-        <p class="mt-1 text-xs text-ink-muted">金额仅向显式授权成员开放，操作以服务端权限为准。</p>
+        <h3 class="card-title">奖金方案工作区</h3>
+        <p class="card-description">
+          六个步骤分开办理：批次创建 → 方案编制 → 提交核定 → 独立核定 → 发布 →
+          模拟发放。金额仅向显式授权成员开放。
+        </p>
       </div>
       <button class="btn btn-sm" :disabled="loading || busy" @click="refresh">刷新工作区</button>
     </div>
-    <p
-      v-if="success"
-      role="status"
-      class="rounded-lg border border-line bg-surface-muted p-4 text-sm"
-    >
-      {{ success }}
-    </p>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="card p-6 text-sm text-ink-muted">
-      正在加载授权、方案和历史…
-    </p>
+
+    <ol class="grid gap-2 sm:grid-cols-3 xl:grid-cols-6" aria-label="奖金流程步骤">
+      <li
+        v-for="(step, index) in steps"
+        :key="step.label"
+        class="flex items-center gap-2.5 rounded-control border px-3 py-2.5"
+        :class="stepClass(step.state)"
+      >
+        <span
+          class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-micro font-semibold"
+          :class="stepDotClass(step.state)"
+          >{{ index + 1 }}</span
+        >
+        <span class="min-w-0">
+          <span class="block truncate text-meta font-semibold">{{ step.label }}</span>
+          <span class="block truncate text-micro opacity-80">{{ step.hint }}</span>
+        </span>
+      </li>
+    </ol>
+
+    <AlertBanner v-if="success" tone="success" :message="success" />
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <p class="sr-only" role="status">正在加载授权、方案和历史…</p>
+      <div v-for="i in 3" :key="i" class="skeleton h-16" />
+    </div>
     <template v-else>
-      <p v-if="forbidden" role="status" class="card p-4 text-sm leading-6 text-ink-muted">
-        你尚未获得此批次的金额访问授权。批次元数据与版本历史仍可查看，本人正式结果请前往「我的奖金」。创建者和平台管理员不会自动获得金额权限。
-      </p>
-      <p v-if="workspaceError" role="alert" class="card p-4 text-sm text-danger">
-        金额工作区加载失败：{{ workspaceError }}
-      </p>
-      <p v-if="projectError" role="alert" class="card p-4 text-sm text-danger">
-        成员与贡献目录加载失败：{{ projectError }}
-      </p>
-      <p v-if="stale" class="rounded-lg border border-line p-4 text-sm">
-        当前版本不可继续写入，请使用「刷新工作区」获取最新 revision 后重新操作。
-      </p>
+      <AlertBanner
+        v-if="forbidden"
+        tone="info"
+        title="你尚未获得此批次的金额访问授权"
+        message="批次元数据与版本历史仍可查看，本人正式结果请前往「我的奖金」。创建者和平台管理员不会自动获得金额权限；如需编辑方案、核定或发放，请由项目负责人或团队管理员授予对应角色。"
+      />
+      <AlertBanner
+        v-if="workspaceError"
+        tone="danger"
+        :message="`金额工作区加载失败：${workspaceError}`"
+      />
+      <AlertBanner
+        v-if="projectError"
+        tone="danger"
+        :message="`成员与贡献目录加载失败：${projectError}`"
+      />
+      <AlertBanner
+        v-if="stale"
+        tone="warning"
+        message="当前版本不可继续写入，请使用「刷新工作区」获取最新 revision 后重新操作。"
+      />
 
       <template v-if="workspace">
         <section v-if="plan" class="card">
           <div class="card-header">
             <div>
-              <h4 class="section-title">
+              <h4 class="card-title">
                 方案 v{{ plan.version }} · {{ bonusPlanStatusLabel(plan) }}
               </h4>
-              <p class="mt-1 text-xs text-ink-muted">
+              <p class="card-description">
                 {{
                   plan.published_at
                     ? `发布于 ${formatDateTime(plan.published_at)}`
@@ -367,63 +454,67 @@ onBeforeUnmount(() => {
               </p>
             </div>
           </div>
-          <p v-if="plan.rationale" class="border-t border-line px-5 py-3 text-sm text-ink-muted">
+          <p
+            v-if="plan.rationale"
+            class="border-t border-line px-5 py-3 text-caption text-ink-muted"
+          >
             方案理由：{{ plan.rationale }}
           </p>
           <div class="divide-y divide-line border-t border-line">
             <details v-for="source in plan.sources" :key="source.confirmation_id" class="px-5 py-3">
-              <summary class="cursor-pointer text-sm font-medium">
+              <summary class="cursor-pointer text-body font-medium">
                 {{ source.task_title }}
                 <span class="ml-2 font-normal text-ink-muted"
                   >预算 {{ formatBonusAmount(source.source_budget_minor) }} · 余额
                   {{ formatBonusAmount(source.source_unallocated_minor) }}</span
                 >
               </summary>
-              <p class="my-3 text-xs text-ink-muted">来源理由：{{ source.reason }}</p>
-              <div class="overflow-x-auto">
-                <table class="w-full text-left text-xs">
-                  <thead class="text-ink-subtle">
+              <p class="my-3 text-caption text-ink-muted">来源理由：{{ source.reason }}</p>
+              <div class="table-wrap">
+                <table class="data-table min-w-[520px]">
+                  <thead>
                     <tr>
-                      <th class="py-2 pr-3">成员 / 贡献参考</th>
-                      <th class="py-2 pr-3">资格</th>
-                      <th class="py-2 pr-3">人工金额</th>
-                      <th class="py-2">人工理由</th>
+                      <th>成员 / 贡献参考</th>
+                      <th>资格</th>
+                      <th>人工金额</th>
+                      <th>人工理由</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr
-                      v-for="line in source.lines"
-                      :key="line.user_id"
-                      class="border-t border-line"
-                    >
-                      <td class="py-3 pr-3">
-                        {{ line.display_name }} · {{ (line.share_bps / 100).toFixed(2) }}%
-                      </td>
-                      <td class="py-3 pr-3">{{ line.eligible ? '有资格' : '无资格' }}</td>
-                      <td class="whitespace-nowrap py-3 pr-3">
+                    <tr v-for="line in source.lines" :key="line.user_id">
+                      <td>{{ line.display_name }} · {{ (line.share_bps / 100).toFixed(2) }}%</td>
+                      <td>{{ line.eligible ? '有资格' : '无资格' }}</td>
+                      <td class="whitespace-nowrap">
                         {{ formatBonusAmount(line.amount_minor) }}
                       </td>
-                      <td class="min-w-40 py-3">{{ line.reason }}</td>
+                      <td class="min-w-40">{{ line.reason }}</td>
                     </tr>
                   </tbody>
                 </table>
               </div>
             </details>
-            <p v-if="!plan.sources.length" class="p-5 text-sm text-ink-muted">
+            <p v-if="!plan.sources.length" class="p-5 text-caption text-ink-muted">
               暂无贡献来源，请由方案负责人添加已确认贡献并人工分配。
             </p>
           </div>
         </section>
-        <section v-else class="card space-y-3 p-5">
-          <p class="text-sm text-ink-muted">尚无奖金方案，初始预算为 0。</p>
-          <button
-            v-if="workspace.permissions.edit && !editing && !stale"
-            class="btn"
-            :disabled="busy"
-            @click="editing = true"
+        <section v-else class="card">
+          <EmptyState
+            icon="layers"
+            title="尚未编制奖金方案"
+            description="初始预算为 0。金额负责人可基于已正式核定的贡献编制人工方案，不会自动套用贡献比例。"
           >
-            编制人工方案
-          </button>
+            <template v-if="workspace.permissions.edit && !editing && !stale" #action>
+              <button
+                type="button"
+                class="btn btn-primary btn-sm"
+                :disabled="busy"
+                @click="editing = true"
+              >
+                编制人工方案
+              </button>
+            </template>
+          </EmptyState>
         </section>
 
         <BonusPlanEditor
@@ -435,68 +526,73 @@ onBeforeUnmount(() => {
           @save="save"
           @cancel="editing = false"
         />
-        <section v-if="!editing && !stale" class="card p-5">
-          <h4 class="section-title">独立核定与发布</h4>
-          <p class="mt-2 text-xs leading-5 text-ink-muted">
-            草稿 → 待审 → 已核定未发布 →
-            已发布。核定人与方案编辑者、受益人、贡献提案核定人必须独立；后端拒绝时会显示具体原因。
-          </p>
-          <div v-if="actions.length" class="mt-3 flex flex-wrap gap-2">
-            <button
-              v-for="item in actions"
-              :key="item"
-              class="btn btn-sm"
-              :disabled="busy"
-              @click="chooseAction(item)"
-            >
-              {{ actionInfo[item].label }}
-            </button>
+        <section v-if="!editing && !stale" class="card">
+          <div class="card-header">
+            <div>
+              <h4 class="card-title">独立核定与发布</h4>
+              <p class="card-description">
+                草稿 → 待审 → 已核定未发布 →
+                已发布。核定人与方案编辑者、受益人、贡献提案核定人必须独立；后端拒绝时会显示具体原因。
+              </p>
+            </div>
           </div>
-          <p v-else class="mt-3 text-xs text-ink-muted">
-            当前状态下你没有核定或发布操作权限。请由相应显式授权成员处理。
-          </p>
-          <form v-if="action" class="mt-4 border-t border-line pt-4" @submit.prevent="transition">
-            <fieldset :disabled="busy" class="space-y-3">
-              <h5 class="text-sm font-medium">{{ actionInfo[action].label }}</h5>
-              <p class="text-sm leading-6 text-ink-muted">{{ actionInfo[action].explanation }}</p>
-              <label class="form-label"
-                >操作理由<textarea
-                  v-model="actionReason"
-                  class="form-input"
-                  rows="2"
-                  required
-                /></label
-              ><label class="flex items-center gap-2 text-xs text-ink-muted"
-                ><input
-                  v-model="acknowledged"
-                  type="checkbox"
-                  required
-                />我已核对当前方案，了解上述操作影响</label
+          <div class="card-body">
+            <div v-if="actions.length" class="flex flex-wrap gap-2">
+              <button
+                v-for="item in actions"
+                :key="item"
+                class="btn btn-sm"
+                :disabled="busy"
+                @click="chooseAction(item)"
               >
-              <div class="flex gap-2">
-                <button type="submit" class="btn btn-primary">
-                  {{ busy ? '处理中…' : `确认${actionInfo[action].label}` }}</button
-                ><button type="button" class="btn" @click="action = null">取消</button>
-              </div>
-            </fieldset>
-          </form>
+                {{ actionInfo[item].label }}
+              </button>
+            </div>
+            <p v-else class="text-caption text-ink-muted">
+              当前状态下你没有核定或发布操作权限。请由相应显式授权成员处理。
+            </p>
+            <form v-if="action" class="mt-4 border-t border-line pt-4" @submit.prevent="transition">
+              <fieldset :disabled="busy" class="space-y-3">
+                <h5 class="text-body font-medium">{{ actionInfo[action].label }}</h5>
+                <p class="text-caption leading-5 text-ink-muted">
+                  {{ actionInfo[action].explanation }}
+                </p>
+                <label class="form-label"
+                  >操作理由<textarea
+                    v-model="actionReason"
+                    class="form-textarea"
+                    rows="2"
+                    required
+                  /></label
+                ><label class="flex items-center gap-2 text-caption text-ink-muted"
+                  ><input
+                    v-model="acknowledged"
+                    type="checkbox"
+                    class="checkbox"
+                    required
+                  />我已核对当前方案，了解上述操作影响</label
+                >
+                <div class="flex gap-2">
+                  <button type="submit" class="btn btn-primary">
+                    {{ busy ? '处理中…' : `确认${actionInfo[action].label}` }}</button
+                  ><button type="button" class="btn" @click="action = null">取消</button>
+                </div>
+              </fieldset>
+            </form>
+          </div>
         </section>
 
         <section class="card">
           <div class="card-header">
             <div>
-              <h4 class="section-title">成员汇总与模拟发放</h4>
-              <p class="mt-1 text-xs leading-5 text-ink-muted">
+              <h4 class="card-title">成员汇总与模拟发放</h4>
+              <p class="card-description">
                 按当前版本来源逐项整数累加。模拟发放记录非实际转账；发放金额由后端按已发布结果生成，不可手工指定。
               </p>
             </div>
           </div>
           <div v-if="totals.length" class="divide-y divide-line">
-            <div
-              v-for="member in totals"
-              :key="member.user_id"
-              class="flex flex-wrap items-center justify-between gap-3 px-5 py-3 text-sm"
-            >
+            <div v-for="member in totals" :key="member.user_id" class="list-row text-body">
               <div>
                 {{ member.display_name }}
                 <span class="ml-3 font-medium">{{ formatBonusAmount(member.amount) }}</span>
@@ -515,19 +611,24 @@ onBeforeUnmount(() => {
                 @click="choosePayment(member.user_id)"
               >
                 记录 {{ member.display_name }} 的模拟发放</button
-              ><span v-else class="text-xs text-ink-muted">{{
+              ><span v-else class="text-caption text-ink-muted">{{
                 member.amount === 0n ? '金额为零，无需发放' : '未记录模拟发放'
               }}</span>
             </div>
           </div>
-          <p v-else class="p-5 text-sm text-ink-muted">暂无成员金额。</p>
+          <EmptyState
+            v-else
+            icon="award"
+            title="暂无成员金额"
+            description="发布正式结果后，成员金额会按已核定方案显示。"
+          />
           <form
             v-if="paymentUser && chosenPayment && !stale && workspace.permissions.record_payment"
             class="border-t border-line p-5"
             @submit.prevent="pay"
           >
             <fieldset :disabled="busy" class="space-y-3">
-              <h5 class="text-sm font-medium">
+              <h5 class="text-body font-medium">
                 模拟记录：{{ chosenPayment.display_name }} ·
                 {{ formatBonusAmount(chosenPayment.amount) }}
               </h5>
@@ -536,14 +637,15 @@ onBeforeUnmount(() => {
               ><label class="form-label"
                 >记录理由<textarea
                   v-model="paymentReason"
-                  class="form-input"
+                  class="form-textarea"
                   rows="2"
                   required
                 /></label
-              ><label class="flex items-center gap-2 text-xs text-ink-muted"
+              ><label class="flex items-center gap-2 text-caption text-ink-muted"
                 ><input
                   v-model="paymentAcknowledged"
                   type="checkbox"
+                  class="checkbox"
                   required
                 />我确认这仅是模拟发放记录，不执行实际转账</label
               >
@@ -555,16 +657,16 @@ onBeforeUnmount(() => {
             </fieldset>
           </form>
           <details class="border-t border-line p-5">
-            <summary class="cursor-pointer text-sm font-medium">
+            <summary class="cursor-pointer text-body font-medium">
               模拟发放历史（{{ workspace.payments.length }}）
             </summary>
             <ul class="mt-3 divide-y divide-line">
               <li
                 v-for="(payment, i) in workspace.payments"
                 :key="i"
-                class="space-y-1 py-3 text-xs"
+                class="space-y-1 py-3 text-caption"
               >
-                <p>
+                <p class="text-ink">
                   {{ memberName(payment.user_id) }} ·
                   {{ formatBonusAmount(payment.amount_minor) }} ·
                   {{ formatDateTime(payment.recorded_at) }}
@@ -572,7 +674,7 @@ onBeforeUnmount(() => {
                 <p class="break-all text-ink-muted">参考号：{{ payment.reference }}</p>
               </li>
             </ul>
-            <p v-if="!workspace.payments.length" class="mt-3 text-xs text-ink-muted">
+            <p v-if="!workspace.payments.length" class="mt-3 text-caption text-ink-muted">
               尚无模拟发放记录。
             </p>
           </details>
@@ -582,26 +684,27 @@ onBeforeUnmount(() => {
       <section v-if="canGrant || workspace" class="card">
         <div class="card-header">
           <div>
-            <h4 class="section-title">显式授权</h4>
-            <p class="mt-1 text-xs leading-5 text-ink-muted">
+            <h4 class="card-title">显式授权</h4>
+            <p class="card-description">
               每次选择一个角色，同一成员可分别授予多个角色。不自动继承 ROOT
               权限，不可自我授权。核定角色仍需通过独立性检查。
             </p>
           </div>
+          <span class="badge">{{ workspace?.grants.length ?? 0 }} 条</span>
         </div>
         <ul v-if="workspace?.grants.length" class="divide-y divide-line">
           <li
             v-for="g in workspace.grants"
             :key="`${g.subject_id}-${g.role_code}`"
-            class="flex justify-between px-5 py-3 text-sm"
+            class="list-row"
           >
-            <span>{{ g.display_name }}</span
-            ><span class="badge">{{
+            <span class="text-body text-ink">{{ g.display_name }}</span>
+            <span class="badge">{{
               roleLabels[g.role_code as api.BonusGrantRole] ?? g.role_code
             }}</span>
           </li>
         </ul>
-        <p v-else class="px-5 py-4 text-xs text-ink-muted">
+        <p v-else class="px-5 py-4 text-caption text-ink-muted">
           {{
             workspace
               ? '暂无显式授权记录。'
@@ -616,20 +719,20 @@ onBeforeUnmount(() => {
           <fieldset :disabled="busy" class="space-y-4">
             <div class="grid gap-3 sm:grid-cols-3">
               <label class="form-label"
-                >授权成员<select v-model="grant.subject_id" required class="form-input">
+                >授权成员<select v-model="grant.subject_id" required class="form-select">
                   <option value="">请选择其他成员</option>
                   <option v-for="m in members" :key="m.user_id" :value="m.user_id">
                     {{ m.display_name }}
                   </option>
                 </select></label
               ><label class="form-label"
-                >角色<select v-model="grant.role_code" class="form-input">
+                >角色<select v-model="grant.role_code" class="form-select">
                   <option v-for="(label, role) in roleLabels" :key="role" :value="role">
                     {{ label }}
                   </option>
                 </select></label
               ><label class="form-label"
-                >授权操作<select v-model="grant.revoke" class="form-input">
+                >授权操作<select v-model="grant.revoke" class="form-select">
                   <option :value="false">新增授权</option>
                   <option :value="true">撤销授权</option>
                 </select></label
@@ -640,7 +743,7 @@ onBeforeUnmount(() => {
                 v-model="grant.reason"
                 required
                 rows="2"
-                class="form-input"
+                class="form-textarea"
               /></label
             ><button class="btn" type="submit">
               {{ busy ? '处理中…' : grant.revoke ? '确认撤销授权' : '确认新增授权' }}
@@ -651,20 +754,25 @@ onBeforeUnmount(() => {
 
       <section v-if="workspace" class="card">
         <div class="card-header">
-          <h4 class="section-title">操作历史</h4>
+          <div>
+            <h4 class="card-title">操作历史</h4>
+            <p class="card-description">所有奖金命令、金额调整与授权变更均保留理由与操作人。</p>
+          </div>
           <span class="badge">{{ workspace.events.length }} 条</span>
         </div>
         <ol v-if="workspace.events.length" class="divide-y divide-line">
           <li v-for="(event, i) in workspace.events" :key="i" class="space-y-1 px-5 py-3">
-            <div class="flex flex-wrap justify-between gap-2 text-xs">
-              <span class="font-medium"
+            <div class="flex flex-wrap justify-between gap-2 text-caption">
+              <span class="font-medium text-ink"
                 >{{ event.event_type }} · {{ memberName(event.actor_id) }}</span
               ><time class="text-ink-subtle">{{ formatDateTime(event.created_at) }}</time>
             </div>
-            <p class="whitespace-pre-wrap break-words text-sm text-ink-muted">{{ event.reason }}</p>
+            <p class="whitespace-pre-wrap break-words text-caption text-ink-muted">
+              {{ event.reason }}
+            </p>
           </li>
         </ol>
-        <p v-else class="p-5 text-sm text-ink-muted">暂无操作历史。</p>
+        <p v-else class="p-5 text-caption text-ink-muted">暂无操作历史。</p>
       </section>
     </template>
   </section>

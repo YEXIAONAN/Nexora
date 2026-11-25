@@ -75,8 +75,8 @@ function submit() {
   <form class="card" @submit.prevent="submit">
     <div class="card-header">
       <div>
-        <h3 class="section-title">人工方案编辑与预览</h3>
-        <p class="mt-1 text-xs leading-5 text-ink-muted">
+        <h3 class="card-title">人工方案编辑与预览</h3>
+        <p class="card-description">
           所有输入单位为人民币元，最多两位小数。贡献比例仅供参考，不自动生成金额。保存不会提交核定。
         </p>
       </div>
@@ -104,7 +104,7 @@ function submit() {
       </p>
       <div v-if="sourcesAvailable" class="flex flex-wrap items-end gap-2">
         <label class="form-label min-w-0 flex-1"
-          >添加已确认贡献来源<select v-model="selectedSource" class="form-input">
+          >添加已确认贡献来源<select v-model="selectedSource" class="form-select">
             <option value="">请选择来源</option>
             <option
               v-for="source in available"
@@ -116,14 +116,24 @@ function submit() {
           </select></label
         >
         <button type="button" class="btn" @click="addSource">添加来源</button>
-        <p v-if="!available.length" class="w-full text-xs text-ink-muted">
+        <p v-if="!available.length" class="w-full text-caption text-ink-muted">
           没有其他可添加的已确认贡献来源。
         </p>
       </div>
-      <p v-else class="text-xs text-ink-muted">
+      <p v-else class="text-caption text-ink-muted">
         贡献来源目录不可用，仍可编辑已有来源。请刷新或联系项目管理者检查目录权限。
       </p>
-      <p v-if="!sources.length" class="rounded-lg bg-surface-muted p-4 text-sm text-ink-muted">
+      <p
+        v-if="sourcesAvailable && availableSources.length === 0 && sources.length === 0"
+        role="status"
+        class="rounded-control border border-warning/25 bg-warning-soft p-4 text-caption leading-5 text-warning"
+      >
+        当前项目还没有已正式核定的贡献。可以先保存总预算，但在提交独立核定前必须至少添加一个已确认贡献来源；请先在「贡献核算」中完成正式核定。
+      </p>
+      <p
+        v-if="!sources.length"
+        class="rounded-control bg-surface-muted p-4 text-caption text-ink-muted"
+      >
         尚未选择贡献来源。可先保存总预算，再逐项制定人工方案。
       </p>
       <section
@@ -159,7 +169,7 @@ function submit() {
         <p
           v-if="sourceBalance(source) !== null && sourceBalance(source)! < 0n"
           role="alert"
-          class="text-sm text-danger"
+          class="text-caption text-danger"
         >
           成员金额超出来源预算，不能保存。
         </p>
@@ -172,14 +182,15 @@ function submit() {
           class="grid gap-3 border-t border-line pt-3 sm:grid-cols-2 lg:grid-cols-4"
         >
           <div>
-            <p class="text-sm font-medium">{{ line.display_name }}</p>
-            <p class="mt-1 text-xs text-ink-muted">
+            <p class="text-body font-medium">{{ line.display_name }}</p>
+            <p class="mt-1 text-caption text-ink-muted">
               已确认贡献 {{ (line.share_bps / 100).toFixed(2) }}%
             </p>
-            <label class="mt-2 flex items-center gap-2 text-xs"
+            <label class="mt-2 flex items-center gap-2 text-caption"
               ><input
                 v-model="line.eligible"
                 type="checkbox"
+                class="checkbox"
                 @change="line.amount = '0.00'"
               />具备奖金资格</label
             >
@@ -191,7 +202,7 @@ function submit() {
               class="form-input"
               required
           /></label>
-          <p v-else class="text-xs leading-6 text-ink-muted">无资格 · 金额固定 ¥0.00</p>
+          <p v-else class="text-caption leading-6 text-ink-muted">无资格 · 金额固定 ¥0.00</p>
           <label class="form-label sm:col-span-2"
             >资格与金额理由<input
               v-model="line.reason"
@@ -202,9 +213,13 @@ function submit() {
         </div>
       </section>
       <label class="form-label"
-        >本次保存理由<textarea v-model="reason" required rows="2" class="form-input" />
+        >本次保存理由<textarea v-model="reason" required rows="2" class="form-textarea" />
       </label>
-      <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-3 text-sm text-danger">
+      <p
+        v-if="error"
+        role="alert"
+        class="rounded-control bg-danger-soft p-3 text-caption text-danger"
+      >
         {{ error }}
       </p>
       <div class="flex gap-2">
