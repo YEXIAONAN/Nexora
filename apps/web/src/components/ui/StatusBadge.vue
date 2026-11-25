@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 
-type Tone = 'neutral' | 'success' | 'danger' | 'warning'
+type Tone = 'neutral' | 'success' | 'danger' | 'warning' | 'info'
 
 const props = withDefaults(
   defineProps<{
@@ -17,6 +17,7 @@ const toneClasses: Record<Tone, string> = {
   success: 'border-accent/30 bg-accent-soft text-accent-strong',
   danger: 'border-danger/30 bg-danger-soft text-danger',
   warning: 'border-warning/30 bg-warning-soft text-warning',
+  info: 'border-info/25 bg-info-soft text-info',
 }
 
 const dotClasses: Record<Tone, string> = {
@@ -24,6 +25,7 @@ const dotClasses: Record<Tone, string> = {
   success: 'bg-accent',
   danger: 'bg-danger',
   warning: 'bg-warning',
+  info: 'bg-info',
 }
 
 const classes = computed(() => toneClasses[props.tone])

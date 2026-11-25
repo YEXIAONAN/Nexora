@@ -95,7 +95,7 @@ async function submit(): Promise<void> {
         </ul>
       </div>
 
-      <p class="text-[11px] text-ink-subtle">Nexora Alpha · 团队内部试用</p>
+      <p class="text-meta text-ink-subtle">Nexora Alpha · 团队内部试用</p>
     </section>
 
     <section class="flex items-center justify-center px-4 py-10 sm:px-8">
@@ -192,7 +192,7 @@ async function submit(): Promise<void> {
           本环境未开放自助注册，请联系管理员创建账号。
         </p>
 
-        <p class="mt-6 text-center text-[11px] text-ink-subtle">
+        <p class="mt-6 text-center text-meta text-ink-subtle">
           会话通过 HttpOnly Cookie 维持，不存储在浏览器本地存储中。
         </p>
       </div>

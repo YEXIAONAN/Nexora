@@ -31,7 +31,7 @@ const iconClasses: Record<string, string> = {
       <div
         v-for="toast in ui.toasts"
         :key="toast.id"
-        class="pointer-events-auto flex w-full max-w-md items-start gap-2.5 rounded-xl border px-4 py-3 text-sm shadow-lg"
+        class="pointer-events-auto flex w-full max-w-md items-start gap-2.5 rounded-control border px-4 py-3 text-body shadow-pop"
         :class="toneClasses[toast.tone]"
         role="status"
       >

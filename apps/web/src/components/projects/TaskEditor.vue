@@ -124,7 +124,7 @@ function save() {
         </label>
       </div>
 
-      <fieldset class="rounded-xl border border-line">
+      <fieldset class="rounded-control border border-line">
         <legend class="px-2 text-xs font-medium text-ink-muted">协作者（可选，多选）</legend>
         <div class="border-b border-line px-4 py-3">
           <div v-if="form.collaborators.length" class="flex flex-wrap gap-1.5">
@@ -173,7 +173,7 @@ function save() {
                     @change="toggleCollaborator(m.user_id)"
                   />
                   <span class="grow">{{ m.display_name || m.username }}</span>
-                  <span class="text-[11px] text-ink-subtle">@{{ m.username }}</span>
+                  <span class="text-meta text-ink-subtle">@{{ m.username }}</span>
                 </label>
               </li>
             </ul>
@@ -265,7 +265,7 @@ function save() {
           <input v-model="form.end" type="datetime-local" class="form-input" />
         </label>
       </div>
-      <p class="text-[11px] text-ink-subtle">
+      <p class="text-meta text-ink-subtle">
         负责人：{{ ownerName || '未选择' }} · 任务树最多三级，执行中的任务不能转为汇总节点。
       </p>
     </div>

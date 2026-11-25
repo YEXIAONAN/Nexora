@@ -6,6 +6,7 @@ import AppIcon from '@/components/ui/AppIcon.vue'
 import type { IconName } from '@/components/ui/icons'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
+import { teamRoleLabel } from '@/utils/format'
 
 defineProps<{ open: boolean }>()
 defineEmits<{ close: [] }>()
@@ -15,7 +16,6 @@ interface NavItem {
   to: string
   icon: IconName
   match?: string
-  badge?: number
 }
 
 const auth = useAuthStore()
@@ -94,23 +94,23 @@ function isActive(item: NavItem): boolean {
     </Transition>
 
     <aside
-      class="fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col border-r border-line bg-surface transition-transform duration-200 lg:w-[240px] lg:translate-x-0"
+      class="fixed inset-y-0 left-0 z-40 flex w-[268px] flex-col border-r border-line bg-surface transition-transform duration-200 lg:w-[var(--sidebar-width)] lg:translate-x-0"
       :class="open ? 'translate-x-0' : '-translate-x-full'"
       aria-label="主导航"
     >
-      <div class="flex h-14 items-center justify-between px-4">
+      <div class="flex h-[var(--topbar-height)] shrink-0 items-center justify-between px-4">
         <RouterLink to="/" class="flex items-center gap-2.5" @click="$emit('close')">
           <span
-            class="flex h-7 w-7 items-center justify-center rounded-md bg-accent text-xs font-semibold text-white"
+            class="flex h-7 w-7 items-center justify-center rounded-control bg-accent text-meta font-semibold text-accent-contrast"
             aria-hidden="true"
           >
             N
           </span>
-          <span class="text-[15px] font-semibold tracking-tight text-ink">Nexora</span>
+          <span class="text-title font-semibold tracking-tight text-ink">Nexora</span>
         </RouterLink>
         <button
           type="button"
-          class="btn btn-ghost h-8 w-8 px-0 lg:hidden"
+          class="btn btn-ghost btn-icon-sm lg:hidden"
           aria-label="关闭导航"
           @click="$emit('close')"
         >
@@ -118,19 +118,16 @@ function isActive(item: NavItem): boolean {
         </button>
       </div>
 
-      <div class="flex-1 overflow-y-auto px-2.5 pb-4">
-        <p
-          class="px-2.5 pt-3 pb-1 text-[10px] font-semibold tracking-[0.16em] text-ink-subtle uppercase"
-        >
-          工作区
-        </p>
-        <nav class="space-y-0.5">
+      <div class="flex-1 overflow-y-auto px-3 pb-4">
+        <p class="nav-group-label pt-2">工作区</p>
+        <nav class="space-y-0.5" aria-label="工作区导航">
           <RouterLink
             v-for="item in workspace"
             :key="item.to"
             :to="item.to"
             class="nav-item"
             :class="isActive(item) ? 'nav-item-active' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             @click="$emit('close')"
           >
             <AppIcon :name="item.icon" :size="16" />
@@ -138,18 +135,15 @@ function isActive(item: NavItem): boolean {
           </RouterLink>
         </nav>
 
-        <p
-          class="px-2.5 pt-6 pb-1 text-[10px] font-semibold tracking-[0.16em] text-ink-subtle uppercase"
-        >
-          团队协作
-        </p>
-        <nav class="space-y-0.5">
+        <p class="nav-group-label">团队协作</p>
+        <nav class="space-y-0.5" aria-label="团队协作导航">
           <RouterLink
             v-for="item in collaboration"
             :key="item.label"
             :to="item.to"
             class="nav-item"
             :class="isActive(item) ? 'nav-item-active' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             @click="$emit('close')"
           >
             <AppIcon :name="item.icon" :size="16" />
@@ -157,18 +151,15 @@ function isActive(item: NavItem): boolean {
           </RouterLink>
         </nav>
 
-        <p
-          class="px-2.5 pt-6 pb-1 text-[10px] font-semibold tracking-[0.16em] text-ink-subtle uppercase"
-        >
-          管理与设置
-        </p>
-        <nav class="space-y-0.5">
+        <p class="nav-group-label">管理与设置</p>
+        <nav class="space-y-0.5" aria-label="管理导航">
           <RouterLink
             v-for="item in management"
             :key="item.to"
             :to="item.to"
             class="nav-item"
             :class="isActive(item) ? 'nav-item-active' : ''"
+            :aria-current="isActive(item) ? 'page' : undefined"
             @click="$emit('close')"
           >
             <AppIcon :name="item.icon" :size="16" />
@@ -181,6 +172,7 @@ function isActive(item: NavItem): boolean {
               :to="item.to"
               class="nav-item"
               :class="isActive(item) ? 'nav-item-active' : ''"
+              :aria-current="isActive(item) ? 'page' : undefined"
               @click="$emit('close')"
             >
               <AppIcon :name="item.icon" :size="16" />
@@ -190,21 +182,28 @@ function isActive(item: NavItem): boolean {
         </nav>
       </div>
 
-      <div class="border-t border-line px-3 py-3">
+      <div class="shrink-0 border-t border-line px-3 py-3">
         <div
           v-if="teams.currentTeam"
-          class="rounded-lg border border-line bg-surface-muted px-3 py-2.5"
+          class="rounded-control border border-line bg-surface-muted px-3 py-2.5"
         >
-          <p class="text-[10px] font-medium tracking-wider text-ink-subtle uppercase">当前团队</p>
-          <p class="mt-0.5 truncate text-xs font-medium text-ink">{{ teams.currentTeam.name }}</p>
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-micro font-medium tracking-wider text-ink-subtle uppercase">当前团队</p>
+            <span class="text-micro text-ink-subtle">{{
+              teamRoleLabel(teams.currentTeam.my_role)
+            }}</span>
+          </div>
+          <p class="mt-0.5 truncate text-caption font-medium text-ink">
+            {{ teams.currentTeam.name }}
+          </p>
         </div>
         <div
           v-else
-          class="rounded-lg border border-dashed border-line px-3 py-2.5 text-xs text-ink-muted"
+          class="rounded-control border border-dashed border-line px-3 py-2.5 text-caption text-ink-muted"
         >
           尚未加入团队
         </div>
-        <p class="mt-2 px-1 font-mono text-[10px] text-ink-subtle">v{{ appVersion }}</p>
+        <p class="mt-2 px-1 font-mono text-micro text-ink-subtle">v{{ appVersion }}</p>
       </div>
     </aside>
   </div>

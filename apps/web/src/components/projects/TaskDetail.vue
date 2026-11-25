@@ -133,7 +133,7 @@ function submitReport(input: ProgressReportInput) {
     <header class="border-b border-line px-5 py-4">
       <div class="flex flex-wrap items-start justify-between gap-3">
         <div class="min-w-0">
-          <p class="text-[11px] text-ink-subtle">
+          <p class="text-meta text-ink-subtle">
             {{ task.depth }} 级 · {{ task.is_leaf ? '执行任务' : '汇总任务' }}
           </p>
           <h3 class="mt-1 text-lg font-semibold leading-6 text-ink">{{ task.title }}</h3>
@@ -172,14 +172,14 @@ function submitReport(input: ProgressReportInput) {
         <div>
           <dt class="field-label">最近上报进度</dt>
           <dd class="mt-1 text-lg font-semibold text-ink">{{ task.actual_progress }}%</dd>
-          <p class="mt-0.5 text-[11px] text-ink-subtle">执行结果，不等于验收</p>
+          <p class="mt-0.5 text-meta text-ink-subtle">执行结果，不等于验收</p>
         </div>
         <div>
           <dt class="field-label">汇总有效进度</dt>
           <dd class="mt-1 text-lg font-semibold text-ink">
             {{ percent(task.effective_progress_bps) }}
           </dd>
-          <p class="mt-0.5 text-[11px] text-ink-subtle">
+          <p class="mt-0.5 text-meta text-ink-subtle">
             {{ task.is_leaf ? '执行中最高 79%，待验收 80%' : '按后代叶子任务加权汇总' }}
           </p>
         </div>
@@ -197,7 +197,7 @@ function submitReport(input: ProgressReportInput) {
               >{{ acceptance.label }}</span
             >
           </dd>
-          <p class="mt-0.5 text-[11px] text-ink-subtle">正式验收独立于进度上报</p>
+          <p class="mt-0.5 text-meta text-ink-subtle">正式验收独立于进度上报</p>
         </div>
       </dl>
     </div>

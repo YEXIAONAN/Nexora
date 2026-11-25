@@ -76,23 +76,26 @@ async function logout(): Promise<void> {
 
 <template>
   <header
-    class="sticky top-0 z-20 flex h-14 items-center gap-2 border-b border-line bg-canvas/90 px-3 backdrop-blur sm:px-5"
+    class="sticky top-0 z-20 flex h-[var(--topbar-height)] items-center gap-2 border-b border-line bg-canvas/90 px-3 backdrop-blur sm:px-5"
   >
     <button
       type="button"
-      class="btn btn-ghost h-9 w-9 px-0 lg:hidden"
+      class="btn btn-ghost btn-icon lg:hidden"
       aria-label="打开导航"
       @click="$emit('open-nav')"
     >
       <AppIcon name="menu" :size="18" />
     </button>
 
-    <h1 class="truncate text-sm font-semibold text-ink">{{ title }}</h1>
+    <div class="flex min-w-0 items-center gap-2">
+      <h1 class="truncate text-caption font-semibold text-ink">{{ title }}</h1>
+      <span class="hidden text-meta text-ink-subtle xl:inline">/ {{ auth.displayName }}</span>
+    </div>
 
-    <div class="ml-auto flex items-center gap-1.5">
+    <div class="ml-auto flex items-center gap-1">
       <select
         v-if="auth.isAuthenticated && teams.teams.length > 0"
-        class="hidden h-8 max-w-[168px] rounded-lg border border-line bg-surface px-2 text-xs text-ink focus:border-accent focus:outline-none sm:block"
+        class="form-select hidden h-8 w-auto max-w-[180px] py-0 text-caption sm:block"
         :value="teams.currentTeamId ?? ''"
         aria-label="当前团队"
         @change="onTeamChange"
@@ -105,7 +108,7 @@ async function logout(): Promise<void> {
       <RouterLink
         v-if="auth.isAuthenticated"
         to="/invitations"
-        class="btn btn-ghost h-9 w-9 px-0"
+        class="btn btn-ghost btn-icon"
         aria-label="邀请收件箱"
         title="邀请收件箱"
       >
@@ -120,23 +123,23 @@ async function logout(): Promise<void> {
         @click="cycleTheme"
       >
         <AppIcon :name="themeIcon" :size="16" />
-        <span class="hidden text-xs xl:inline">{{ themeLabel }}</span>
+        <span class="hidden text-meta xl:inline">{{ themeLabel }}</span>
       </button>
 
       <div v-if="auth.isAuthenticated" ref="userMenuRef" class="relative hidden sm:block">
         <button
           type="button"
-          class="flex items-center gap-2 rounded-lg border border-transparent py-1 pr-2 pl-1.5 transition-colors hover:border-line hover:bg-surface-muted"
+          class="flex h-9 items-center gap-2 rounded-control border border-transparent py-1 pr-2 pl-1.5 transition-colors hover:border-line hover:bg-surface-muted"
           aria-label="用户菜单"
           :aria-expanded="userMenuOpen"
           @click.stop="userMenuOpen = !userMenuOpen"
         >
-          <span class="avatar h-7 w-7 text-[11px]" aria-hidden="true">{{ initials }}</span>
+          <span class="avatar h-7 w-7 text-meta" aria-hidden="true">{{ initials }}</span>
           <div class="leading-tight">
-            <p class="max-w-[120px] truncate text-xs font-medium text-ink">
+            <p class="max-w-[120px] truncate text-meta font-medium text-ink">
               {{ auth.displayName }}
             </p>
-            <p class="text-[10px] text-ink-subtle">
+            <p class="text-micro text-ink-subtle">
               {{
                 auth.user?.system_root ? 'ROOT' : auth.user?.platform_admin ? '平台管理员' : '成员'
               }}
@@ -145,19 +148,15 @@ async function logout(): Promise<void> {
           <AppIcon name="chevron-down" :size="13" class="text-ink-subtle" />
         </button>
 
-        <div
-          v-if="userMenuOpen"
-          class="absolute right-0 mt-1.5 w-52 overflow-hidden rounded-lg border border-line bg-surface shadow-lg"
-          role="menu"
-        >
+        <div v-if="userMenuOpen" class="dropdown w-52" role="menu">
           <div class="border-b border-line px-3 py-2.5">
-            <p class="truncate text-xs font-medium text-ink">{{ auth.displayName }}</p>
-            <p class="truncate font-mono text-[11px] text-ink-subtle">@{{ auth.user?.username }}</p>
+            <p class="truncate text-caption font-medium text-ink">{{ auth.displayName }}</p>
+            <p class="truncate font-mono text-meta text-ink-subtle">@{{ auth.user?.username }}</p>
           </div>
           <div class="p-1">
             <RouterLink
               to="/settings"
-              class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-muted hover:text-ink"
+              class="dropdown-item"
               role="menuitem"
               @click="userMenuOpen = false"
             >
@@ -166,7 +165,7 @@ async function logout(): Promise<void> {
             </RouterLink>
             <RouterLink
               to="/invitations"
-              class="flex items-center gap-2 rounded-md px-2.5 py-1.5 text-xs text-ink-muted hover:bg-surface-muted hover:text-ink"
+              class="dropdown-item"
               role="menuitem"
               @click="userMenuOpen = false"
             >
@@ -175,7 +174,7 @@ async function logout(): Promise<void> {
             </RouterLink>
             <button
               type="button"
-              class="flex w-full items-center gap-2 rounded-md px-2.5 py-1.5 text-left text-xs text-danger hover:bg-danger-soft"
+              class="dropdown-item text-danger hover:bg-danger-soft hover:text-danger"
               role="menuitem"
               @click="logout"
             >
@@ -189,13 +188,12 @@ async function logout(): Promise<void> {
       <button
         v-if="auth.isAuthenticated"
         type="button"
-        class="btn btn-ghost h-9 gap-1.5 px-2.5"
+        class="btn btn-ghost btn-icon"
         aria-label="退出登录"
         title="退出登录"
         @click="logout"
       >
         <AppIcon name="logout" :size="16" />
-        <span class="hidden text-xs lg:inline">退出</span>
       </button>
     </div>
   </header>

@@ -83,10 +83,10 @@ function actorName(report: ProgressReport): string {
 
 <template>
   <section class="space-y-4" aria-label="工作进展">
-    <div v-if="canReport" class="rounded-xl border border-line bg-surface p-4">
+    <div v-if="canReport" class="rounded-control border border-line bg-surface p-4">
       <div class="flex flex-wrap items-baseline justify-between gap-2">
         <h4 class="text-sm font-semibold text-ink">上报本次进展</h4>
-        <p class="text-[11px] text-ink-subtle">上报进展不会提交验收，也不会自动完成任务。</p>
+        <p class="text-meta text-ink-subtle">上报进展不会提交验收，也不会自动完成任务。</p>
       </div>
       <form class="mt-3 space-y-3" @submit.prevent="submit">
         <p v-if="localError" role="alert" class="text-xs text-danger">{{ localError }}</p>
@@ -159,7 +159,7 @@ function actorName(report: ProgressReport): string {
           />
         </label>
         <div class="flex flex-wrap items-center justify-between gap-2">
-          <p class="text-[11px] text-ink-subtle">
+          <p class="text-meta text-ink-subtle">
             文件附件暂未开放；请使用链接或 Commit 引用交付证据。
           </p>
           <button class="btn btn-primary btn-sm" type="submit" :disabled="busy">
@@ -171,7 +171,7 @@ function actorName(report: ProgressReport): string {
 
     <div
       v-else
-      class="rounded-xl border border-dashed border-line bg-surface-muted px-4 py-3 text-xs leading-5 text-ink-muted"
+      class="rounded-control border border-dashed border-line bg-surface-muted px-4 py-3 text-caption leading-5 text-ink-muted"
     >
       <template v-if="task.status === 'pending'">
         任务尚未开始。负责人或协作者点击「开始任务」后即可上报进展。
@@ -206,14 +206,14 @@ function actorName(report: ProgressReport): string {
       <li
         v-for="report in reports"
         :key="report.id"
-        class="rounded-xl border border-line bg-surface p-4"
+        class="rounded-control border border-line bg-surface p-4"
       >
         <div class="flex flex-wrap items-start justify-between gap-2">
           <div class="flex min-w-0 items-center gap-2.5">
-            <span class="avatar h-7 w-7 text-[11px]">{{ actorName(report).slice(0, 1) }}</span>
+            <span class="avatar h-7 w-7 text-meta">{{ actorName(report).slice(0, 1) }}</span>
             <div class="min-w-0">
               <p class="truncate text-sm font-medium text-ink">{{ actorName(report) }}</p>
-              <p class="text-[11px] text-ink-subtle">{{ formatDateTime(report.created_at) }}</p>
+              <p class="text-meta text-ink-subtle">{{ formatDateTime(report.created_at) }}</p>
             </div>
           </div>
           <span class="badge">上报 {{ report.reported_progress }}%</span>
@@ -261,7 +261,7 @@ function actorName(report: ProgressReport): string {
     </ol>
     <p
       v-else
-      class="rounded-xl border border-dashed border-line px-4 py-6 text-center text-xs text-ink-muted"
+      class="rounded-control border border-dashed border-line px-4 py-6 text-center text-caption text-ink-muted"
     >
       还没有进展记录。第一次上报后，这里会保留每次工作说明和交付引用。
     </p>

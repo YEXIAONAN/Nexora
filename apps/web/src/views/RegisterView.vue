@@ -95,7 +95,7 @@ async function submit(): Promise<void> {
           注册后可接受团队管理员发出的邀请。团队由平台管理员创建并指定负责人，不同团队之间的数据相互隔离。
         </p>
         <div
-          class="mt-8 rounded-xl border border-line bg-canvas p-4 text-sm leading-6 text-ink-muted"
+          class="mt-8 rounded-card border border-line bg-canvas p-4 text-body leading-6 text-ink-muted"
         >
           <p class="flex items-center gap-2 font-medium text-ink">
             <AppIcon name="inbox" :size="16" />
@@ -107,7 +107,7 @@ async function submit(): Promise<void> {
         </div>
       </div>
 
-      <p class="text-[11px] text-ink-subtle">Nexora · 本地开发环境</p>
+      <p class="text-meta text-ink-subtle">Nexora · 本地开发环境</p>
     </section>
 
     <section class="flex items-center justify-center px-4 py-10 sm:px-8">
@@ -160,7 +160,7 @@ async function submit(): Promise<void> {
                 class="form-input mt-1"
                 placeholder="例如 alice"
               />
-              <p class="mt-1 text-[11px] text-ink-subtle">
+              <p class="mt-1 text-meta text-ink-subtle">
                 3–32 位小写字母、数字、下划线或连字符，注册后不可修改。
               </p>
               <p v-if="fieldErrors.username" class="field-error">{{ fieldErrors.username }}</p>
@@ -207,7 +207,7 @@ async function submit(): Promise<void> {
                 autocomplete="new-password"
                 class="form-input mt-1"
               />
-              <p class="mt-1 text-[11px] text-ink-subtle">至少 10 个字符，且不能与用户名相同。</p>
+              <p class="mt-1 text-meta text-ink-subtle">至少 10 个字符，且不能与用户名相同。</p>
               <p v-if="fieldErrors.password" class="field-error">{{ fieldErrors.password }}</p>
             </div>
 

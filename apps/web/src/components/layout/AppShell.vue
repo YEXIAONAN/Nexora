@@ -20,18 +20,25 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="min-h-full">
+  <div class="min-h-screen bg-canvas">
+    <a
+      href="#main-content"
+      class="sr-only z-[80] rounded-control bg-surface px-3 py-2 text-caption text-ink focus:not-sr-only focus:fixed focus:top-3 focus:left-3"
+    >
+      跳到主要内容
+    </a>
+
     <AppSidebar :open="navOpen" @close="navOpen = false" />
 
-    <div class="flex min-h-screen flex-col lg:pl-[240px]">
+    <div class="flex min-h-screen flex-col lg:pl-[var(--sidebar-width)]">
       <AppTopbar @open-nav="navOpen = true" />
 
-      <main class="mx-auto w-full max-w-[1360px] flex-1 px-4 py-6 sm:px-6 lg:px-8 lg:py-8">
+      <main id="main-content" class="app-main flex-1">
         <slot />
       </main>
 
       <footer
-        class="mx-auto w-full max-w-[1360px] px-4 pb-6 text-[11px] text-ink-subtle sm:px-6 lg:px-8"
+        class="mx-auto w-full max-w-[var(--content-max)] px-[var(--content-padding-x)] pb-6 text-meta text-ink-subtle"
       >
         Nexora · 团队任务与贡献协作
       </footer>
