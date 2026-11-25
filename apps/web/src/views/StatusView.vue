@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { onMounted, onUnmounted, ref, watch } from 'vue'
 
+import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useSystemStore } from '@/stores/system'
 import { formatDateTime, formatRelativeTime } from '@/utils/format'
@@ -42,34 +44,25 @@ const checkRows = [
 </script>
 
 <template>
-  <div class="space-y-6">
-    <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-      <div>
-        <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">Diagnostics</p>
-        <h2 class="mt-1 text-xl font-semibold tracking-tight text-ink">运行状态</h2>
-        <p class="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
-          用于本地开发与部署验收的诊断视图，展示服务端返回的原始检查结果。
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
-        <label class="flex cursor-pointer items-center gap-2 text-xs text-ink-muted">
-          <input v-model="autoRefresh" type="checkbox" class="h-3.5 w-3.5 accent-[var(--accent)]" />
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="系统诊断"
+      title="运行状态"
+      description="用于本地开发与部署验收的诊断视图，展示服务端返回的原始检查结果。"
+    >
+      <template #actions>
+        <label class="flex cursor-pointer items-center gap-2 text-caption text-ink-muted">
+          <input v-model="autoRefresh" type="checkbox" class="checkbox" />
           每 30 秒自动刷新
         </label>
         <button type="button" class="btn" :disabled="system.loading" @click="system.refresh()">
           <AppIcon name="refresh" :size="15" :class="system.loading ? 'animate-spin' : ''" />
           刷新
         </button>
-      </div>
-    </section>
+      </template>
+    </PageHeader>
 
-    <div
-      v-if="system.error"
-      class="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
-      role="alert"
-    >
-      {{ system.error }}
-    </div>
+    <AlertBanner v-if="system.error" tone="danger" :message="system.error" />
 
     <section class="card">
       <div class="card-header">
@@ -126,7 +119,7 @@ const checkRows = [
       </ul>
       <div
         v-if="system.readiness"
-        class="border-t border-line px-5 py-3 font-mono text-[11px] text-ink-subtle"
+        class="border-t border-line px-5 py-3 font-mono text-meta text-ink-subtle"
       >
         checked_at {{ formatDateTime(system.readiness.checked_at) }}
       </div>

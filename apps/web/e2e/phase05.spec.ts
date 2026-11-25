@@ -633,6 +633,7 @@ test('departed members receive intake acknowledgment without ordinary Team data 
     .locator(`li[data-user-id="${people[0]!.id}"]`)
     .getByRole('button', { name: '移除', exact: true })
     .click()
+  await page.getByRole('button', { name: '确认移除成员', exact: true }).click()
   await expect(page.getByRole('status')).toContainText(`已移除成员 ${people[0]!.username}`)
   await logout(page)
   await login(page, people[0]!.username)

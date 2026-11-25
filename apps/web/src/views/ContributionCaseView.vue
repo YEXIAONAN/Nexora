@@ -1,8 +1,11 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { useRoute } from 'vue-router'
 import * as api from '@/api/contributions'
 import { getProject, listProjectMembers } from '@/api/projects'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 import { useContributionResource } from '@/composables/useContributionResource'
@@ -199,51 +202,49 @@ function recordConflict() {
 const memberName = (id: string) => memberDisplayName(data.value?.members, id)
 </script>
 <template>
-  <div class="mx-auto max-w-6xl space-y-5">
-    <header class="space-y-3">
-      <RouterLink
-        :to="{ name: 'project-contributions', params: { teamId: team, projectId: project } }"
-        class="text-sm text-ink-muted"
-        >← 返回贡献核算</RouterLink
-      >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 class="text-xl font-semibold">{{ data?.evidence.task_title || '贡献案例' }}</h1>
-          <p v-if="data" class="mt-1 text-sm text-ink-muted">
-            {{ caseStatusLabel(data.detail.case.case_workflow_status) }} · 案例修订号
-            {{ data.detail.case.revision }}
-          </p>
-        </div>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="贡献案例"
+      :title="data?.evidence.task_title || '贡献案例'"
+      :description="
+        data
+          ? `${caseStatusLabel(data.detail.case.case_workflow_status)} · 案例修订号 ${data.detail.case.revision}`
+          : '读取权威贡献证据、版本与核定记录。'
+      "
+      :crumbs="[
+        { label: '项目', to: `/teams/${team}/projects` },
+        { label: '贡献核算', to: `/teams/${team}/projects/${project}/contributions` },
+        { label: data?.evidence.task_title || '贡献案例' },
+      ]"
+    >
+      <template #actions>
+        <StatusBadge v-if="data" :label="caseStatusLabel(data.detail.case.case_workflow_status)" />
         <button class="btn" :disabled="loading || pending" @click="resource.reload()">
           刷新案例
         </button>
-      </div>
-    </header>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-3 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="text-sm text-ink-muted">正在读取权威贡献数据…</p>
-    <p v-if="pending" role="status" class="text-sm text-ink-muted">正在提交，请勿重复操作…</p>
-    <p
+      </template>
+    </PageHeader>
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <AlertBanner v-if="pending" tone="info" message="正在提交，请勿重复操作…" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
+    </div>
+    <AlertBanner
       v-if="auth.user && context === null"
-      role="status"
-      class="rounded-lg border border-line p-4 text-sm text-ink-muted"
-    >
-      当前团队与页面不一致，请从当前团队项目列表重新进入。
-    </p>
+      tone="warning"
+      message="当前团队与页面不一致，请从当前团队项目列表重新进入。"
+    />
     <template v-if="data">
-      <p
+      <AlertBanner
         v-if="data.detail.case.case_workflow_status === 'disputed'"
-        class="rounded-lg bg-warning-soft p-4 text-sm text-warning"
-      >
-        存在未决争议，等待独立裁定。原核定事实仍保留，当前不得作为无争议正式结果。
-      </p>
-      <p
+        tone="warning"
+        message="存在未决争议，等待独立裁定。原核定事实仍保留，当前不得作为无争议正式结果。"
+      />
+      <AlertBanner
         v-if="data.detail.case.case_workflow_status === 'revising'"
-        class="rounded-lg bg-surface-muted p-4 text-sm"
-      >
-        正在修订。最新草案尚未生效；旧有效版本与新工作版本分别展示。
-      </p>
+        tone="info"
+        message="正在修订。最新草案尚未生效；旧有效版本与新工作版本分别展示。"
+      />
       <div class="grid items-start gap-5 lg:grid-cols-2">
         <section class="space-y-3" data-testid="contribution-latest">
           <h2 class="font-semibold">最新工作版本</h2>

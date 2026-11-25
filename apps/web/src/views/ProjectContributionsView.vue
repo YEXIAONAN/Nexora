@@ -10,6 +10,10 @@ import {
   caseStatusLabel,
   contributionCaseStatuses,
 } from '@/components/contributions/contributionPresentation'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import PageTabs from '@/components/ui/PageTabs.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 const route = useRoute(),
@@ -99,57 +103,78 @@ async function create(taskID: string, reviewID: string) {
 }
 </script>
 <template>
-  <div class="mx-auto max-w-6xl space-y-5">
-    <header class="space-y-3">
-      <RouterLink :to="`/teams/${team}/projects/${project}`" class="text-sm text-ink-muted"
-        >← 返回项目详情</RouterLink
-      >
-      <div class="flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 class="text-xl font-semibold">贡献核算</h1>
-          <p class="mt-1 text-sm text-ink-muted">
-            {{ data?.projectInfo.name || '项目贡献工作区' }}
-          </p>
-        </div>
-        <nav class="flex flex-wrap gap-2" aria-label="贡献工作区导航">
-          <RouterLink
-            :to="{ name: 'contribution-appraisal', params: { teamId: team, projectId: project } }"
-            class="btn"
-            >独立核定工作台</RouterLink
-          ><RouterLink
-            :to="{ name: 'my-contribution-results', params: { teamId: team } }"
-            class="btn"
-            >我的贡献结果</RouterLink
-          ><button class="btn" :disabled="loading || pending" @click="resource.reload()">
-            刷新贡献数据
-          </button>
-        </nav>
-      </div>
-    </header>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-3 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="text-sm text-ink-muted">正在读取贡献工作区…</p>
-    <p
-      v-if="auth.user && context === null"
-      role="status"
-      class="rounded-lg border border-line p-4 text-sm text-ink-muted"
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="项目贡献"
+      title="贡献核算"
+      :description="`${data?.projectInfo.name || '项目贡献工作区'}：基于已验收成果建立贡献案例，人工整理份额并独立核定。`"
+      :crumbs="[
+        { label: '项目', to: `/teams/${team}/projects` },
+        { label: data?.projectInfo.name || '项目', to: `/teams/${team}/projects/${project}` },
+        { label: '贡献核算' },
+      ]"
     >
-      当前团队与页面不一致，请从当前团队项目列表重新进入。
-    </p>
+      <template #actions>
+        <RouterLink
+          :to="{ name: 'contribution-appraisal', params: { teamId: team, projectId: project } }"
+          class="btn"
+          >独立核定工作台</RouterLink
+        >
+        <RouterLink :to="{ name: 'my-contribution-results', params: { teamId: team } }" class="btn"
+          >我的贡献结果</RouterLink
+        >
+        <button class="btn" :disabled="loading || pending" @click="resource.reload()">
+          刷新贡献数据
+        </button>
+      </template>
+    </PageHeader>
+
+    <PageTabs
+      aria-label="项目导航"
+      :items="[
+        { label: '项目工作区', to: `/teams/${team}/projects/${project}` },
+        { label: '贡献核算', active: true, count: visible.length },
+        { label: '奖金管理', to: `/teams/${team}/projects/${project}/bonus-rounds` },
+        {
+          label: '独立核定工作台',
+          to: { name: 'contribution-appraisal', params: { teamId: team, projectId: project } },
+        },
+        {
+          label: '我的贡献结果',
+          to: { name: 'my-contribution-results', params: { teamId: team } },
+        },
+      ]"
+    />
+
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
+    </div>
+    <AlertBanner
+      v-if="auth.user && context === null"
+      tone="warning"
+      message="当前团队与页面不一致，请从当前团队项目列表重新进入。"
+    />
     <template v-if="data">
-      <p class="rounded-lg border border-line bg-surface p-4 text-sm leading-6 text-ink-muted">
-        最新工作版本用于整理与核定，正式有效版本用于表达已核定结果。草案不计作正式贡献；存在争议时不得视为无争议的正式结果。
-      </p>
+      <AlertBanner
+        tone="info"
+        message="最新工作版本用于整理与核定，正式有效版本用于表达已核定结果。草案不计作正式贡献；存在争议时不得视为无争议的正式结果。"
+      />
       <section class="card" aria-label="已验收待建案成果">
         <div class="card-header">
-          <h2 class="font-semibold">已验收、尚未建立贡献案例</h2>
+          <div>
+            <h2 class="card-title">已验收、尚未建立贡献案例</h2>
+            <p class="card-description">只有正式验收通过的成果才能建案，不按工时自动推算。</p>
+          </div>
           <span class="badge">{{ data.candidates.length }}</span>
         </div>
         <div class="card-body space-y-4">
-          <p v-if="!data.candidates.length" class="text-sm text-ink-muted">
-            当前没有可见的待建案成果。
-          </p>
+          <EmptyState
+            v-if="!data.candidates.length"
+            icon="layers"
+            title="当前没有待建案成果"
+            description="任务成果通过独立验收后，会出现在这里。"
+          />
           <label v-if="data.eligibility.can_edit_cases && data.candidates.length" class="form-label"
             >建案原因<input v-model="reason" maxlength="1000" class="form-input"
           /></label>
@@ -157,36 +182,39 @@ async function create(taskID: string, reviewID: string) {
             v-for="candidate in data.candidates"
             :key="candidate.review.id"
             data-testid="contribution-candidate"
-            class="space-y-2 rounded-lg border border-line p-4"
+            class="space-y-2 rounded-control border border-line p-4"
           >
-            <h3 class="font-medium">
+            <h3 class="text-body font-medium">
               {{ candidate.task.title }} · 成果 V{{ candidate.version.version }}
             </h3>
-            <p class="whitespace-pre-wrap text-sm text-ink-muted">
+            <p class="whitespace-pre-wrap text-caption text-ink-muted">
               {{ candidate.version.summary }}
             </p>
-            <p class="text-xs text-ink-muted">
+            <p class="text-caption text-ink-muted">
               真实审核通过：{{ candidate.review.reviewer_name }} · {{ candidate.review.comment }}
             </p>
             <button
               v-if="data.eligibility.can_edit_cases"
-              class="btn"
+              class="btn btn-sm"
               :disabled="pending || !reason.trim()"
               @click="create(candidate.task.id, candidate.review.id)"
             >
               创建贡献案例
             </button>
           </article>
-          <p v-if="!data.eligibility.can_edit_cases" class="text-xs text-ink-muted">
+          <p v-if="!data.eligibility.can_edit_cases" class="text-caption text-ink-muted">
             当前账号没有整理案例权限。可见范围与操作资格由服务端决定。
           </p>
         </div>
       </section>
       <section class="card" aria-label="贡献案例列表">
         <div class="card-header flex-wrap">
-          <h2 class="font-semibold">贡献案例</h2>
+          <div>
+            <h2 class="card-title">贡献案例</h2>
+            <p class="card-description">按状态筛选当前可见案例。</p>
+          </div>
           <label class="form-label"
-            >案例状态<select v-model="filter" class="form-input">
+            >案例状态<select v-model="filter" class="form-select">
               <option value="all">全部状态</option>
               <option v-for="status in contributionCaseStatuses" :key="status" :value="status">
                 {{ caseStatusLabel(status) }}
@@ -195,11 +223,16 @@ async function create(taskID: string, reviewID: string) {
           >
         </div>
         <div class="card-body space-y-3">
-          <p v-if="!visible.length" class="text-sm text-ink-muted">此状态下暂无可见贡献案例。</p>
+          <EmptyState
+            v-if="!visible.length"
+            icon="layers"
+            title="此状态下暂无可见贡献案例"
+            description="调整筛选条件，或先创建新的贡献案例。"
+          />
           <article
             v-for="c in visible"
             :key="c.id"
-            class="space-y-2 rounded-lg border border-line p-4"
+            class="space-y-2 rounded-control border border-line p-4"
           >
             <div class="flex flex-wrap items-center justify-between gap-3">
               <RouterLink

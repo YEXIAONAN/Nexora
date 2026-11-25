@@ -6,7 +6,12 @@ import { ApiError } from '@/api/client'
 import { listProjects, type Project } from '@/api/projects'
 import { getTaskTree, taskStatusLabel, type Task } from '@/api/tasks'
 import { listTeamMembers, type TeamMember } from '@/api/teams'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import SegmentedControl from '@/components/ui/SegmentedControl.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 
@@ -62,20 +67,37 @@ const priorityLabel: Record<Task['priority'], string> = {
   urgent: '紧急',
 }
 
-function priorityClass(priority: Task['priority']): string {
-  if (priority === 'urgent') return 'border-danger/30 bg-danger-soft text-danger'
-  if (priority === 'high') return 'border-warning/30 bg-warning-soft text-warning'
-  return 'border-line bg-surface-muted text-ink-muted'
+const priorityTone: Record<Task['priority'], 'neutral' | 'warning' | 'danger'> = {
+  low: 'neutral',
+  normal: 'neutral',
+  high: 'warning',
+  urgent: 'danger',
 }
 
-function statusClass(status: Task['status']): string {
-  if (status === 'awaiting_review' || status === 'completed') {
-    return 'border-accent/25 bg-accent-soft text-accent-strong'
-  }
-  if (status === 'rejected') return 'border-danger/25 bg-danger-soft text-danger'
-  if (status === 'in_progress') return 'border-info/25 bg-info-soft text-info'
-  return 'border-line bg-surface-muted text-ink-muted'
+const statusTone: Record<Task['status'], 'neutral' | 'success' | 'danger' | 'warning' | 'info'> = {
+  pending: 'neutral',
+  in_progress: 'info',
+  awaiting_review: 'warning',
+  completed: 'success',
+  rejected: 'danger',
+  cancelled: 'neutral',
 }
+
+const filterOptions = computed(() => [
+  {
+    value: 'open',
+    label: '待完成',
+    count: rows.value.filter(
+      (row) => row.task.status !== 'completed' && row.task.status !== 'cancelled',
+    ).length,
+  },
+  {
+    value: 'awaiting_review',
+    label: '待验收',
+    count: rows.value.filter((row) => row.task.status === 'awaiting_review').length,
+  },
+  { value: 'all', label: '全部', count: rows.value.length },
+])
 
 function openTask(row: Row): void {
   void router.push(`/teams/${row.project.team_id}/projects/${row.project.id}?task=${row.task.id}`)
@@ -156,21 +178,18 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div class="page-header">
-      <div>
-        <p class="eyebrow">我的任务</p>
-        <h2 class="page-title mt-1">分配给我的工作</h2>
-        <p class="page-subtitle">
-          {{
-            teams.currentTeam ? `当前团队：${teams.currentTeam.name}` : '加入并选择团队后查看任务。'
-          }}
-        </p>
-      </div>
-      <div class="flex items-center gap-2">
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="我的任务"
+      title="分配给我的工作"
+      :description="
+        teams.currentTeam ? `当前团队：${teams.currentTeam.name}` : '加入并选择团队后查看任务。'
+      "
+    >
+      <template #actions>
         <select
           v-model="projectFilter"
-          class="form-input h-9 w-auto min-w-[140px] text-xs"
+          class="form-select h-9 w-auto min-w-[150px] py-0"
           aria-label="按项目筛选"
         >
           <option value="">全部项目</option>
@@ -178,145 +197,111 @@ onBeforeUnmount(() => {
             {{ project.name }}
           </option>
         </select>
-      </div>
-    </div>
+      </template>
+    </PageHeader>
 
     <div class="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-      <div class="flex rounded-lg border border-line bg-surface p-0.5" role="tablist">
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-          :class="
-            statusFilter === 'open'
-              ? 'bg-accent-soft text-accent-strong'
-              : 'text-ink-muted hover:text-ink'
-          "
-          @click="statusFilter = 'open'"
-        >
-          待完成
-        </button>
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-          :class="
-            statusFilter === 'awaiting_review'
-              ? 'bg-accent-soft text-accent-strong'
-              : 'text-ink-muted hover:text-ink'
-          "
-          @click="statusFilter = 'awaiting_review'"
-        >
-          待验收
-        </button>
-        <button
-          type="button"
-          class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-          :class="
-            statusFilter === 'all'
-              ? 'bg-accent-soft text-accent-strong'
-              : 'text-ink-muted hover:text-ink'
-          "
-          @click="statusFilter = 'all'"
-        >
-          全部
-        </button>
-      </div>
+      <SegmentedControl v-model="statusFilter" :options="filterOptions" aria-label="任务状态筛选" />
       <input
         v-model="search"
         type="search"
-        class="form-input h-9 max-w-xs text-xs"
+        class="form-input h-9 max-w-xs"
         placeholder="搜索任务标题"
         aria-label="搜索任务"
       />
     </div>
 
-    <div v-if="error" role="alert" class="card border-danger/30">
-      <div class="card-body flex items-center justify-between">
-        <p class="text-sm text-danger">{{ error }}</p>
+    <AlertBanner v-if="error" tone="danger" :message="error">
+      <template #action>
         <button type="button" class="btn btn-sm" @click="load">重试</button>
-      </div>
-    </div>
+      </template>
+    </AlertBanner>
 
     <div v-else-if="loading" class="card divide-y divide-line">
       <div v-for="i in 5" :key="i" class="h-16 animate-pulse bg-surface-muted/60" />
     </div>
 
     <div v-else-if="!teamId" class="card">
-      <div class="empty-state">
-        <AppIcon name="users" :size="22" class="text-ink-subtle" />
-        <p class="mt-3 text-sm font-medium text-ink">还没有团队</p>
-        <p class="mt-1 text-xs text-ink-muted">
-          请联系团队管理员发送邀请，加入团队后，这里会显示分配给你的任务。
-        </p>
-        <RouterLink to="/teams" class="btn btn-primary btn-sm mt-4">前往团队</RouterLink>
-      </div>
+      <EmptyState
+        icon="users"
+        title="还没有团队"
+        description="请联系团队管理员发送邀请，加入团队后，这里会显示分配给你的任务。"
+      >
+        <template #action>
+          <RouterLink to="/teams" class="btn btn-primary btn-sm">前往团队</RouterLink>
+        </template>
+      </EmptyState>
     </div>
 
     <div v-else-if="filtered.length === 0" class="card">
-      <div class="empty-state">
-        <AppIcon name="check" :size="22" class="text-ink-subtle" />
-        <p class="mt-3 text-sm font-medium text-ink">
-          {{ rows.length === 0 ? '暂时没有分配给你的任务' : '没有符合筛选条件的任务' }}
-        </p>
-        <p class="mt-1 text-xs text-ink-muted">
-          {{
-            rows.length === 0
-              ? '项目负责人可以在项目任务中把你设为负责人或协作成员。'
-              : '调整筛选条件后再试。'
-          }}
-        </p>
-        <RouterLink v-if="teamId" :to="`/teams/${teamId}/projects`" class="btn btn-sm mt-4">
-          浏览项目
-        </RouterLink>
-      </div>
+      <EmptyState
+        icon="check"
+        :title="rows.length === 0 ? '暂时没有分配给你的任务' : '没有符合筛选条件的任务'"
+        :description="
+          rows.length === 0
+            ? '项目负责人可以在项目任务中把你设为负责人或协作成员。'
+            : '调整筛选条件后再试。'
+        "
+      >
+        <template #action>
+          <RouterLink v-if="teamId" :to="`/teams/${teamId}/projects`" class="btn btn-sm">
+            浏览项目
+          </RouterLink>
+        </template>
+      </EmptyState>
     </div>
 
     <div v-else class="card overflow-hidden">
-      <table class="w-full text-left text-sm">
-        <thead class="border-b border-line bg-surface-muted/60 text-xs text-ink-subtle">
-          <tr>
-            <th class="px-4 py-2.5 font-medium">任务</th>
-            <th class="hidden px-4 py-2.5 font-medium md:table-cell">项目</th>
-            <th class="hidden px-4 py-2.5 font-medium sm:table-cell">优先级</th>
-            <th class="hidden px-4 py-2.5 font-medium lg:table-cell">截止时间</th>
-            <th class="px-4 py-2.5 font-medium">状态</th>
-            <th class="px-4 py-2.5" />
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-line">
-          <tr
-            v-for="row in filtered"
-            :key="row.task.id"
-            class="cursor-pointer transition-colors hover:bg-surface-muted"
-            @click="openTask(row)"
-          >
-            <td class="px-4 py-3">
-              <p class="max-w-[320px] truncate font-medium text-ink">{{ row.task.title }}</p>
-              <p class="mt-0.5 truncate text-xs text-ink-muted">
-                负责人 {{ memberNames.get(row.task.owner_id) ?? '未知' }}
-              </p>
-            </td>
-            <td class="hidden px-4 py-3 text-xs text-ink-muted md:table-cell">
-              {{ row.project.name }}
-            </td>
-            <td class="hidden px-4 py-3 sm:table-cell">
-              <span class="badge" :class="priorityClass(row.task.priority)">
-                {{ priorityLabel[row.task.priority] }}
-              </span>
-            </td>
-            <td class="hidden px-4 py-3 text-xs text-ink-muted lg:table-cell">
-              {{ row.task.planned_end_at ? row.task.planned_end_at.slice(0, 10) : '未设置' }}
-            </td>
-            <td class="px-4 py-3">
-              <span class="badge" :class="statusClass(row.task.status)">
-                {{ taskStatusLabel[row.task.status] }}
-              </span>
-            </td>
-            <td class="px-4 py-3 text-right">
-              <AppIcon name="arrow-right" :size="15" class="text-ink-subtle" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="table-wrap">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>任务</th>
+              <th class="hidden md:table-cell">项目</th>
+              <th class="hidden sm:table-cell">优先级</th>
+              <th class="hidden lg:table-cell">截止时间</th>
+              <th>状态</th>
+              <th />
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="row in filtered"
+              :key="row.task.id"
+              class="row-clickable"
+              @click="openTask(row)"
+            >
+              <td>
+                <p class="max-w-[320px] truncate font-medium text-ink">{{ row.task.title }}</p>
+                <p class="mt-0.5 truncate text-caption text-ink-muted">
+                  负责人 {{ memberNames.get(row.task.owner_id) ?? '未知' }}
+                </p>
+              </td>
+              <td class="hidden text-caption text-ink-muted md:table-cell">
+                {{ row.project.name }}
+              </td>
+              <td class="hidden sm:table-cell">
+                <StatusBadge
+                  :label="priorityLabel[row.task.priority]"
+                  :tone="priorityTone[row.task.priority]"
+                />
+              </td>
+              <td class="hidden text-caption text-ink-muted lg:table-cell">
+                {{ row.task.planned_end_at ? row.task.planned_end_at.slice(0, 10) : '未设置' }}
+              </td>
+              <td>
+                <StatusBadge
+                  :label="taskStatusLabel[row.task.status]"
+                  :tone="statusTone[row.task.status]"
+                />
+              </td>
+              <td class="text-right">
+                <AppIcon name="arrow-right" :size="15" class="text-ink-subtle" />
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </div>
   </div>
 </template>

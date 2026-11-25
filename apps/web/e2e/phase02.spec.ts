@@ -126,6 +126,7 @@ test('ROOT removes alice and her team access ends immediately', async ({ page })
     .locator('li[data-user-id]', { hasText: alice })
     .getByRole('button', { name: '移除' })
     .click()
+  await page.getByRole('button', { name: '确认移除成员', exact: true }).click()
   await expect(page.getByRole('status')).toContainText(`已移除成员 ${alice}`)
   await expect(page.locator('li[data-user-id]', { hasText: alice })).toHaveCount(0)
 
@@ -140,6 +141,7 @@ test('the last owner cannot leave the team', async ({ page }) => {
   await login(page, 'root', rootPassword)
   await openMembers(page, teamId)
   await page.getByRole('button', { name: '退出团队' }).click()
+  await page.getByRole('button', { name: '确认退出团队', exact: true }).click()
   await expect(page.getByRole('alert')).toContainText(
     'the team must retain at least one active owner',
   )

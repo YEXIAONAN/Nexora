@@ -19,13 +19,19 @@ import {
   type TeamPermissions,
   type TeamRole,
 } from '@/api/teams'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import PageTabs from '@/components/ui/PageTabs.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
+import { useUiStore } from '@/stores/ui'
 import { formatDateTime, invitationStatusLabel, teamRoleLabel } from '@/utils/format'
 
 const auth = useAuthStore()
 const teams = useTeamsStore()
+const ui = useUiStore()
 const route = useRoute()
 const router = useRouter()
 
@@ -161,6 +167,13 @@ async function changeRole(target: TeamMember, role: TeamRole): Promise<void> {
 }
 
 async function removeMember(target: TeamMember): Promise<void> {
+  const ok = await ui.confirm({
+    title: '移除团队成员',
+    message: `移除 ${target.display_name || target.username} 后，其团队与项目访问权限立即失效，历史贡献与审计记录保留。`,
+    confirmLabel: '确认移除成员',
+    tone: 'danger',
+  })
+  if (!ok) return
   await runTeamAction(`remove:${target.user_id}`, async (id) => {
     await removeTeamMember(id, target.user_id)
     if (id !== teamId.value) return
@@ -173,6 +186,13 @@ async function removeMember(target: TeamMember): Promise<void> {
 
 async function leaveTeam(): Promise<void> {
   if (!auth.user) return
+  const ok = await ui.confirm({
+    title: '退出团队',
+    message: '退出后你将立即失去该团队的访问权限；历史贡献与审计记录保留。',
+    confirmLabel: '确认退出团队',
+    tone: 'danger',
+  })
+  if (!ok) return
   const userId = auth.user.id
   await runTeamAction('leave', async (id) => {
     await removeTeamMember(id, userId)
@@ -210,41 +230,35 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div
-      v-if="notFound"
-      class="rounded-xl border border-warning/30 bg-warning-soft px-4 py-4 text-sm leading-6 text-warning"
-      role="alert"
-    >
-      <p class="font-medium">团队不存在，或你已不是该团队的成员。</p>
-      <p class="mt-1">被移除后访问权限立即失效；如需重新加入，请联系团队管理员再次邀请。</p>
-      <RouterLink to="/teams" class="btn mt-3">返回我的团队</RouterLink>
+  <div class="page-stack">
+    <div v-if="notFound" class="card">
+      <AlertBanner
+        tone="warning"
+        title="团队不存在，或你已不是该团队的成员"
+        message="被移除后访问权限立即失效；如需重新加入，请联系团队管理员再次邀请。"
+      >
+        <template #action>
+          <RouterLink to="/teams" class="btn btn-sm">返回我的团队</RouterLink>
+        </template>
+      </AlertBanner>
     </div>
 
-    <div
-      v-else-if="loadError"
-      class="flex flex-col gap-3 rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
-      role="alert"
-    >
-      <p class="text-sm text-danger">{{ loadError }}</p>
-      <button type="button" class="btn shrink-0" @click="loadAll">重试</button>
-    </div>
+    <AlertBanner v-else-if="loadError" tone="danger" :message="loadError">
+      <template #action>
+        <button type="button" class="btn btn-sm" @click="loadAll">重试</button>
+      </template>
+    </AlertBanner>
 
     <template v-else>
-      <section class="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-        <div class="min-w-0">
-          <p class="text-xs font-medium tracking-[0.14em] text-ink-subtle uppercase">团队</p>
-          <h2
-            class="mt-1 flex flex-wrap items-center gap-2 text-xl font-semibold tracking-tight text-ink"
-          >
-            <span class="truncate">{{ team?.name ?? '加载中…' }}</span>
-            <span v-if="permissions" class="badge">{{ teamRoleLabel(permissions.role) }}</span>
-          </h2>
-          <p v-if="team?.description" class="mt-1.5 max-w-2xl text-sm leading-6 text-ink-muted">
-            {{ team.description }}
-          </p>
-        </div>
-        <div class="flex shrink-0 items-center gap-2">
+      <PageHeader
+        eyebrow="团队"
+        :title="team?.name ?? '加载中…'"
+        :description="
+          team?.description ||
+          `${permissions ? teamRoleLabel(permissions.role) : '成员'} · ${members.length} 名成员`
+        "
+      >
+        <template #actions>
           <button type="button" class="btn" :disabled="loading || busy !== null" @click="loadAll">
             <AppIcon name="refresh" :size="15" :class="loading ? 'animate-spin' : ''" />
             刷新
@@ -252,95 +266,64 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
           <button
             v-if="permissions?.can_leave"
             type="button"
-            class="btn"
+            class="btn btn-danger"
             :disabled="!actionsEnabled"
             @click="leaveTeam"
           >
             <AppIcon name="logout" :size="15" />
             退出团队
           </button>
-        </div>
-      </section>
+        </template>
+      </PageHeader>
 
-      <nav
-        class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
+      <PageTabs
         aria-label="团队导航"
-      >
-        <RouterLink
-          :to="`/teams/${teamId}/projects`"
-          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >
-          项目
-        </RouterLink>
-        <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
-          >成员</span
-        >
-        <RouterLink
-          :to="`/teams/${teamId}/contribution-results`"
-          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >
-          我的贡献
-        </RouterLink>
-        <RouterLink
-          to="/settings"
-          class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >
-          团队设置
-        </RouterLink>
-      </nav>
+        :items="[
+          { label: '项目', to: `/teams/${teamId}/projects` },
+          { label: '成员', active: true, count: members.length },
+          { label: '我的贡献', to: `/teams/${teamId}/contribution-results` },
+          { label: '团队设置', to: '/settings' },
+        ]"
+      />
 
-      <div
-        v-if="actionError"
-        class="rounded-xl border border-danger/30 bg-danger-soft px-4 py-3 text-sm text-danger"
-        role="alert"
-      >
-        {{ actionError }}
-      </div>
-      <div
-        v-if="actionMessage"
-        class="rounded-xl border border-accent/30 bg-accent-soft px-4 py-3 text-sm text-accent-strong"
-        role="status"
-      >
-        {{ actionMessage }}
-      </div>
+      <AlertBanner v-if="actionError" tone="danger" :message="actionError" />
+      <AlertBanner v-if="actionMessage" tone="success" :message="actionMessage" />
 
       <section class="card">
         <div class="card-header">
           <div>
-            <h3 class="text-sm font-semibold text-ink">成员列表</h3>
-            <p class="mt-0.5 text-xs text-ink-muted">
-              角色仅在本团队内生效；所有者不可被管理员变更或移除。
-            </p>
+            <h3 class="card-title">成员列表</h3>
+            <p class="card-description">角色仅在本团队内生效；所有者不可被管理员变更或移除。</p>
           </div>
           <span class="badge">{{ members.length }} 名成员</span>
         </div>
 
-        <p v-if="loading && members.length === 0" class="px-5 py-6 text-sm text-ink-muted">
-          加载中…
-        </p>
+        <div v-if="loading && members.length === 0" class="space-y-2 p-4">
+          <div v-for="i in 3" :key="i" class="skeleton h-14" />
+        </div>
 
         <ul v-else class="divide-y divide-line">
           <li
             v-for="member in members"
             :key="member.user_id"
-            class="flex flex-col gap-3 px-5 py-3.5 sm:flex-row sm:items-center sm:justify-between"
+            class="list-row"
             :data-user-id="member.user_id"
           >
             <div class="min-w-0">
-              <p class="flex flex-wrap items-center gap-2 text-sm font-medium text-ink">
+              <p class="flex flex-wrap items-center gap-2 text-body font-medium text-ink">
                 <span class="truncate">{{ member.display_name || member.username }}</span>
-                <span class="font-mono text-xs text-ink-subtle">@{{ member.username }}</span>
+                <span class="font-mono text-caption text-ink-subtle">@{{ member.username }}</span>
                 <span v-if="member.user_id === auth.user?.id" class="badge">我</span>
               </p>
-              <p class="mt-0.5 text-xs text-ink-subtle">
+              <p class="mt-0.5 text-caption text-ink-subtle">
                 加入于 {{ formatDateTime(member.joined_at) }}
               </p>
             </div>
-            <div class="flex shrink-0 items-center gap-2">
-              <span class="badge">{{ teamRoleLabel(member.role) }}</span>
+            <div class="flex shrink-0 flex-wrap items-center gap-2">
+              <StatusBadge :label="teamRoleLabel(member.role)" />
               <select
                 v-if="roleOptions(member).length > 0"
-                class="rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink focus:border-accent focus:outline-none"
+                class="form-select h-8 w-auto py-0"
                 :value="member.role"
                 :disabled="!actionsEnabled"
                 :aria-label="`变更 ${member.username} 的角色`"
@@ -353,7 +336,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
               <button
                 v-if="canRemove(member)"
                 type="button"
-                class="btn px-2.5 py-1.5 text-xs"
+                class="btn btn-sm btn-danger"
                 :disabled="!actionsEnabled"
                 @click="removeMember(member)"
               >
@@ -367,8 +350,8 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
       <section v-if="permissions?.can_manage_invitations" class="card">
         <div class="card-header">
           <div>
-            <h3 class="text-sm font-semibold text-ink">邀请成员</h3>
-            <p class="mt-0.5 text-xs leading-5 text-ink-muted">
+            <h3 class="card-title">邀请成员</h3>
+            <p class="card-description">
               可以填写尚未注册的用户名：对方使用该用户名注册后，邀请会出现在「邀请收件箱」中。所有者只能由现有所有者变更产生。
             </p>
           </div>
@@ -382,16 +365,12 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
                 v-model="inviteUsername"
                 type="text"
                 required
-                class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                class="form-input mt-1"
               />
             </div>
             <div>
               <label for="invite-role" class="field-label">团队角色</label>
-              <select
-                id="invite-role"
-                v-model="inviteRole"
-                class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
-              >
+              <select id="invite-role" v-model="inviteRole" class="form-select mt-1">
                 <option value="member">成员</option>
                 <option value="admin">管理员</option>
               </select>
@@ -404,7 +383,7 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
                 type="number"
                 min="1"
                 max="168"
-                class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-ink focus:border-accent focus:outline-none"
+                class="form-input mt-1"
               />
             </div>
           </div>
@@ -420,28 +399,24 @@ async function cancelInvite(invitation: TeamInvitation): Promise<void> {
 
         <div class="border-t border-line">
           <div class="card-header">
-            <h4 class="text-sm font-semibold text-ink">待处理邀请</h4>
+            <h4 class="card-title">待处理邀请</h4>
             <span class="badge">{{ pendingInvitations.length }}</span>
           </div>
-          <p v-if="pendingInvitations.length === 0" class="px-5 py-4 text-sm text-ink-muted">
+          <p v-if="pendingInvitations.length === 0" class="px-5 py-4 text-caption text-ink-muted">
             暂无待处理邀请。
           </p>
           <ul v-else class="divide-y divide-line">
-            <li
-              v-for="invitation in pendingInvitations"
-              :key="invitation.id"
-              class="flex flex-col gap-2 px-5 py-3 sm:flex-row sm:items-center sm:justify-between"
-            >
-              <div class="min-w-0 text-sm text-ink">
+            <li v-for="invitation in pendingInvitations" :key="invitation.id" class="list-row">
+              <div class="min-w-0 text-body text-ink">
                 <span class="font-medium">{{ invitation.invited_username }}</span>
                 <span class="ml-2 badge">{{ teamRoleLabel(invitation.role) }}</span>
-                <p class="mt-0.5 text-xs text-ink-subtle">
+                <p class="mt-0.5 text-caption text-ink-subtle">
                   有效期至 {{ formatDateTime(invitation.expires_at) }}
                 </p>
               </div>
               <button
                 type="button"
-                class="btn shrink-0 px-2.5 py-1.5 text-xs"
+                class="btn btn-sm"
                 :disabled="!actionsEnabled"
                 @click="cancelInvite(invitation)"
               >

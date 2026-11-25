@@ -7,6 +7,7 @@ import type { User } from '@/api/auth'
 import type { Team, TeamInvitation, TeamMember, TeamPermissions } from '@/api/teams'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
+import { useUiStore } from '@/stores/ui'
 
 import TeamMembersView from './TeamMembersView.vue'
 
@@ -240,6 +241,8 @@ describe('TeamMembersView team-switch races', () => {
     await settle('team-a', 0, { team: teamA, permissions: permsA, members: [shared, meMember] })
 
     await wrapper.find('li[data-user-id="u-x"] button').trigger('click')
+    await flushPromises()
+    useUiStore().resolveConfirm(true)
     await flushPromises()
     expect(hoisted.calls['removeTeamMember:team-a:u-x']).toHaveLength(1)
 

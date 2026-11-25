@@ -11,7 +11,11 @@ import {
   type User,
 } from '@/api/auth'
 import { ApiError } from '@/api/client'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import AppDialog from '@/components/ui/AppDialog.vue'
 import AppIcon from '@/components/ui/AppIcon.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useUiStore } from '@/stores/ui'
 
@@ -194,18 +198,19 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div class="page-header">
-      <div>
-        <p class="eyebrow">系统管理</p>
-        <h2 class="page-title mt-1">用户管理</h2>
-        <p class="page-subtitle">创建、搜索和管理账号状态。普通用户不会自动获得平台管理员权限。</p>
-      </div>
-      <button type="button" class="btn btn-primary" @click="openCreate">
-        <AppIcon name="plus" :size="15" />
-        创建用户
-      </button>
-    </div>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="系统管理"
+      title="用户管理"
+      description="创建、搜索和管理账号状态。普通用户不会自动获得平台管理员权限。"
+    >
+      <template #actions>
+        <button type="button" class="btn btn-primary" @click="openCreate">
+          <AppIcon name="plus" :size="15" />
+          创建用户
+        </button>
+      </template>
+    </PageHeader>
 
     <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
       <div class="relative max-w-sm">
@@ -217,60 +222,58 @@ onMounted(load)
         <input
           v-model="search"
           type="search"
-          class="form-input h-9 pl-8 text-xs"
+          class="form-input h-9 pl-8"
           placeholder="搜索用户名、显示名称或邮箱"
           aria-label="搜索用户"
           @input="scheduleSearch"
         />
       </div>
-      <p class="text-xs text-ink-muted">共 {{ total }} 个账号</p>
+      <p class="text-caption text-ink-muted">共 {{ total }} 个账号</p>
     </div>
 
-    <div v-if="error" class="card border-danger/30">
-      <div class="card-body flex items-center justify-between">
-        <p class="text-sm text-danger">{{ error }}</p>
+    <AlertBanner v-if="error" tone="danger" :message="error">
+      <template #action>
         <button type="button" class="btn btn-sm" @click="load">重试</button>
-      </div>
-    </div>
+      </template>
+    </AlertBanner>
 
     <div class="card overflow-hidden">
       <div v-if="loading" class="divide-y divide-line">
         <div v-for="i in 5" :key="i" class="h-14 animate-pulse bg-surface-muted/60" />
       </div>
-      <div v-else-if="users.length === 0" class="empty-state">
-        <AppIcon name="search" :size="22" class="text-ink-subtle" />
-        <p class="mt-3 text-sm font-medium text-ink">没有匹配的账号</p>
-        <p class="mt-1 text-xs text-ink-muted">调整搜索关键词，或创建新的用户。</p>
-      </div>
-      <div v-else class="overflow-x-auto">
-        <table class="w-full min-w-[680px] text-left text-sm">
-          <thead class="border-b border-line bg-surface-muted/60 text-xs text-ink-subtle">
+      <EmptyState
+        v-else-if="users.length === 0"
+        icon="search"
+        title="没有匹配的账号"
+        description="调整搜索关键词，或创建新的用户。"
+      />
+      <div v-else class="table-wrap">
+        <table class="data-table min-w-[760px]">
+          <thead>
             <tr>
-              <th class="px-4 py-2.5 font-medium">用户</th>
-              <th class="px-4 py-2.5 font-medium">邮箱</th>
-              <th class="px-4 py-2.5 font-medium">角色</th>
-              <th class="px-4 py-2.5 font-medium">状态</th>
-              <th class="px-4 py-2.5 font-medium">创建时间</th>
-              <th class="px-4 py-2.5 text-right font-medium">操作</th>
+              <th>用户</th>
+              <th>邮箱</th>
+              <th>角色</th>
+              <th>状态</th>
+              <th>创建时间</th>
+              <th class="text-right">操作</th>
             </tr>
           </thead>
-          <tbody class="divide-y divide-line">
-            <tr v-for="user in users" :key="user.id" class="hover:bg-surface-muted/60">
+          <tbody>
+            <tr v-for="user in users" :key="user.id" class="row-hover">
               <td class="px-4 py-3">
                 <div class="flex items-center gap-2.5">
-                  <span class="avatar h-7 w-7 text-[10px]">{{
+                  <span class="avatar h-7 w-7 text-micro">{{
                     (user.display_name || user.username).slice(0, 2)
                   }}</span>
                   <div class="min-w-0">
                     <p class="truncate font-medium text-ink">
                       {{ user.display_name || user.username }}
-                      <span
-                        v-if="user.id === auth.user?.id"
-                        class="ml-1 text-[10px] text-ink-subtle"
+                      <span v-if="user.id === auth.user?.id" class="ml-1 text-micro text-ink-subtle"
                         >(你)</span
                       >
                     </p>
-                    <p class="truncate font-mono text-[11px] text-ink-subtle">
+                    <p class="truncate font-mono text-meta text-ink-subtle">
                       {{ user.username }}
                     </p>
                   </div>
@@ -332,11 +335,8 @@ onMounted(load)
           </tbody>
         </table>
       </div>
-      <div
-        v-if="!loading && total > limit"
-        class="flex items-center justify-between border-t border-line px-4 py-2.5"
-      >
-        <p class="text-xs text-ink-muted">第 {{ page }} / {{ pages }} 页</p>
+      <div v-if="!loading && total > limit" class="pagination">
+        <p class="text-caption text-ink-muted">第 {{ page }} / {{ pages }} 页</p>
         <div class="flex gap-2">
           <button type="button" class="btn btn-sm" :disabled="offset === 0" @click="changePage(-1)">
             上一页
@@ -353,139 +353,113 @@ onMounted(load)
       </div>
     </div>
 
-    <Teleport to="body">
-      <div
-        v-if="showCreate"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
-        role="dialog"
-        aria-modal="true"
-      >
-        <form
-          class="w-full max-w-md rounded-xl border border-line bg-surface shadow-xl"
-          @submit.prevent="submitCreate"
+    <AppDialog
+      :open="showCreate"
+      title="创建用户"
+      description="新账号默认是普通用户，不会自动获得平台管理员权限。"
+      @close="showCreate = false"
+    >
+      <form id="admin-create-form" class="space-y-3" @submit.prevent="submitCreate">
+        <div>
+          <label for="admin-new-username" class="field-label">用户名</label>
+          <input
+            id="admin-new-username"
+            v-model="createForm.username"
+            required
+            class="form-input mt-1"
+            placeholder="alice"
+          />
+          <p v-if="createErrors.username" class="field-error">{{ createErrors.username }}</p>
+        </div>
+        <div>
+          <label for="admin-new-display" class="field-label">显示名称</label>
+          <input
+            id="admin-new-display"
+            v-model="createForm.display_name"
+            required
+            class="form-input mt-1"
+          />
+          <p v-if="createErrors.display_name" class="field-error">
+            {{ createErrors.display_name }}
+          </p>
+        </div>
+        <div>
+          <label for="admin-new-email" class="field-label">邮箱（可选）</label>
+          <input
+            id="admin-new-email"
+            v-model="createForm.email"
+            type="email"
+            class="form-input mt-1"
+          />
+          <p v-if="createErrors.email" class="field-error">{{ createErrors.email }}</p>
+        </div>
+        <div>
+          <label for="admin-new-password" class="field-label">初始密码</label>
+          <input
+            id="admin-new-password"
+            v-model="createForm.password"
+            type="password"
+            required
+            class="form-input mt-1"
+          />
+          <p class="field-hint">至少 10 个字符，且不能与用户名相同。</p>
+          <p v-if="createErrors.password" class="field-error">{{ createErrors.password }}</p>
+        </div>
+      </form>
+      <template #footer>
+        <button type="button" class="btn btn-sm" @click="showCreate = false">取消</button>
+        <button
+          type="submit"
+          form="admin-create-form"
+          class="btn btn-primary btn-sm"
+          :disabled="creating"
         >
-          <div class="flex items-center justify-between border-b border-line px-5 py-4">
-            <h3 class="text-sm font-semibold text-ink">创建用户</h3>
-            <button
-              type="button"
-              class="btn btn-ghost h-8 w-8 px-0"
-              aria-label="关闭"
-              @click="showCreate = false"
-            >
-              <AppIcon name="close" :size="15" />
-            </button>
-          </div>
-          <div class="space-y-3 px-5 py-4">
-            <div>
-              <label for="admin-new-username" class="field-label">用户名</label>
-              <input
-                id="admin-new-username"
-                v-model="createForm.username"
-                required
-                class="form-input mt-1"
-                placeholder="alice"
-              />
-              <p v-if="createErrors.username" class="field-error">{{ createErrors.username }}</p>
-            </div>
-            <div>
-              <label for="admin-new-display" class="field-label">显示名称</label>
-              <input
-                id="admin-new-display"
-                v-model="createForm.display_name"
-                required
-                class="form-input mt-1"
-              />
-              <p v-if="createErrors.display_name" class="field-error">
-                {{ createErrors.display_name }}
-              </p>
-            </div>
-            <div>
-              <label for="admin-new-email" class="field-label">邮箱（可选）</label>
-              <input
-                id="admin-new-email"
-                v-model="createForm.email"
-                type="email"
-                class="form-input mt-1"
-              />
-              <p v-if="createErrors.email" class="field-error">{{ createErrors.email }}</p>
-            </div>
-            <div>
-              <label for="admin-new-password" class="field-label">初始密码</label>
-              <input
-                id="admin-new-password"
-                v-model="createForm.password"
-                type="password"
-                required
-                class="form-input mt-1"
-              />
-              <p class="mt-1 text-[11px] text-ink-subtle">至少 10 个字符，且不能与用户名相同。</p>
-              <p v-if="createErrors.password" class="field-error">{{ createErrors.password }}</p>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 border-t border-line px-5 py-3">
-            <button type="button" class="btn btn-sm" @click="showCreate = false">取消</button>
-            <button type="submit" class="btn btn-primary btn-sm" :disabled="creating">
-              {{ creating ? '创建中' : '创建账号' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Teleport>
+          {{ creating ? '创建中' : '创建账号' }}
+        </button>
+      </template>
+    </AppDialog>
 
-    <Teleport to="body">
-      <div
-        v-if="editing"
-        class="fixed inset-0 z-50 flex items-center justify-center bg-black/35 px-4"
-        role="dialog"
-        aria-modal="true"
-      >
-        <form
-          class="w-full max-w-md rounded-xl border border-line bg-surface shadow-xl"
-          @submit.prevent="submitEdit"
+    <AppDialog
+      :open="editing !== null"
+      :title="`编辑 ${editing?.username ?? ''}`"
+      description="修改显示名称或邮箱，不会影响用户名与登录密码。"
+      @close="editing = null"
+    >
+      <form id="admin-edit-form" class="space-y-3" @submit.prevent="submitEdit">
+        <div>
+          <label for="admin-edit-display" class="field-label">显示名称</label>
+          <input
+            id="admin-edit-display"
+            v-model="editForm.display_name"
+            required
+            class="form-input mt-1"
+          />
+          <p v-if="editErrors.display_name" class="field-error">
+            {{ editErrors.display_name }}
+          </p>
+        </div>
+        <div>
+          <label for="admin-edit-email" class="field-label">邮箱</label>
+          <input
+            id="admin-edit-email"
+            v-model="editForm.email"
+            type="email"
+            class="form-input mt-1"
+          />
+          <p v-if="editErrors.email" class="field-error">{{ editErrors.email }}</p>
+        </div>
+      </form>
+      <template #footer>
+        <button type="button" class="btn btn-sm" @click="editing = null">取消</button>
+        <button
+          type="submit"
+          form="admin-edit-form"
+          class="btn btn-primary btn-sm"
+          :disabled="savingEdit"
         >
-          <div class="flex items-center justify-between border-b border-line px-5 py-4">
-            <h3 class="text-sm font-semibold text-ink">编辑 {{ editing.username }}</h3>
-            <button
-              type="button"
-              class="btn btn-ghost h-8 w-8 px-0"
-              aria-label="关闭"
-              @click="editing = null"
-            >
-              <AppIcon name="close" :size="15" />
-            </button>
-          </div>
-          <div class="space-y-3 px-5 py-4">
-            <div>
-              <label for="admin-edit-display" class="field-label">显示名称</label>
-              <input
-                id="admin-edit-display"
-                v-model="editForm.display_name"
-                required
-                class="form-input mt-1"
-              />
-              <p v-if="editErrors.display_name" class="field-error">
-                {{ editErrors.display_name }}
-              </p>
-            </div>
-            <div>
-              <label for="admin-edit-email" class="field-label">邮箱</label>
-              <input
-                id="admin-edit-email"
-                v-model="editForm.email"
-                type="email"
-                class="form-input mt-1"
-              />
-              <p v-if="editErrors.email" class="field-error">{{ editErrors.email }}</p>
-            </div>
-          </div>
-          <div class="flex justify-end gap-2 border-t border-line px-5 py-3">
-            <button type="button" class="btn btn-sm" @click="editing = null">取消</button>
-            <button type="submit" class="btn btn-primary btn-sm" :disabled="savingEdit">
-              {{ savingEdit ? '保存中' : '保存' }}
-            </button>
-          </div>
-        </form>
-      </div>
-    </Teleport>
+          {{ savingEdit ? '保存中' : '保存' }}
+        </button>
+      </template>
+    </AppDialog>
   </div>
 </template>

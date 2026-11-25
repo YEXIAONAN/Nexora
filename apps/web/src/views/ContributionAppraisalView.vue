@@ -9,6 +9,9 @@ import {
   caseStatusLabel,
   memberDisplayName,
 } from '@/components/contributions/contributionPresentation'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
@@ -100,65 +103,82 @@ async function change(appraiser?: api.ContributionAppraiser) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <header class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-ink-subtle">{{ data?.project.name || '项目贡献治理' }}</p>
-        <h2 class="mt-1 text-2xl font-semibold">独立核定工作台</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-ink-muted">
-          核定需要明确授权及独立资格。项目负责人、受益人、提案人和成果审核关系均须按实际案例回避。
-        </p>
-      </div>
-      <button class="btn" :disabled="loading || pending" @click="reload()">刷新资格与待办</button>
-    </header>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="card p-8 text-sm text-ink-muted">正在核对资格…</p>
-    <p v-if="auth.user && !key" role="status" class="card p-5 text-sm text-ink-muted">
-      当前团队与页面不一致，请从当前团队项目列表重新进入。
-    </p>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="项目贡献治理"
+      title="独立核定工作台"
+      :description="`${data?.project.name || '项目'}：核定需要明确授权及独立资格。项目负责人、受益人、提案人和成果审核关系均须按实际案例回避。`"
+      :crumbs="[
+        { label: '项目', to: `/teams/${teamId}/projects` },
+        { label: data?.project.name || '项目', to: `/teams/${teamId}/projects/${projectId}` },
+        { label: '贡献核算', to: `/teams/${teamId}/projects/${projectId}/contributions` },
+        { label: '独立核定工作台' },
+      ]"
+    >
+      <template #actions>
+        <button class="btn" :disabled="loading || pending" @click="reload()">刷新资格与待办</button>
+      </template>
+    </PageHeader>
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
+    </div>
+    <AlertBanner
+      v-if="auth.user && !key"
+      tone="warning"
+      message="当前团队与页面不一致，请从当前团队项目列表重新进入。"
+    />
     <template v-if="data">
-      <section class="card p-5 space-y-3" aria-label="本人核定资格">
-        <h3 class="font-semibold">本人核定资格</h3>
-        <p class="text-sm">
-          {{
-            data.eligibility.explicit_appraiser
-              ? '服务端已确认明确核定授权'
-              : '未获得当前有效的明确核定授权'
-          }}
-          · 授权版本 {{ data.eligibility.authorization_version }}
-        </p>
-        <p class="text-sm text-ink-muted">
-          明确授权不等于可以核定所有案例。服务端逐案检查受益份额、提案、成果作者、审核人、直接利益冲突及成员状态；无独立核定人时继续等待。
-        </p>
+      <section class="card" aria-label="本人核定资格">
+        <div class="card-header">
+          <h3 class="card-title">本人核定资格</h3>
+          <span class="badge">授权版本 {{ data.eligibility.authorization_version }}</span>
+        </div>
+        <div class="card-body space-y-2">
+          <p class="text-body">
+            {{
+              data.eligibility.explicit_appraiser
+                ? '服务端已确认明确核定授权'
+                : '未获得当前有效的明确核定授权'
+            }}
+          </p>
+          <p class="text-caption leading-5 text-ink-muted">
+            明确授权不等于可以核定所有案例。服务端逐案检查受益份额、提案、成果作者、审核人、直接利益冲突及成员状态；无独立核定人时继续等待。
+          </p>
+        </div>
       </section>
       <section class="card">
         <div class="card-header">
-          <h3 class="font-semibold">待核定案例</h3>
+          <div>
+            <h3 class="card-title">待核定案例</h3>
+            <p class="card-description">存在利益冲突的案例不会列入此待办。</p>
+          </div>
           <span class="badge">{{ data.cases.length }}</span>
         </div>
         <div class="card-body space-y-4">
-          <p v-if="!data.cases.length" class="text-sm text-ink-muted">
-            暂无符合本人独立资格的待核定案例。存在利益冲突的案例不会列入此待办。
-          </p>
+          <EmptyState
+            v-if="!data.cases.length"
+            icon="inbox"
+            title="暂无符合本人独立资格的待核定案例"
+            description="案例提交待核定后，符合独立资格的核定人会在这里看到。"
+          />
           <RouterLink
             v-for="item in data.cases"
             :key="item.id"
-            class="block rounded-lg border border-line p-4 hover:bg-surface-muted"
+            class="block rounded-control border border-line p-4 transition-colors hover:bg-surface-hover"
             :to="{ name: 'contribution-case', params: { teamId, projectId, caseId: item.id } }"
             ><span class="badge">{{ caseStatusLabel(item.case_workflow_status) }}</span>
-            <p class="mt-2 text-sm break-all">案例 {{ item.id }}</p>
-            <p class="mt-1 text-xs text-ink-muted">
+            <p class="mt-2 text-body break-all">案例 {{ item.id }}</p>
+            <p class="mt-1 text-caption text-ink-muted">
               打开成果证据、分配对比与不可变核定确认 →
             </p></RouterLink
           >
         </div>
       </section>
       <section class="card" aria-label="核定人授权管理">
-        <div class="card-header"><h3 class="font-semibold">核定人授权管理</h3></div>
+        <div class="card-header"><h3 class="card-title">核定人授权管理</h3></div>
         <fieldset :disabled="pending" class="card-body space-y-4">
-          <p class="text-sm text-ink-muted">
+          <p class="text-caption leading-5 text-ink-muted">
             负责人可以授权其他有效项目成员；负责人本人须由有资格的其他人员授权。所有变更均由服务端重新校验。
           </p>
           <label

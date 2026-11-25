@@ -12,6 +12,9 @@ import {
   verifiedReceipt,
 } from '@/components/contributions/contributionPresentation'
 import { useAuthStore } from '@/stores/auth'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { useTeamsStore } from '@/stores/teams'
 import { formatDateTime } from '@/utils/format'
 
@@ -135,39 +138,38 @@ async function receive(row: ResultRow) {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <header class="flex flex-wrap items-start justify-between gap-4">
-      <div>
-        <p class="text-xs text-ink-subtle">当前团队 · 本人结果</p>
-        <h2 class="mt-1 text-2xl font-semibold">我的贡献结果</h2>
-        <p class="mt-2 max-w-2xl text-sm leading-6 text-ink-muted">
-          查看向你准备的正式核定结果。每份结果独立确认收件；历史核定始终保留。
-        </p>
-      </div>
-      <button class="btn" :disabled="loading || pending" @click="reload()">刷新结果</button>
-    </header>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="card p-8 text-sm text-ink-muted">
-      正在读取本人贡献结果…
-    </p>
-    <p v-if="auth.user && !key" role="status" class="card p-5 text-sm text-ink-muted">
-      当前团队与页面不一致，请从当前团队项目列表重新进入。
-    </p>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="当前团队 · 本人结果"
+      title="我的贡献结果"
+      description="查看向你准备的正式核定结果。每份结果独立确认收件；历史核定始终保留。"
+      :crumbs="[{ label: '项目', to: `/teams/${teamId}/projects` }, { label: '我的贡献结果' }]"
+    >
+      <template #actions>
+        <button class="btn" :disabled="loading || pending" @click="reload()">刷新结果</button>
+      </template>
+    </PageHeader>
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
+    </div>
+    <AlertBanner
+      v-if="auth.user && !key"
+      tone="warning"
+      message="当前团队与页面不一致，请从当前团队项目列表重新进入。"
+    />
     <template v-if="data">
-      <p
+      <AlertBanner
         v-if="data.unavailable.length"
-        role="status"
-        class="rounded-lg bg-warning-soft p-4 text-sm text-warning"
-      >
-        部分项目当前没有贡献读取权限，未展示其结果。{{ data.unavailable.join('、') }}
-      </p>
-      <section v-if="!data.rows.length" class="card p-8">
-        <h3 class="font-semibold">暂无可查看的贡献结果</h3>
-        <p class="mt-2 text-sm text-ink-muted">
-          正式核定后，获授权人员须为你准备结果告知。未准备告知不会被视为送达。
-        </p>
+        tone="warning"
+        :message="`部分项目当前没有贡献读取权限，未展示其结果。${data.unavailable.join('、')}`"
+      />
+      <section v-if="!data.rows.length" class="card">
+        <EmptyState
+          icon="layers"
+          title="暂无可查看的贡献结果"
+          description="正式核定后，获授权人员须为你准备结果告知。未准备告知不会被视为送达。"
+        />
       </section>
       <article
         v-for="row in data.rows"

@@ -328,7 +328,9 @@ describe('本人贡献结果与独立收件', () => {
   it('权限撤销后清除敏感结果并解释不可访问', async () => {
     const { wrapper } = await setup()
     vi.mocked(api.getContribution).mockRejectedValue(new ApiError('removed', 404))
-    await wrapper.get('header button').trigger('click')
+    const refresh = wrapper.findAll('button').find((b) => b.text() === '刷新结果')
+    if (!refresh) throw new Error('missing refresh')
+    await refresh.trigger('click')
     await flushPromises()
     expect(wrapper.text()).not.toContain('真实验收成果')
     expect(wrapper.text()).toContain('当前没有贡献读取权限')

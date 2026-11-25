@@ -2,6 +2,8 @@
 import { computed, onBeforeUnmount, reactive, ref, watch } from 'vue'
 import { receiveContributionDisputeRequest } from '@/api/contributions'
 import { contributionError } from '@/components/contributions/contributionPresentation'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 const auth = useAuthStore()
 const userId = computed(() => auth.user?.id ?? null)
@@ -79,22 +81,21 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="mx-auto max-w-2xl space-y-5">
-    <header>
-      <h2 class="text-2xl font-semibold">本人异议请求受理</h2>
-      <p class="mt-3 text-sm leading-6 text-ink-muted">
-        使用你已持有的准确标识提交本人声明。此入口仅受理请求，不提供项目、成员或贡献结果查询，也不显示核验结果。
+  <div class="mx-auto max-w-2xl page-stack">
+    <PageHeader
+      eyebrow="贡献治理"
+      title="本人异议请求受理"
+      description="使用你已持有的准确标识提交本人声明。此入口仅受理请求，不提供项目、成员或贡献结果查询，也不显示核验结果。"
+    />
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <AlertBanner v-if="received" tone="success" title="请求已受理">
+      <p class="text-body">
+        受理编号：<span class="break-all font-mono">{{ received }}</span>
       </p>
-    </header>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="received" role="status" class="card space-y-2 p-5 text-sm">
-      请求已受理。受理编号：<span class="break-all font-mono">{{ received }}</span
-      ><span class="block text-ink-muted"
-        >受理不表示核验成功、正式争议已经建立或你已收到核定结果。后续须由有权限人员按治理流程核对。</span
-      >
-    </p>
+      <p class="mt-1 text-caption">
+        受理不表示核验成功、正式争议已经建立或你已收到核定结果。后续须由有权限人员按治理流程核对。
+      </p>
+    </AlertBanner>
     <form class="card" @submit.prevent="submit">
       <fieldset class="card-body space-y-4" :disabled="pending || !userId">
         <label v-for="(label, key) in labels" :key="key" class="form-label"
@@ -107,13 +108,13 @@ onBeforeUnmount(() => {
         ><label class="form-label"
           >本人异议声明<textarea
             v-model="fields.reason"
-            class="form-input"
+            class="form-textarea"
             required
             maxlength="1000"
             rows="5"
           />
         </label>
-        <p class="text-xs leading-5 text-ink-muted">
+        <p class="text-caption leading-5 text-ink-muted">
           此请求不恢复离队成员的普通团队数据访问权。缺少可信收件证据时，项目归档继续受阻。
         </p>
         <button class="btn btn-primary" :disabled="!fields.reason.trim()">

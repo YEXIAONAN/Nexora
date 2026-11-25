@@ -4,6 +4,10 @@ import { RouterLink, useRoute } from 'vue-router'
 import * as bonusAPI from '@/api/bonus'
 import { ApiError } from '@/api/client'
 import { listProjects, type Project } from '@/api/projects'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import PageTabs from '@/components/ui/PageTabs.vue'
 import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { formatBonusAmount } from '@/components/bonus/bonusPresentation'
 import { useTeamsStore } from '@/stores/teams'
@@ -73,67 +77,50 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <div class="space-y-6">
-    <div class="page-header">
-      <div>
-        <p class="text-xs text-ink-subtle">{{ teams.currentTeam?.name || '团队工作区' }}</p>
-        <h2 class="page-title mt-1">我的奖金</h2>
-        <p class="page-subtitle">
-          仅显示已经独立核定并发布、且属于你本人的正式奖金结果。草稿和待审修订不影响原结果；新版本独立核定后替换正式版本，另行发布后才可查看。
-        </p>
-      </div>
-      <button class="btn" :disabled="loading" @click="load">刷新</button>
-    </div>
-
-    <nav
-      class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
-      aria-label="团队导航"
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="个人结果"
+      title="我的奖金"
+      description="仅显示已经独立核定并发布、且属于你本人的正式奖金结果。草稿和待审修订不影响原结果；新版本独立核定后替换正式版本，另行发布后才可查看。"
     >
-      <RouterLink
-        :to="`/teams/${teamId}/projects`"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >项目</RouterLink
-      >
-      <RouterLink
-        :to="`/teams/${teamId}/members`"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >成员</RouterLink
-      >
-      <RouterLink
-        :to="`/teams/${teamId}/contribution-results`"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-        >我的贡献</RouterLink
-      >
-      <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
-        >我的奖金</span
-      >
-    </nav>
+      <template #actions>
+        <button class="btn" :disabled="loading" @click="load">刷新</button>
+      </template>
+    </PageHeader>
 
-    <p v-if="notFound" role="alert" class="card empty-state">
-      <strong class="text-sm text-ink">无法读取奖金结果</strong>
-      <span class="mt-2 max-w-md text-sm text-ink-muted"
-        >你可能不是该 Team 的活跃成员，或尚未加入该 Team
-        下的任何项目。奖金结果严格绑定本人身份与项目成员关系。</span
-      >
-    </p>
-    <p v-else-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-else-if="loading" role="status" class="card p-8 text-sm text-ink-muted">
-      正在加载我的奖金…
-    </p>
+    <PageTabs
+      aria-label="团队导航"
+      :items="[
+        { label: '项目', to: `/teams/${teamId}/projects` },
+        { label: '成员', to: `/teams/${teamId}/members` },
+        { label: '我的贡献', to: `/teams/${teamId}/contribution-results` },
+        { label: '我的奖金', active: true, count: results.length },
+      ]"
+    />
+
+    <div v-if="notFound" class="card">
+      <AlertBanner
+        tone="warning"
+        title="无法读取奖金结果"
+        message="你可能不是该 Team 的活跃成员，或尚未加入该 Team 下的任何项目。奖金结果严格绑定本人身份与项目成员关系。"
+      />
+    </div>
+    <AlertBanner v-else-if="error" tone="danger" :message="error" />
+    <div v-else-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-24" />
+    </div>
 
     <template v-else-if="ready">
       <div v-if="results.length" class="space-y-3">
         <article
           v-for="item in results"
           :key="`${item.round_id}-${item.confirmed_at}`"
-          class="card px-5 py-4"
+          class="card"
         >
-          <div class="flex flex-wrap items-start justify-between gap-4">
+          <div class="card-header">
             <div class="min-w-0">
               <div class="flex flex-wrap items-center gap-2">
-                <h3 class="text-base font-semibold text-ink">{{ item.funding_label }}</h3>
+                <h3 class="card-title">{{ item.funding_label }}</h3>
                 <StatusBadge
                   :label="
                     item.payment_status === 'recorded'
@@ -144,22 +131,20 @@ onBeforeUnmount(() => {
                   dot
                 />
               </div>
-              <p class="mt-1 text-xs text-ink-muted">{{ projectName(item.project_id) }}</p>
-              <p class="mt-2 text-xs text-ink-subtle">
+              <p class="mt-1 text-caption text-ink-muted">{{ projectName(item.project_id) }}</p>
+              <p class="mt-2 text-caption text-ink-subtle">
                 核定时间 {{ formatDateTime(item.confirmed_at) }}
               </p>
             </div>
             <div class="text-right">
-              <p class="text-xs text-ink-subtle">本人金额（CNY）</p>
-              <p class="mt-1 text-2xl font-semibold tracking-tight text-ink">
+              <p class="text-caption text-ink-subtle">本人金额（CNY）</p>
+              <p class="mt-1 text-display font-semibold tracking-tight text-ink">
                 {{ formatBonusAmount(item.amount_minor) }}
               </p>
             </div>
           </div>
-          <div
-            class="mt-4 flex flex-wrap items-center justify-between gap-2 border-t border-line pt-3"
-          >
-            <p class="text-[11px] text-ink-subtle">
+          <div class="card-footer">
+            <p class="text-meta text-ink-subtle">
               这是内部正式奖金结果，不代表已支付。模拟发放记录非实际转账，Nexora 不执行真实付款。
             </p>
             <RouterLink
@@ -174,12 +159,16 @@ onBeforeUnmount(() => {
         </article>
       </div>
 
-      <div v-else class="card empty-state">
-        <strong class="text-sm text-ink">暂无已核定的奖金结果</strong>
-        <p class="mt-2 max-w-md text-sm text-ink-muted">
-          只有独立核定并发布后的奖金结果才会显示。若尚未发布，请等待负责人员完成核定与发布流程。
-        </p>
-        <RouterLink :to="`/teams/${teamId}/projects`" class="btn btn-sm mt-4">查看项目</RouterLink>
+      <div v-else class="card">
+        <EmptyState
+          icon="award"
+          title="暂无已核定的奖金结果"
+          description="只有独立核定并发布后的奖金结果才会显示。若尚未发布，请等待负责人员完成核定与发布流程。"
+        >
+          <template #action>
+            <RouterLink :to="`/teams/${teamId}/projects`" class="btn btn-sm">查看项目</RouterLink>
+          </template>
+        </EmptyState>
       </div>
     </template>
   </div>

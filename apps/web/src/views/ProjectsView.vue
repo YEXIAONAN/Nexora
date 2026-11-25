@@ -6,6 +6,11 @@ import { createProject, listProjects, type CreateProject, type Project } from '@
 import { getTeam, listTeamMembers, type Team, type TeamMember } from '@/api/teams'
 import ProjectForm from '@/components/projects/ProjectForm.vue'
 import ReviewInbox from '@/components/projects/ReviewInbox.vue'
+import AlertBanner from '@/components/ui/AlertBanner.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
+import PageTabs from '@/components/ui/PageTabs.vue'
+import StatusBadge from '@/components/ui/StatusBadge.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 const route = useRoute(),
@@ -26,6 +31,12 @@ const ready = computed(() => confirmed.value === teamId.value && !!team.value &&
 const canCreate = computed(
   () => ready.value && ['owner', 'admin'].includes(team.value?.my_role ?? ''),
 )
+const leadName = computed(() => {
+  const map = new Map(
+    members.value.map((member) => [member.user_id, member.display_name || member.username]),
+  )
+  return (id: string) => map.get(id) ?? '—'
+})
 async function load() {
   const id = teamId.value,
     gen = ++generation
@@ -84,59 +95,48 @@ onBeforeUnmount(() => {
 })
 </script>
 <template>
-  <div class="space-y-6">
-    <div class="flex flex-wrap items-center justify-between gap-4">
-      <div>
-        <p class="text-xs text-ink-subtle">{{ team?.name || '团队工作区' }}</p>
-        <h2 class="mt-1 text-2xl font-semibold">项目</h2>
-        <p class="mt-2 text-sm text-ink-muted">把计划拆成任务，让每一步进展有据可查。</p>
-      </div>
-      <div class="flex gap-2">
-        <button class="btn" :disabled="loading || busy" @click="load">刷新</button
-        ><button
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="项目"
+      :title="team?.name || '项目'"
+      description="把计划拆成任务，让每一步进展有据可查。"
+    >
+      <template #actions>
+        <button class="btn" :disabled="loading || busy" @click="load">刷新</button>
+        <button
           v-if="canCreate"
           class="btn btn-primary"
           :disabled="busy"
           @click="showCreate = !showCreate"
         >
-          新建项目
+          {{ showCreate ? '收起创建' : '新建项目' }}
         </button>
-      </div>
-    </div>
-    <nav
-      class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
+      </template>
+    </PageHeader>
+
+    <PageTabs
       aria-label="团队导航"
-    >
-      <span class="rounded-md bg-accent-soft px-3 py-1.5 text-xs font-medium text-accent-strong"
-        >项目</span
-      >
-      <RouterLink
-        :to="`/teams/${teamId}/members`"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-      >
-        成员
-      </RouterLink>
-      <RouterLink
-        :to="`/teams/${teamId}/contribution-results`"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-      >
-        我的贡献
-      </RouterLink>
-      <RouterLink
-        to="/settings"
-        class="rounded-md px-3 py-1.5 text-xs font-medium text-ink-muted transition-colors hover:text-ink"
-      >
-        团队设置
-      </RouterLink>
-    </nav>
-    <p v-if="error" role="alert" class="rounded-lg bg-danger-soft p-4 text-sm text-danger">
-      {{ error }}
-    </p>
-    <p v-if="loading" role="status" class="card p-8 text-sm text-ink-muted">正在加载项目…</p>
+      :items="[
+        { label: '项目', active: true, count: projects.length },
+        { label: '成员', to: `/teams/${teamId}/members` },
+        { label: '我的贡献', to: `/teams/${teamId}/contribution-results` },
+        { label: '团队设置', to: '/settings' },
+      ]"
+    />
+
+    <AlertBanner v-if="error" tone="danger" :message="error" />
+    <div v-if="loading" class="card space-y-2 p-4">
+      <div v-for="i in 3" :key="i" class="skeleton h-20" />
+    </div>
     <template v-if="ready">
       <ReviewInbox :team="teamId" />
       <section v-if="showCreate && canCreate" class="card">
-        <div class="card-header"><h3 class="font-semibold">创建项目</h3></div>
+        <div class="card-header">
+          <div>
+            <h3 class="card-title">创建项目</h3>
+            <p class="card-description">创建后你将成为项目负责人，并从团队中选择成员。</p>
+          </div>
+        </div>
         <fieldset class="card-body" :disabled="busy">
           <ProjectForm
             :key="confirmed"
@@ -146,30 +146,51 @@ onBeforeUnmount(() => {
           />
         </fieldset>
       </section>
-      <div v-if="projects.length" class="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+      <div v-if="projects.length" class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
         <RouterLink
           v-for="p in projects"
           :key="p.id"
           :to="{ name: 'project-detail', params: { teamId: p.team_id, projectId: p.id } }"
-          class="card group p-5 transition hover:border-accent"
-          ><span class="badge">{{ p.status === 'archived' ? '已归档 · 只读' : '进行中' }}</span>
-          <h3 class="mt-4 text-lg font-semibold group-hover:text-accent-strong">{{ p.name }}</h3>
-          <p class="mt-2 line-clamp-3 text-sm leading-6 text-ink-muted">
-            {{ p.description || '暂无项目描述' }}
-          </p>
-          <p class="mt-5 text-xs text-ink-subtle">
-            {{ p.can_manage ? '我负责的项目' : '团队项目'
-            }}<span class="float-right text-accent-strong">查看项目 →</span>
-          </p></RouterLink
+          class="card group flex flex-col transition-colors hover:border-line-strong"
         >
+          <div class="card-body flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <StatusBadge
+                :label="p.status === 'archived' ? '已归档 · 只读' : '进行中'"
+                :tone="p.status === 'archived' ? 'neutral' : 'success'"
+                dot
+              />
+              <span v-if="p.can_manage" class="text-meta text-accent-strong">我负责</span>
+            </div>
+            <h3
+              class="mt-4 text-title font-semibold text-ink transition-colors group-hover:text-accent-strong"
+            >
+              {{ p.name }}
+            </h3>
+            <p class="mt-2 line-clamp-3 text-caption leading-5 text-ink-muted">
+              {{ p.description || '暂无项目描述' }}
+            </p>
+          </div>
+          <div class="card-footer text-meta text-ink-subtle">
+            <span>负责人 {{ leadName(p.lead_id) }}</span>
+            <span>创建于 {{ p.created_at.slice(0, 10) }}</span>
+          </div>
+        </RouterLink>
       </div>
-      <div v-else class="card p-12 text-center">
-        <h3 class="font-medium">还没有项目</h3>
-        <p class="mt-2 text-sm text-ink-muted">
-          {{ canCreate ? '创建首个项目，开始规划任务。' : '项目创建后会出现在这里。' }}
-        </p>
+      <div v-else class="card">
+        <EmptyState
+          icon="folder"
+          title="还没有项目"
+          :description="canCreate ? '创建首个项目，开始规划任务。' : '项目创建后会出现在这里。'"
+        >
+          <template v-if="canCreate && !showCreate" #action>
+            <button type="button" class="btn btn-primary btn-sm" @click="showCreate = true">
+              创建项目
+            </button>
+          </template>
+        </EmptyState>
       </div>
     </template>
-    <RouterLink to="/teams" class="inline-block text-sm text-accent-strong">← 我的团队</RouterLink>
+    <RouterLink to="/teams" class="link text-caption">← 我的团队</RouterLink>
   </div>
 </template>

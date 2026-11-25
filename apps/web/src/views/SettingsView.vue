@@ -4,7 +4,8 @@ import { useRouter } from 'vue-router'
 
 import { ApiError } from '@/api/client'
 import { updateTeam } from '@/api/teams'
-import AppIcon from '@/components/ui/AppIcon.vue'
+import EmptyState from '@/components/ui/EmptyState.vue'
+import PageHeader from '@/components/ui/PageHeader.vue'
 import { useAuthStore } from '@/stores/auth'
 import { useTeamsStore } from '@/stores/teams'
 import { useUiStore } from '@/stores/ui'
@@ -125,26 +126,19 @@ async function saveTeam(): Promise<void> {
 </script>
 
 <template>
-  <div class="space-y-5">
-    <div class="page-header">
-      <div>
-        <p class="eyebrow">设置</p>
-        <h2 class="page-title mt-1">账号与团队</h2>
-        <p class="page-subtitle">管理个人资料、登录安全，以及你拥有权限的团队信息。</p>
-      </div>
-    </div>
+  <div class="page-stack">
+    <PageHeader
+      eyebrow="设置"
+      title="账号与团队"
+      description="管理个人资料、登录安全，以及你拥有权限的团队信息。"
+    />
 
-    <div
-      class="flex gap-1 overflow-x-auto rounded-lg border border-line bg-surface p-1"
-      role="tablist"
-    >
+    <div class="tabs w-fit" role="tablist" aria-label="设置分类">
       <button
         type="button"
         role="tab"
-        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-        :class="
-          tab === 'profile' ? 'bg-accent-soft text-accent-strong' : 'text-ink-muted hover:text-ink'
-        "
+        class="tab"
+        :class="tab === 'profile' ? 'tab-active' : ''"
         @click="tab = 'profile'"
       >
         个人资料
@@ -152,10 +146,8 @@ async function saveTeam(): Promise<void> {
       <button
         type="button"
         role="tab"
-        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-        :class="
-          tab === 'security' ? 'bg-accent-soft text-accent-strong' : 'text-ink-muted hover:text-ink'
-        "
+        class="tab"
+        :class="tab === 'security' ? 'tab-active' : ''"
         @click="tab = 'security'"
       >
         账号安全
@@ -164,17 +156,18 @@ async function saveTeam(): Promise<void> {
         v-if="currentTeam"
         type="button"
         role="tab"
-        class="rounded-md px-3 py-1.5 text-xs font-medium transition-colors"
-        :class="
-          tab === 'team' ? 'bg-accent-soft text-accent-strong' : 'text-ink-muted hover:text-ink'
-        "
+        class="tab"
+        :class="tab === 'team' ? 'tab-active' : ''"
         @click="tab = 'team'"
       >
         团队设置
       </button>
     </div>
 
-    <section v-if="tab === 'profile'" class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_260px]">
+    <section
+      v-if="tab === 'profile'"
+      class="grid grid-cols-1 gap-5 lg:grid-cols-[minmax(0,1fr)_260px]"
+    >
       <form class="card" @submit.prevent="saveProfile">
         <div class="card-header">
           <div>
@@ -222,11 +215,11 @@ async function saveTeam(): Promise<void> {
         </div>
         <dl class="divide-y divide-line">
           <div class="px-5 py-3">
-            <dt class="text-[11px] text-ink-subtle">用户名</dt>
+            <dt class="text-meta text-ink-subtle">用户名</dt>
             <dd class="mt-0.5 font-mono text-sm text-ink">{{ auth.user?.username }}</dd>
           </div>
           <div class="px-5 py-3">
-            <dt class="text-[11px] text-ink-subtle">平台角色</dt>
+            <dt class="text-meta text-ink-subtle">平台角色</dt>
             <dd class="mt-0.5 text-sm text-ink">
               {{
                 auth.user?.system_root
@@ -238,7 +231,7 @@ async function saveTeam(): Promise<void> {
             </dd>
           </div>
           <div class="px-5 py-3">
-            <dt class="text-[11px] text-ink-subtle">账号状态</dt>
+            <dt class="text-meta text-ink-subtle">账号状态</dt>
             <dd class="mt-0.5 flex items-center gap-1.5 text-sm text-ink">
               <span
                 class="h-1.5 w-1.5 rounded-full"
@@ -248,7 +241,7 @@ async function saveTeam(): Promise<void> {
             </dd>
           </div>
           <div class="px-5 py-3">
-            <dt class="text-[11px] text-ink-subtle">注册时间</dt>
+            <dt class="text-meta text-ink-subtle">注册时间</dt>
             <dd class="mt-0.5 text-sm text-ink">
               {{ auth.user?.created_at ? auth.user.created_at.slice(0, 10) : '—' }}
             </dd>
@@ -289,7 +282,7 @@ async function saveTeam(): Promise<void> {
             required
             class="form-input mt-1"
           />
-          <p class="mt-1 text-[11px] text-ink-subtle">至少 10 个字符，且不能与用户名相同。</p>
+          <p class="mt-1 text-meta text-ink-subtle">至少 10 个字符，且不能与用户名相同。</p>
           <p v-if="passwordErrors.new_password" class="field-error">
             {{ passwordErrors.new_password }}
           </p>
@@ -362,14 +355,12 @@ async function saveTeam(): Promise<void> {
           </button>
         </div>
       </form>
-      <div v-else class="empty-state">
-        <span
-          class="flex h-10 w-10 items-center justify-center rounded-full bg-surface-muted text-ink-muted"
-        >
-          <AppIcon name="shield" :size="18" />
-        </span>
-        <p class="mt-3 text-sm font-medium text-ink">只有 Owner 或 Admin 可以编辑团队设置</p>
-        <p class="mt-1 text-xs text-ink-muted">你可以在「团队成员」页面查看成员和你的角色。</p>
+      <div v-else class="card">
+        <EmptyState
+          icon="shield"
+          title="只有 Owner 或 Admin 可以编辑团队设置"
+          description="你可以在「团队成员」页面查看成员和你的角色。"
+        />
       </div>
     </section>
   </div>
